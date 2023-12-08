@@ -1,0 +1,907 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cronies.app.community">
+
+    <!--
+    Description : 커뮤니티 게시글 리스트 조회
+    -->
+    <select id="getCommunityList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT * FROM (
+            SELECT TOP 100 PERCENT
+                A.ARTICLE_ID AS ARTICLE_KEY
+                , CASE WHEN A.DEL_YN = 'N' THEN A.TITLE ELSE '삭제된 글입니다.' END TITLE
+                , CASE WHEN A.DEL_YN = 'N' THEN A.CONTENT ELSE '' END CONTENT
+                , CASE WHEN A.ATTR1 IS NOT NULL AND A.ATTR1 != '' THEN A.ATTR1
+                       WHEN A.ATTR2 IS NOT NULL AND A.ATTR2 != '' THEN A.ATTR2
+                       WHEN A.ATTR3 IS NOT NULL AND A.ATTR3 != '' THEN A.ATTR3
+                       WHEN A.ATTR4 IS NOT NULL AND A.ATTR4 != '' THEN A.ATTR4
+                       --WHEN A.ATTR5 IS NOT NULL AND A.ATTR5 != '' THEN A.ATTR5
+                       END PHOTO_KEY
+                , dbo.FN_GET_DATE_STR(A.CREATED_DT) AS CREATED_DT_MM
+                , CONVERT(CHAR(10), A.CREATED_DT, 23) AS CREATED_DT_STR
+                , A.DEL_YN
+                , A.VIEW_CNT
+                , A.LIKE_CNT
+                , A.BAD_CNT
+                , (SELECT COUNT(*) FROM SC_COMMENT WHERE ARTICLE_ID = A.ARTICLE_ID) AS COMMENT_CNT
+                --, A.COMMENT_CNT (임시로 서브쿼리 사용)
+                , ROW_NUMBER() OVER(ORDER BY A.ARTICLE_ID DESC) AS ROWNUM
+                , C.ATTACH_FILE_ID
+                , A.ATTR1
+                , A.ATTR2
+                , A.ATTR3
+                , A.SUB_BOARD_CD
+                , F.SERVER_IP + '/' + F.FILE_PATH + F.SERVER_FILE_NM AS CDN_NM
+                , CASE WHEN A.DEL_YN = 'N'
+                            THEN F.SERVER_IP + '/' + F.FILE_PATH + F.THUMB_FILE_NM
+                        ELSE NULL
+                END CDN_THUMB_NM
+                , CASE WHEN A.COMMUNITY_ICON IS NULL OR A.CREATED_USER_ID = '2'
+                THEN
+                ( SELECT SERVER_IP + '/' + FILE_PATH + THUMB_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = '11729' )
+                ELSE
+                G.SERVER_IP + '/' + G.FILE_PATH + G.THUMB_FILE_NM
+                END CDN_THUMB_NM_ICON
+                , A.CREATED_USER_ID
+                , A.COMMUNITY_NICK
+        FROM SC_ARTICLE A
+            LEFT OUTER JOIN SC_USER B
+            ON A.CREATED_USER_ID = B.USER_ID
+            LEFT OUTER JOIN SC_ARTICLE_FILE C
+            ON A.ARTICLE_ID = C.ARTICLE_ID
+            LEFT OUTER JOIN SC_ICON_CODE D
+            ON A.COMMUNITY_ICON = D.ICON_CD
+            LEFT OUTER JOIN SC_ATTACH_FILE F
+            ON A.ATTR1 = F.ATTACH_FILE_ID
+            LEFT OUTER JOIN SC_ATTACH_FILE G
+            ON D.FILE_ID = G.ATTACH_FILE_ID
+            WHERE 1=1
+            <if test='categoryCd != null and categoryCd != "6"'>
+                AND A.BOARD_ID NOT IN ('6', '7','99')
+            </if>
+            <if test='categoryCd != null and categoryCd == "6"'>
+                AND A.BOARD_ID NOT IN ('7','99')
+            </if>
+                AND A.DEL_YN = 'N'
+            <if test='categoryCd != null and categoryCd != ""'>
+                AND A.BOARD_ID = #{categoryCd}
+            </if>
+            <if test='subBoardCd != null and subBoardCd != ""'>
+                AND SUB_BOARD_CD = #{subBoardCd}
+            </if>
+            <if test='str != null and str != ""'>
+                AND (CONTAINS(A.TITLE, '"*${str}*"') OR CONTAINS(A.CONTENT, '"*${str}*"'))
+            </if>
+            <if test='popListBeforeDay != null and popListBeforeDay != ""'>
+              <![CDATA[
+                AND CONVERT(VARCHAR(10), A.CREATED_DT, 120) > CONVERT(VARCHAR(10), DATEADD(DAY, ${popListBeforeDay}, GETDATE()), 120)
+              ]]>
+            </if>
+            ORDER BY A.ARTICLE_ID DESC
+        ) A
+    </select>
+
+    <update id="updateCommunityViewCount" parameterType="HashMap">
+        UPDATE SC_ARTICLE
+        SET VIEW_CNT = VIEW_CNT + 1
+        WHERE ARTICLE_ID = #{articleId}
+    </update>
+
+    <update id="setThumbsUpDown" parameterType="HashMap">
+        UPDATE SC_ARTICLE
+        SET
+        LIKE_CNT = #{likeCnt}
+        , BAD_CNT = #{badCnt}
+        WHERE ARTICLE_ID = #{articleId}
+    </update>
+
+    <update id="setThumbsUpDown2" parameterType="HashMap">
+        UPDATE SC_COMMENT
+        SET
+        LIKE_CNT = #{likeCnt}
+        , BAD_CNT = #{badCnt}
+        WHERE COMMENT_ID = #{commentId}
+    </update>
+
+    <select id="getThumbsUpDown" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT LIKE_CNT,
+               BAD_CNT
+        FROM SC_ARTICLE
+        WHERE ARTICLE_ID = #{articleId}
+    </select>
+
+    <select id="isLikeChk" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            CASE WHEN AL.LIKE_SEQ IS NOT NULL THEN AL.LIKE_SEQ
+                ELSE NULL END AS LIKE_SEQ,
+            CASE WHEN AD.DISLIKE_SEQ IS NOT NULL THEN AD.DISLIKE_SEQ
+                ELSE NULL END AS DISLIKE_SEQ
+        FROM (SELECT LIKE_SEQ FROM SC_ARTICLE_LIKE WHERE ARTICLE_ID = #{articleId} AND USER_ID = #{userId}) AS AL
+        FULL OUTER JOIN (SELECT DISLIKE_SEQ FROM SC_ARTICLE_DISLIKE WHERE ARTICLE_ID = #{articleId} AND USER_ID = #{userId}) AS AD
+        ON 1=1
+    </select>
+
+    <select id="isLikeChk2" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            CASE WHEN AL.LIKE_SEQ IS NOT NULL THEN AL.LIKE_SEQ
+                ELSE NULL END AS LIKE_SEQ,
+            CASE WHEN AD.DISLIKE_SEQ IS NOT NULL THEN AD.DISLIKE_SEQ
+                ELSE NULL END AS DISLIKE_SEQ
+        FROM (SELECT LIKE_SEQ FROM SC_COMMENT_LIKE WHERE COMMENT_ID = #{commentId} AND USER_ID = #{userId}) AS AL
+        FULL OUTER JOIN (SELECT DISLIKE_SEQ FROM SC_COMMENT_DISLIKE WHERE COMMENT_ID = #{commentId} AND USER_ID = #{userId}) AS AD
+        ON 1=1
+    </select>
+
+    <insert id="setLike" parameterType="HashMap">
+        INSERT INTO SC_ARTICLE_LIKE (ARTICLE_ID, USER_ID, REG_TIME) VALUES
+        (#{articleId}, #{userId}, GETDATE())
+    </insert>
+
+    <insert id="setLike2" parameterType="HashMap">
+        INSERT INTO SC_COMMENT_LIKE (COMMENT_ID, USER_ID, REG_TIME) VALUES
+        (#{commentId}, #{userId}, GETDATE())
+    </insert>
+
+    <insert id="setDislike" parameterType="HashMap">
+        INSERT INTO SC_ARTICLE_DISLIKE (ARTICLE_ID, USER_ID, REG_TIME) VALUES
+        (#{articleId}, #{userId}, GETDATE())
+    </insert>
+
+    <insert id="setDislike2" parameterType="HashMap">
+        INSERT INTO SC_COMMENT_DISLIKE (COMMENT_ID, USER_ID, REG_TIME) VALUES
+        (#{commentId}, #{userId}, GETDATE())
+    </insert>
+
+    <delete id="deleteLikeAndDislike" parameterType="HashMap">
+        DELETE FROM SC_ARTICLE_LIKE
+        WHERE ARTICLE_ID = #{articleId}
+          AND USER_ID = #{userId};
+
+        DELETE FROM SC_ARTICLE_DISLIKE
+        WHERE ARTICLE_ID = #{articleId}
+          AND USER_ID = #{userId};
+    </delete>
+
+    <delete id="deleteLikeAndDislike2" parameterType="HashMap">
+        DELETE FROM SC_COMMENT_LIKE
+        WHERE COMMENT_ID = #{commentId}
+          AND USER_ID = #{userId};
+
+        DELETE FROM SC_COMMENT_DISLIKE
+        WHERE COMMENT_ID = #{commentId}
+          AND USER_ID = #{userId};
+    </delete>
+
+    <select id="selectCountLike" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            COUNT(LIKE_SEQ) AS LIKE_CNT
+        FROM SC_ARTICLE_LIKE
+        WHERE ARTICLE_ID = #{articleId}
+    </select>
+
+    <select id="selectCountLike2" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            COUNT(LIKE_SEQ) AS LIKE_CNT
+        FROM SC_COMMENT_LIKE
+        WHERE COMMENT_ID = #{commentId}
+    </select>
+
+    <select id="selectCountDislike" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            COUNT(DISLIKE_SEQ) AS BAD_CNT
+        FROM SC_ARTICLE_DISLIKE
+        WHERE ARTICLE_ID = #{articleId}
+    </select>
+
+    <select id="selectCountDislike2" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            COUNT(DISLIKE_SEQ) AS BAD_CNT
+        FROM SC_COMMENT_DISLIKE
+        WHERE COMMENT_ID = #{commentId}
+    </select>
+
+    <!--
+    Description : 커뮤니티 게시글 상세 조회
+    -->
+    <select id="getCommunityDetail" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+        CASE
+            WHEN A.DEL_YN = 'N' THEN A.TITLE
+            ELSE '삭제된 글입니다.'END TITLE
+        , A.CONTENT
+        , B.ICON_CD
+        , A.BOARD_ID
+        , CASE
+            WHEN A.CREATED_USER_ID = #{userId} THEN 'Y'
+            ELSE 'N' END IS_REG_YN
+        , '익명' AS NAME
+        , '익명' AS NICK
+        , CONVERT(CHAR (10), A.CREATED_DT, 23) AS CREATED_DT_STR
+        , dbo.FN_GET_DATE_STR(A.CREATED_DT) AS CREATED_DT_MM
+        , A.DEL_YN
+        , CASE
+            WHEN E.USER_ID IS NOT NULL THEN 'Y'
+            ELSE 'N' END BOOKMARK_YN
+        , A.VIEW_CNT
+        , A.LIKE_CNT
+        , A.BAD_CNT
+        , A.COMMENT_CNT
+        , (SELECT COUNT(*) FROM SC_ARTICLE_BOOKMARK WHERE ARTICLE_ID = #{articleId}) AS BOOKMARK_CNT
+        , C.BOARD_NM
+        , D.ATTACH_FILE_ID AS ATTACH_FILE_KEY
+        , A.ATTR1
+        , A.ATTR2
+        , A.ATTR3
+        , CASE WHEN A.BOARD_ID = '7'
+			THEN
+				'네이비 운영팀'
+			ELSE
+				A.COMMUNITY_NICK
+			END COMMUNITY_NICK
+		, CASE WHEN A.COMMUNITY_ICON IS NULL OR A.CREATED_USER_ID = '2'
+				THEN
+					( SELECT SERVER_IP + '/' + FILE_PATH + THUMB_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = '11729' )
+				ELSE
+					J.SERVER_IP + '/' + J.FILE_PATH + J.THUMB_FILE_NM
+				END CDN_THUMB_NM_ICON
+        , G.SERVER_IP + '/' + G.FILE_PATH + G.SERVER_FILE_NM AS ATTR1_CDN_NM
+        , G.SERVER_IP + '/' + G.FILE_PATH + G.THUMB_FILE_NM AS ATTR1_CDN_THUMB_NM
+        , H.SERVER_IP + '/' + H.FILE_PATH + H.SERVER_FILE_NM AS ATTR2_CDN_NM
+        , H.SERVER_IP + '/' + H.FILE_PATH + H.THUMB_FILE_NM AS ATTR2_CDN_THUMB_NM
+        , I.SERVER_IP + '/' + I.FILE_PATH + I.SERVER_FILE_NM AS ATTR3_CDN_NM
+        , I.SERVER_IP + '/' + I.FILE_PATH + I.THUMB_FILE_NM AS ATTR3_CDN_THUMB_NM
+        , A.SUB_BOARD_CD
+        , K.SUB_BOARD_NM
+        , B.USER_ID
+        , B.DROP_YN
+        , A.COMMUNITY_ICON
+        , A.ARTICLE_ID
+        FROM SC_ARTICLE A
+            LEFT OUTER JOIN SC_USER B
+            ON A.CREATED_USER_ID = B.USER_ID
+            LEFT OUTER JOIN SC_BOARD C
+            ON A.BOARD_ID = C.BOARD_ID
+            LEFT OUTER JOIN SC_ARTICLE_FILE D
+            ON A.ARTICLE_ID = D.ARTICLE_ID
+            LEFT OUTER JOIN SC_ARTICLE_BOOKMARK E
+            ON A.ARTICLE_ID = E.ARTICLE_ID
+            AND E.USER_ID = #{userId}
+            LEFT OUTER JOIN SC_ICON_CODE F
+            ON A.COMMUNITY_ICON = F.ICON_CD
+            LEFT JOIN SC_ATTACH_FILE G
+            ON A.ATTR1 = G.ATTACH_FILE_ID
+            LEFT JOIN SC_ATTACH_FILE H
+            ON A.ATTR2 = H.ATTACH_FILE_ID
+            LEFT JOIN SC_ATTACH_FILE I
+            ON A.ATTR3 = I.ATTACH_FILE_ID
+            LEFT JOIN SC_ATTACH_FILE J
+            ON F.FILE_ID = J.ATTACH_FILE_ID
+            LEFT OUTER JOIN SC_BOARD_SUB K
+            ON A.SUB_BOARD_CD = K.SUB_BOARD_CD
+        WHERE 1 = 1
+          AND A.ARTICLE_ID = #{articleId}
+    </select>
+
+    <!--
+    Description : 커뮤니티 게시글 댓글 조회(parent)
+    -->
+    <select id="getCommunityParentCommentList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+        A.COMMENT_ID AS COMMENT_KEY
+        , A.PARENT_COMMENT_ID AS PARENT_COMMENT_KEY
+        , CASE
+            WHEN A.DEL_YN = 'N' THEN A.CONTENTS
+            ELSE '삭제된 댓글입니다.' END CONTENTS
+        , CASE
+            WHEN A.REG_USER_ID = B.CREATED_USER_ID THEN '작성자'
+            ELSE '익명' END NAME
+        , CASE
+            WHEN A.REG_USER_ID = B.CREATED_USER_ID THEN '작성자'
+            ELSE '익명' END NICK
+        , CONVERT(CHAR (10), A.REG_TIME, 23) AS REG_TIME_STR
+        , A.DEL_YN
+        , CASE
+            WHEN A.UPD_TIME IS NULL THEN 'N'
+            ELSE 'Y' END UPDATE_YN
+        , A.LIKE_CNT
+        , A.BAD_CNT
+        , D.ATTACH_FILE_ID
+        , CASE
+            WHEN A.REG_USER_ID = #{userId} THEN 'Y'
+            ELSE 'N' END IS_REG_YN
+        , dbo.FN_GET_DATE_STR(A.REG_TIME) AS REG_TIME_MM
+        , F.SERVER_IP + '/' + F.FILE_PATH + F.SERVER_FILE_NM AS CDN_NM
+        , F.SERVER_IP + '/' + F.FILE_PATH + F.THUMB_FILE_NM AS CDN_THUMB_NM
+		, CASE WHEN A.REG_USER_ID = '2'
+				THEN
+					( SELECT SERVER_IP + '/' + FILE_PATH + THUMB_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = '11729' )
+				ELSE
+					G.SERVER_IP + '/' + G.FILE_PATH + G.THUMB_FILE_NM
+				END CDN_THUMB_NM_ICON
+        , CASE WHEN A.COMMENT_NICK IS NULL THEN '익명'
+            ELSE A.COMMENT_NICK END COMMENT_NICK
+        FROM SC_COMMENT A
+            LEFT OUTER JOIN SC_ARTICLE B
+            ON A.ARTICLE_ID = B.ARTICLE_ID
+            LEFT OUTER JOIN SC_COMMENT_FILE D
+            ON A.COMMENT_ID = D.COMMENT_ID
+            LEFT OUTER JOIN SC_ICON_CODE E
+            ON A.COMMENT_ICON = E.ICON_CD
+            LEFT OUTER JOIN SC_ATTACH_FILE F
+            ON D.ATTACH_FILE_ID = F.ATTACH_FILE_ID
+            LEFT OUTER JOIN SC_ATTACH_FILE G
+            ON E.FILE_ID = G.ATTACH_FILE_ID
+        WHERE 1 = 1
+          AND A.ARTICLE_ID = #{articleId}
+          AND A.PARENT_COMMENT_ID IS NULL
+        ORDER BY A.REG_TIME
+    </select>
+
+    <!--
+    Description : 커뮤니티 게시글 댓글 조회(child)
+    -->
+    <select id="getCommunityChildCommentList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+        A.COMMENT_ID AS COMMENT_KEY
+        , A.PARENT_COMMENT_ID AS PARENT_COMMENT_KEY
+        , CASE
+            WHEN A.DEL_YN = 'N' THEN A.CONTENTS
+            ELSE '삭제된 댓글입니다.' END CONTENTS
+        , CASE
+            WHEN A.REG_USER_ID = B.CREATED_USER_ID THEN '작성자'
+            ELSE '익명' END NAME
+        , CASE
+            WHEN A.REG_USER_ID = B.CREATED_USER_ID THEN '작성자'
+            ELSE '익명' END NICK
+        , CONVERT(CHAR (10), A.REG_TIME, 23) AS REG_TIME_STR
+        , A.DEL_YN
+        , CASE
+            WHEN A.UPD_TIME IS NULL THEN 'N'
+            ELSE 'Y' END UPDATE_YN
+        , A.LIKE_CNT
+        , D.ATTACH_FILE_ID
+        , CASE
+            WHEN A.REG_USER_ID = #{userId} THEN 'Y'
+            ELSE 'N' END IS_REG_YN
+        , dbo.FN_GET_DATE_STR(A.REG_TIME) AS REG_TIME_MM
+        , E.FILE_NM
+        , E.FILE_ID
+        , A.LIKE_CNT
+        , A.BAD_CNT
+        , F.SERVER_IP + '/' + F.FILE_PATH + F.SERVER_FILE_NM AS CDN_NM
+        , F.SERVER_IP + '/' + F.FILE_PATH + F.THUMB_FILE_NM AS CDN_THUMB_NM
+		, CASE WHEN A.REG_USER_ID = '2'
+				THEN
+					( SELECT SERVER_IP + '/' + FILE_PATH + THUMB_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = '11729' )
+				ELSE
+					G.SERVER_IP + '/' + G.FILE_PATH + G.THUMB_FILE_NM
+				END CDN_THUMB_NM_ICON
+        , A.COMMENT_NICK
+        , CASE WHEN A.COMMENT_NICK IS NULL THEN '익명'
+            ELSE A.COMMENT_NICK END COMMENT_NICK
+        FROM SC_COMMENT A
+            LEFT OUTER JOIN SC_ARTICLE B
+            ON A.ARTICLE_ID = B.ARTICLE_ID
+            LEFT OUTER JOIN SC_COMMENT_FILE D
+            ON A.COMMENT_ID = D.COMMENT_ID
+            LEFT OUTER JOIN SC_ICON_CODE E
+            ON A.COMMENT_ICON = E.ICON_CD
+            LEFT OUTER JOIN SC_ATTACH_FILE F
+            ON D.ATTACH_FILE_ID = F.ATTACH_FILE_ID
+            LEFT OUTER JOIN SC_ATTACH_FILE G
+            ON E.FILE_ID = G.ATTACH_FILE_ID
+        WHERE 1 = 1
+          AND A.ARTICLE_ID = #{articleId}
+          AND A.PARENT_COMMENT_ID = #{commentId}
+        ORDER BY A.REG_TIME
+    </select>
+
+    <!--
+    Description : 커뮤니티 게시글 작성
+    -->
+    <select id="setCommunityInsert" parameterType="HashMap" resultType="ExqueryMap">
+        INSERT INTO SC_ARTICLE
+        (
+        BOARD_ID, TITLE, CONTENT, DEL_YN, VIEW_CNT, LIKE_CNT, BAD_CNT, COMMENT_CNT, ATTR1, ATTR2, ATTR3, CREATED_DT,
+        CREATED_USER_ID, COMMUNITY_NICK, SUB_BOARD_CD, COMMUNITY_ICON
+        )
+        VALUES
+        (
+        #{boardId}, #{title}, #{content}, 'N', '0', '0', '0', '0',
+        <if test='attr1 != null and attr1 != ""'>#{attr1},</if>
+        <if test='attr1 == null or attr1 == ""'>NULL,</if>
+        <if test='attr2 != null and attr2 != ""'>#{attr2},</if>
+        <if test='attr2 == null or attr2 == ""'>NULL,</if>
+        <if test='attr3 != null and attr3 != ""'>#{attr3},</if>
+        <if test='attr3 == null or attr3 == ""'>NULL,</if>
+          GETDATE(), #{userId}, #{communityNick}, #{subBoardCd}
+          ,(SELECT TOP 1 COMMUNITY_LASTICON FROM SC_USER WHERE USER_ID = #{userId})
+        )
+        SELECT [ARTICLE_ID] = SCOPE_IDENTITY()
+    </select>
+
+    <update id="updateCommunityNickUpdate" parameterType="HashMap">
+        UPDATE SC_USER
+        SET COMMUNITY_LASTNICK = #{communityNick}
+        WHERE USER_ID = #{userId}
+    </update>
+    <!--
+    Description : 커뮤니티 유저 닉네임
+    -->
+    <select id="getCommunityUserNick" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            COMMUNITY_LASTNICK
+        FROM SC_USER
+        WHERE USER_ID = #{userId}
+    </select>
+
+    <insert id="setCommunityFileInsert" parameterType="HashMap">
+        MERGE INTO SC_ARTICLE_FILE
+            USING (VALUES (1)) AS Source (Number)
+            ON (ARTICLE_ID = #{articleId})
+            WHEN MATCHED THEN
+                UPDATE SET
+                ATTACH_FILE_ID = #{mainFileId}
+            WHEN NOT MATCHED THEN
+            INSERT (ARTICLE_ID, ATTACH_FILE_ID)
+            VALUES (#{articleId}, #{mainFileId});
+    </insert>
+
+    <update id="setCommunityFileNullUpdate" parameterType="HashMap">
+        UPDATE SC_ARTICLE_FILE
+        SET ATTACH_FILE_ID = NULL
+        WHERE 1 = 1
+          AND ARTICLE_ID = #{articleId}
+    </update>
+
+    <!--
+    Description : 커뮤니티 게시글 수정
+    -->
+    <update id="setCommunityUpdate" parameterType="HashMap">
+        UPDATE SC_ARTICLE
+        SET TITLE = #{title}
+        , BOARD_ID = #{boardId}
+        , CONTENT = #{content}
+        , UPDATED_DT = GETDATE()
+        , UPDATED_USER_ID = #{userId}
+        , COMMUNITY_NICK = #{communityNick}
+        , SUB_BOARD_CD = #{subBoardCd}
+        <if test='attr1 != null and attr1 != ""'>, ATTR1 = #{attr1}</if>
+        --
+        <if test='attr1 == null or attr1 == ""'>, ATTR1 = NULL</if>
+        <if test='attr2 != null and attr2 != ""'>, ATTR2 = #{attr2}</if>
+        --
+        <if test='attr2 == null or attr2 == ""'>, ATTR2 = NULL</if>
+        <if test='attr3 != null and attr3 != ""'>, ATTR3 = #{attr3}</if>
+        --
+        <if test='attr3 == null or attr3 == ""'>, ATTR3 = NULL</if>
+        <if test='attr4 != null and attr4 != ""'>, ATTR4 = #{attr4}</if>
+        --
+        <if test='attr4 == null or attr4 == ""'>, ATTR4 = NULL</if>
+        WHERE 1=1
+        AND ARTICLE_ID = #{articleId}
+    </update>
+
+    <!--
+    Description : 커뮤니티 게시글 삭제
+    -->
+    <update id="setCommunityDelete" parameterType="HashMap">
+        UPDATE SC_ARTICLE
+        SET DEL_YN          = 'Y'
+        , UPDATED_DT      = GETDATE()
+        , UPDATED_USER_ID = GETDATE()
+        WHERE 1 = 1
+        AND ARTICLE_ID = #{articleId}
+    </update>
+
+    <!--
+    Description : 커뮤니티 게시글 삭제여부
+    -->
+    <select id="getCommunityDelYn" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT TOP 1
+        DEL_YN
+        FROM SC_ARTICLE
+        WHERE 1 = 1
+        AND ARTICLE_ID = #{articleId}
+    </select>
+
+    <!--
+    Description : 커뮤니티 게시글 찜 여부
+    -->
+    <select id="getCommunityBookmark" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT USER_ID
+        FROM SC_ARTICLE_BOOKMARK
+        WHERE 1 = 1
+        AND ARTICLE_ID = #{articleId}
+        AND USER_ID = #{userId}
+    </select>
+
+    <!--
+    Description : 커뮤니티 찜 추가
+    -->
+    <insert id="setCommunityBookmarkAdd" parameterType="HashMap">
+        INSERT INTO SC_ARTICLE_BOOKMARK
+            (USER_ID, ARTICLE_ID, REG_TIME)
+        VALUES (#{userId}, #{articleId}, GETDATE())
+    </insert>
+
+    <!--
+    Description : 커뮤니티 찜 제거
+    -->
+    <delete id="setCommunityBookmarkDel" parameterType="HashMap">
+        DELETE
+        SC_ARTICLE_BOOKMARK
+		WHERE ARTICLE_ID =
+        #{articleId}
+        AND
+        USER_ID
+        =
+        #{userId}
+    </delete>
+
+    <!--
+    Description : 커뮤니티 댓글 parentCommentId 조회
+    -->
+    <select id="getCommunityParentCommentOne" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT TOP 1
+			PARENT_COMMENT_ID
+        FROM SC_COMMENT
+        WHERE 1 = 1
+          AND ARTICLE_ID = #{articleId}
+          AND COMMENT_ID = #{connectCommentId}
+    </select>
+
+    <select id="selectSeqComment" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT NEXT VALUE FOR COMMENT_ID_SEQ AS COMMENT_ID
+    </select>
+
+    <!--
+    Description : 커뮤니티 댓글 작성
+    -->
+    <insert id="setCommunityCommentInsert" parameterType="HashMap">
+        INSERT INTO SC_COMMENT
+        <if test="parentCommentId != null and parentCommentId != ''">
+            (COMMENT_ID, ARTICLE_ID, PARENT_COMMENT_ID, CONTENTS, REG_USER_ID, REG_USER_NM, REG_TIME, DEL_YN, LIKE_CNT, BAD_CNT, COMMENT_NICK, COMMENT_ICON)
+            VALUES
+            (#{commentId}, #{articleId}, #{parentCommentId}, #{contents}, #{userId}, (SELECT NAME FROM SC_USER WHERE USER_ID =
+            #{userId}), GETDATE(), 'N', '0', '0',
+            (SELECT COMMUNITY_LASTNICK FROM SC_USER WHERE USER_ID =#{userId}),
+            (SELECT COMMUNITY_LASTICON FROM SC_USER WHERE USER_ID =#{userId}))
+        </if>
+        <if test="parentCommentId == null or parentCommentId == ''">
+            (COMMENT_ID, ARTICLE_ID, CONTENTS, REG_USER_ID, REG_USER_NM, REG_TIME, DEL_YN, LIKE_CNT, BAD_CNT, COMMENT_NICK, COMMENT_ICON)
+            VALUES
+            (#{commentId}, #{articleId}, #{contents}, #{userId}, (SELECT NAME FROM SC_USER WHERE USER_ID = #{userId}), GETDATE(), 'N',
+            '0', '0',
+            (SELECT COMMUNITY_LASTNICK FROM SC_USER WHERE USER_ID =#{userId}),
+            (SELECT COMMUNITY_LASTICON FROM SC_USER WHERE USER_ID =#{userId}))
+        </if>
+    </insert>
+
+    <update id="updateArticleCnt" parameterType="HashMap">
+        UPDATE SC_ARTICLE
+        SET COMMENT_CNT = COMMENT_CNT + 1
+        WHERE ARTICLE_ID = #{articleId}
+    </update>
+
+    <insert id="setCommunityCommentFileInsert" parameterType="HashMap">
+        MERGE INTO SC_COMMENT_FILE
+            USING (VALUES (1)) AS Source (Number)
+            ON (COMMENT_ID = #{commentId})
+            WHEN MATCHED THEN
+                UPDATE SET
+                ATTACH_FILE_ID = #{mainFileId}
+            WHEN NOT MATCHED THEN
+            INSERT (COMMENT_ID, ATTACH_FILE_ID)
+            VALUES (#{commentId}, #{mainFileId});
+    </insert>
+
+    <update id="setCommunityCommentFileNullUpdate" parameterType="HashMap">
+        UPDATE SC_COMMENT_FILE
+        SET ATTACH_FILE_ID = NULL
+        WHERE 1 = 1
+            AND COMMENT_ID = #{commentId}
+    </update>
+    <!--
+    Description : 커뮤니티 댓글 수정
+    -->
+    <update id="setCommunityCommentUpdate" parameterType="HashMap">
+        UPDATE SC_COMMENT
+        SET CONTENTS = #{contents}
+          , UPD_TIME = GETDATE()
+        WHERE 1 = 1
+          AND ARTICLE_ID = #{articleId}
+          AND COMMENT_ID = #{commentId}
+    </update>
+
+    <select id="getCategoryList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT BOARD_ID
+             , BOARD_NM
+             , DESCRIPTION
+             , ICON
+             , ICON_NM
+        FROM SC_BOARD
+        WHERE 1 = 1
+          AND USE_YN = 'Y'
+          AND BOARD_TYPE = '1'
+        ORDER BY SHOW_ORDER
+    </select>
+
+    <select id="getSubCategoryList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT BOARD_ID
+             , SUB_BOARD_NM
+             , SUB_BOARD_CD
+             , DESCRIPTION
+             , ICON
+             , ICON_NM
+        FROM SC_BOARD_SUB
+        WHERE 1 = 1
+        AND USE_YN = 'Y'
+        <if test='boardId != null and boardId != ""'>
+            AND BOARD_ID = #{boardId}
+        </if>
+        ORDER BY SHOW_ORDER
+    </select>
+
+    <update id="setCommunityCommentDelete" parameterType="HashMap">
+        UPDATE SC_COMMENT
+        SET DEL_YN   = 'Y'
+          , UPD_TIME = GETDATE()
+        WHERE 1 = 1
+          AND ARTICLE_ID = #{articleId}
+          AND COMMENT_ID = #{commentId}
+    </update>
+
+    <update id="setCommunityDel" parameterType="HashMap">
+        UPDATE SC_ARTICLE
+        SET DEL_YN          = 'Y'
+          , UPDATED_DT      = GETDATE()
+          , UPDATED_USER_ID = #{userId}
+        WHERE 1 = 1
+          AND ARTICLE_ID = #{articleId}
+    </update>
+
+    <select id="getCommunityMyList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT *
+        FROM (
+            SELECT TOP 100 PERCENT
+			A.ARTICLE_ID AS ARTICLE_KEY
+			, A.CREATED_USER_ID AS CREATED_USER_KEY
+            , A.TITLE
+            , A.VIEW_CNT
+            , A.DEL_YN
+            , dbo.FN_GET_DATE_STR(A.CREATED_DT) AS CREATED_DT_STR
+            , B.ICON_CD
+            , A.CONTENT
+            , C.ATTACH_FILE_ID AS FILE_ID
+            , ROW_NUMBER() OVER(ORDER BY A.ARTICLE_ID DESC) AS ROWNUM
+			, A.ATTR1
+            , A.ATTR2
+            , A.ATTR3
+            , A.LIKE_CNT
+            , A.BAD_CNT
+            , A.COMMENT_CNT
+            , D.SERVER_IP + '/' + D.FILE_PATH + D.SERVER_FILE_NM AS CDN_NM
+            , CASE WHEN A.DEL_YN = 'N' THEN D.SERVER_IP + '/' + D.FILE_PATH + D.THUMB_FILE_NM
+                   ELSE NULL
+            END CDN_THUMB_NM
+            FROM SC_ARTICLE A
+                INNER JOIN SC_USER B
+                ON A.CREATED_USER_ID = B.USER_ID
+                LEFT OUTER JOIN SC_ARTICLE_FILE C
+                ON A.ARTICLE_ID = C.ARTICLE_ID
+                LEFT JOIN SC_ATTACH_FILE D
+                ON A.ATTR1 = D.ATTACH_FILE_ID
+            WHERE 1 = 1
+              AND A.CREATED_USER_ID = #{userId}
+              AND A.DEL_YN = 'N'
+            ORDER BY A.ARTICLE_ID DESC
+         ) A
+    </select>
+
+    <select id="getCommunityCommentList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT *
+        FROM (
+            SELECT TOP 100 PERCENT
+			A.COMMENT_ID AS COMMENT_KEY
+			, A.ARTICLE_ID AS ARTICLE_KEY
+            , A.REG_USER_ID    AS REG_USER_KEY
+            , dbo.FN_GET_DATE_STR(A.REG_TIME) AS REG_TIME_STR
+            , B.ICON_CD
+            , A.CONTENTS
+            , C.ATTACH_FILE_ID AS FILE_ID
+            , ROW_NUMBER() OVER(ORDER BY A.COMMENT_ID DESC) AS ROWNUM
+            , D.TITLE
+            , D.DEL_YN
+            , D.ATTR1
+            , D.ATTR2
+            , D.ATTR3
+            , A.LIKE_CNT
+            , A.BAD_CNT
+--             , F.SERVER_IP + '/' + F.FILE_PATH + F.SERVER_FILE_NM AS CDN_NM
+--             , F.SERVER_IP + '/' + F.FILE_PATH + F.THUMB_FILE_NM AS CDN_THUMB_NM
+            , G.SERVER_IP + '/' + G.FILE_PATH + G.SERVER_FILE_NM AS CDN_NM
+            , CASE WHEN D.DEL_YN = 'N' THEN G.SERVER_IP + '/' + G.FILE_PATH + G.THUMB_FILE_NM
+                    ELSE NULL
+            END CDN_THUMB_NM
+            FROM SC_COMMENT A
+                INNER JOIN SC_USER B
+                ON A.REG_USER_ID = B.USER_ID
+                LEFT OUTER JOIN SC_COMMENT_FILE C
+                ON A.COMMENT_ID = C.COMMENT_ID
+                INNER JOIN SC_ARTICLE D
+                ON A.ARTICLE_ID = D.ARTICLE_ID
+                LEFT OUTER JOIN SC_ATTACH_FILE F
+                ON C.ATTACH_FILE_ID = F.ATTACH_FILE_ID
+                LEFT OUTER JOIN SC_ATTACH_FILE G
+                ON D.ATTR1 = G.ATTACH_FILE_ID
+            WHERE 1 = 1
+            AND A.REG_USER_ID = #{userId}
+            AND A.DEL_YN = 'N'
+            ORDER BY A.REG_TIME DESC
+        ) A
+    </select>
+
+    <select id="getCommunityMyBookmarkList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT *
+        FROM (
+            SELECT TOP 100 PERCENT
+			    A.USER_ID AS USER_KEY
+				, A.ARTICLE_ID AS ARTICLE_KEY
+                , dbo.FN_GET_DATE_STR(A.REG_TIME) AS REG_TIME_STR
+                , B.ICON_CD
+                , C.ATTACH_FILE_ID AS FILE_ID
+                , D.CONTENT
+                , ROW_NUMBER() OVER(ORDER BY A.REG_TIME DESC) AS ROWNUM
+				, D.TITLE
+				, D.ATTR1
+				, D.ATTR2
+				, D.ATTR3
+                , E.SERVER_IP + '/' + E.FILE_PATH + E.SERVER_FILE_NM AS CDN_NM
+                , CASE WHEN D.DEL_YN = 'N' THEN E.SERVER_IP + '/' + E.FILE_PATH + E.THUMB_FILE_NM
+                       ELSE NULL
+                END CDN_THUMB_NM
+                 FROM SC_ARTICLE_BOOKMARK A
+                    INNER JOIN SC_USER B
+                    ON A.USER_ID = B.USER_ID
+                    LEFT OUTER JOIN SC_ARTICLE_FILE C
+                    ON A.ARTICLE_ID = C.ARTICLE_ID
+                    INNER JOIN SC_ARTICLE D
+                    ON A.ARTICLE_ID = D.ARTICLE_ID
+                    LEFT JOIN SC_ATTACH_FILE E
+                    ON D.ATTR1 = E.ATTACH_FILE_ID
+                 WHERE 1 = 1
+                   AND A.USER_ID = #{userId}
+                 ORDER BY ROWNUM ASC
+             ) A
+    </select>
+
+    <select id="getCommunityRegUserId" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            CREATED_USER_ID
+        FROM SC_ARTICLE
+        WHERE ARTICLE_ID = #{articleId}
+    </select>
+
+    <select id="getCommunityCommentRegUserId" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+			REG_USER_ID
+		FROM SC_COMMENT
+		WHERE COMMENT_ID = #{parentCommentId}
+    </select>
+
+
+    <select id="getCommunityNickCheck" parameterType="HashMap" resultType="ExqueryMap">
+        IF EXISTS (
+			SELECT
+			   USER_ID
+			FROM SC_USER
+			WHERE COMMUNITY_LASTNICK = #{nick}
+            AND USER_ID != #{userId}
+        )
+        BEGIN
+            SELECT 'N' AS RESULT
+        END
+        ELSE
+        BEGIN
+            SELECT 'Y' AS RESULT
+        END
+    </select>
+
+    <update id="setSaveCommunityNickname" parameterType="HashMap">
+        UPDATE SC_USER
+        SET
+            COMMUNITY_NICK_LASTTIME  = GETDATE()
+            , COMMUNITY_LASTNICK = #{nick}
+            <choose>
+                <when test='iconCd != null and iconCd != ""'>
+                    , COMMUNITY_LASTICON = #{iconCd}
+                </when>
+                <otherwise>
+                    , COMMUNITY_LASTICON = (SELECT TOP 1 COMMUNITY_LASTICON FROM SC_USER WHERE USER_ID = #{userId})
+                </otherwise>
+            </choose>
+        WHERE 1 = 1
+        AND USER_ID = #{userId}
+    </update>
+
+    <select id="createCommunityChatroomNew" parameterType="HashMap" resultType="ExqueryMap">
+        INSERT INTO SC_CHATROOM (
+            LAST_CHAT
+            , LAST_TIME
+            , CHATROOM_TYPE
+            , CREATED_TIME
+            , CREATED_USER_ID
+            , TITLE
+        )
+        VALUES (
+            ''
+            , GETDATE()
+            , 'anonymous'
+            , GETDATE()
+            , #{ssUserId}
+            , #{targetUserNick} + '님 과 '
+                  + #{userNick} + '님의 대화방'
+        )
+        SELECT [CHATROOM_ID] = SCOPE_IDENTITY()
+    </select>
+
+    <insert id="createCommunityChatroomUser" parameterType="HashMap">
+        INSERT INTO SC_CHATROOM_USER (
+            CHATROOM_ID
+            , USER_ID
+            , CONNECT_TIME
+            , IS_FIRST
+            , IS_RECEIVE
+            , COMMUNITY_NICK
+            , COMMUNITY_ICON
+        ) VALUES (
+            #{chatroomId}
+            , #{ssUserId}
+            , GETDATE()
+            , 'Y'
+            , 'Y'
+            , #{userNick}
+            , #{userIconCd}
+            )
+    </insert>
+
+    <insert id="createCommunityChatroomTarget" parameterType="HashMap">
+        INSERT INTO SC_CHATROOM_USER (
+            CHATROOM_ID
+            , USER_ID
+            , CONNECT_TIME
+            , IS_FIRST
+            , IS_RECEIVE
+            , COMMUNITY_NICK
+            , COMMUNITY_ICON
+        ) VALUES (
+            #{chatroomId}
+            , #{targetUserId}
+            , GETDATE()
+            , 'Y'
+            , 'Y'
+            , #{targetUserNick}
+            , #{targetUserIconCd}
+            )
+    </insert>
+
+    <select id="getSelectUserIcon" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            A.COMMUNITY_LASTICON
+            , B.FILE_NM
+            , (SELECT SERVER_IP + '/' + FILE_PATH + THUMB_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = B.FILE_ID) AS CDN_THUMB_NM_ICON
+        FROM SC_USER A
+            LEFT JOIN SC_ICON_CODE B
+            ON A.COMMUNITY_LASTICON = B.ICON_CD
+        WHERE USER_ID = #{userId}
+    </select>
+
+    <select id="communityDropCheck" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            DEL_YN AS RESULT
+        FROM SC_ARTICLE
+        WHERE ARTICLE_ID = #{articleId}
+    </select>
+</mapper>

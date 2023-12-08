@@ -1,0 +1,697 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cronies.app.storeCommon">
+
+	<!--
+	Description : 카테고리 리스트 조회
+	-->
+	<select id="getStoreCategoryList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			CATEGORY_CD
+			, CATEGORY_NM
+		FROM SC_STORE_CATEGORY
+		WHERE 1=1
+		AND SHOW_YN = 'Y'
+		ORDER BY SHOW_ORDER
+	</select>
+
+	<select id="getStoreItemList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			A.ITEM_CD
+			, A.ITEM_NM
+			, A.PAYMENT
+			, A.BONUS
+			, CONVERT(NUMERIC, A.PAYMENT) + CONVERT(NUMERIC, A.BONUS) AS SUM_PAYMENT
+			, A.BONUS_RATE
+			, A.PRICE_WON
+			, A.PRICE_HEART
+			, A.DESCRIPTION
+			, A.PRODUCT_ID
+			, CASE WHEN A.ITEM_CD != 'IT012_03'
+						THEN 0
+						ELSE ISNULL(
+								(SELECT
+									BUY_CNT
+								FROM SC_CONTEST_BUY_CURRENT
+								WHERE 1=1
+								AND CONTEST_TYPE = #{contestType}
+								AND USER_ID = #{ssUserId})
+							, 0)
+			END BUY_CNT
+			, B.SERVER_IP + '/' + B.FILE_PATH + B.SERVER_FILE_NM AS CDN_NM
+			, A.SHOW_YN
+			, A.CONTEST_YN
+		FROM SC_STORE_ITEM A
+		LEFT OUTER JOIN SC_ATTACH_FILE B
+		ON A.FILE_ID = B.ATTACH_FILE_ID
+		WHERE 1=1
+		AND A.CATEGORY_CD = #{categoryCd}
+		AND A.USE_YN = 'Y'
+	<if test='contestStartYn != null and contestStartYn != "Y"'>
+		AND A.ITEM_CD != 'IT012_03'
+	</if>
+		ORDER BY A.SHOW_ORDER ASC
+	</select>
+
+	<select id="getStoreItemListSubscribe" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			SUBSCRIBE_CD AS ITEM_CD
+			 , SUBSCRIBE_NM AS ITEM_NM
+			 , PRICE AS PAYMENT
+			 , PRICE AS PRICE_WON
+			 , DESCRIPTION
+			 , PRODUCT_ID
+		FROM SC_SUBSCRIBE_CODE
+		WHERE 1=1
+		  AND DEL_YN = 'N'
+		ORDER BY DISPLAY_ORDER
+	</select>
+
+
+	<select id="getStoreListForProductId" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			ITEM_CD
+			, PRODUCT_ID
+			, 'heart' AS BUY_TYPE
+		FROM SC_STORE_ITEM
+		WHERE CATEGORY_CD = 'HEART'
+		AND USE_YN = 'Y'
+		UNION ALL
+		SELECT
+			SUBSCRIBE_CD AS ITEM_CD
+			 , PRODUCT_ID
+			 , 'subscribe' AS BUY_TYPE
+		FROM SC_SUBSCRIBE_CODE
+		WHERE 1=1
+		  AND DEL_YN = 'N'
+	</select>
+
+	<!--
+	Description : 구매 할 하트 수량
+	-->
+	<select id="getStoreHeartCntByItemCd" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			CONVERT(NUMERIC, PAYMENT) + CONVERT(NUMERIC, BONUS) AS PAYMENT,
+			ISNULL(PRICE_WON, 0) AS PRICE_WON
+		FROM SC_STORE_ITEM
+		WHERE 1=1
+		  AND ITEM_CD = #{itemCd}
+	</select>
+
+	<!--
+	Description : 구매 할 아이템(패키지)의 구성리스트 조회
+	-->
+	<select id="getStorePackageListByItemCd" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			COUPON_CD
+			, QUANTITY
+		FROM SC_STORE_PACKAGE
+		WHERE 1=1
+		  AND ITEM_CD = #{itemCd}
+	</select>
+
+	<!--
+	Description : 구매 할 아이템의 하트 총 소모량
+	-->
+	<select id="getUseHeartCntByItemCd" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			PRICE_HEART
+		FROM SC_STORE_ITEM
+		WHERE 1=1
+		  AND ITEM_CD = #{itemCd}
+	</select>
+
+	<!--
+	Description : 기존 쿠폰 수 조회
+	-->
+	<select id="getUserCurrentCntByCoupon" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			ISNULL(B.QUANTITY, 0) AS QUANTITY
+		FROM SC_STORE_COUPON A
+		LEFT OUTER JOIN SC_STORE_COUPON_CURRENT B
+			ON A.COUPON_CD = B.COUPON_CD
+			AND B.USER_ID = #{userId}
+		WHERE 1=1
+		  AND A.COUPON_CD = #{couponCd}
+	</select>
+
+	<!--
+	Description : 현재 쿠폰 리스트 조회
+	-->
+	<select id="getUserCurrentCouponList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+		    A.COUPON_NM
+			, ISNULL(B.QUANTITY, 0) AS QUANTITY
+			, C.SERVER_IP + '/' + C.FILE_PATH + C.THUMB_FILE_NM AS CDN_THUMB_NM
+		FROM SC_STORE_COUPON A
+		LEFT OUTER JOIN SC_STORE_COUPON_CURRENT B
+			ON A.COUPON_CD = B.COUPON_CD
+			AND B.USER_ID = #{userId}
+		LEFT OUTER JOIN SC_ATTACH_FILE C
+			 ON A.FILE_ID = C.ATTACH_FILE_ID
+		WHERE 1=1
+		AND A.USE_YN = 'Y'
+		AND A.COUPON_CD != 'CU999'
+		ORDER BY A.COUPON_CD
+	</select>
+
+	<!--
+	Description : 현재 쿠폰 데이터 조회
+	-->
+	<select id="getUserCouponDataOne" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			A.COUPON_NM
+			, A.PERIOD_MIN
+			, ISNULL(B.QUANTITY, 0) AS QUANTITY
+			, CASE WHEN (SELECT COUNT(*) FROM SC_STORE_COUPON_LIST WHERE COUPON_CD = A.COUPON_CD AND USER_ID = #{userId} AND USE_YN = 'N' AND BONUS_YN = 'Y') > 0
+						THEN 'Y'
+						ELSE 'N'
+			END IS_BONUS_YN
+		FROM SC_STORE_COUPON A
+		LEFT OUTER JOIN SC_STORE_COUPON_CURRENT B
+			ON A.COUPON_CD = B.COUPON_CD
+			AND B.USER_ID = #{userId}
+		WHERE 1=1
+			AND A.COUPON_CD = #{couponCd}
+	</select>
+
+	<!--
+	Description : 무표 쿠폰 ID 조회
+	-->
+	<select id="getBonusCouponLastId" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			COUPON_ID
+		FROM SC_STORE_COUPON_LIST
+		WHERE 1=1
+		  AND COUPON_CD = #{couponCd}
+		  AND USER_ID = #{userId}
+		  AND BONUS_YN = 'Y'
+		  AND USE_YN = 'N'
+		ORDER BY COUPON_ID
+	</select>
+
+	<!--
+	Description : 가장 오래 된 쿠폰 ID 조회
+	-->
+	<select id="getCommonCouponLastId" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			COUPON_ID
+		FROM SC_STORE_COUPON_LIST
+		WHERE 1=1
+			AND COUPON_CD = #{couponCd}
+			AND USER_ID = #{userId}
+			AND USE_YN = 'N'
+		ORDER BY COUPON_ID
+	</select>
+
+	<!--
+	Description : 사용중인 버프가 존재하는지 조회
+	-->
+	<select id="getUsingReceivedLike" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			START_TIME
+			, END_TIME
+			, CASE WHEN DATEDIFF(SS, GETDATE(), END_TIME) > 0
+					THEN 'Y'
+					ELSE 'N'
+				END IS_BUFF_YN
+			, DATEDIFF(SS, GETDATE(), END_TIME) AS REMAINING_TIME
+			, DBO.FN_GET_REMAINING_TIME_STR(END_TIME) AS REMAINING_TIME_STR
+		FROM SC_BUFF_RECEIVED_LIKE
+		WHERE 1=1
+			AND USER_ID = #{userId}
+			AND (START_TIME &lt; GETDATE() AND END_TIME > GETDATE())
+	</select>
+
+	<!--
+	Description : 사용중인 버프가 존재하는지 조회
+	-->
+	<select id="getUsingHoneyBoost" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			START_TIME
+			, END_TIME
+		    , CASE WHEN DATEDIFF(SS, GETDATE(), END_TIME) > 0
+					THEN 'Y'
+					ELSE 'N'
+				END IS_BUFF_YN
+			, DATEDIFF(SS, GETDATE(), END_TIME) AS REMAINING_TIME
+			, DBO.FN_GET_REMAINING_TIME_STR(END_TIME) AS REMAINING_TIME_STR
+		FROM SC_BUFF_HONEY_BOOST
+		WHERE 1=1
+			AND USER_ID = #{userId}
+			AND (START_TIME &lt; GETDATE() AND END_TIME > GETDATE())
+	</select>
+
+	<!--
+	Description : 프로필 광고 리스트 조회
+	-->
+	<select id="getProfileAdList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			A.USER_KEY
+			, B.NICK
+			, (D.SERVER_IP + '/' + D.FILE_PATH + D.THUMB_FILE_NM) AS CDN_THUMB_NM
+		FROM (
+			SELECT TOP 20
+				USER_ID AS USER_KEY
+			FROM SC_PROFILE_AD
+			WHERE 1=1
+			AND USER_ID NOT IN (
+				SELECT
+					TARGET_USER_ID
+				FROM SC_USER_BLOCK
+				WHERE USER_ID = #{ssUserId}
+					AND DEL_YN = 'N'
+			)
+			GROUP BY USER_ID
+			ORDER BY MAX(AD_ID) DESC
+		) A
+		INNER JOIN SC_USER B
+			ON A.USER_KEY = B.USER_ID
+		LEFT OUTER JOIN SC_USER_PIC C
+			ON A.USER_KEY = C.USER_ID
+		LEFT OUTER JOIN SC_ATTACH_FILE D
+			ON C.PHOTO1 = D.ATTACH_FILE_ID
+	</select>
+
+	<!--
+	Description : 좋아요 남은 수량(아이템사용으로 인한 추가) 조회
+	-->
+	<select id="selectSwiperCnt" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			ISNULL(FREE_CNT, 0) AS FREE_CNT
+-- 			, ISNULL(PLUS_CNT, 0) AS PLUS_CNT
+		    , ISNULL((SELECT QUANTITY FROM SC_STORE_COUPON_CURRENT WHERE COUPON_CD = 'CU004' AND USER_ID = #{userId}), 0) AS PLUS_CNT
+			, CONVERT(NUMERIC, ISNULL(FREE_CNT, 0)) + CONVERT(NUMERIC, ISNULL(PLUS_CNT, 0)) AS SUM_CNT
+			, BACK_YN
+		FROM SC_SWIPER_CNT
+		WHERE USER_ID = #{userId}
+	</select>
+
+	<!--
+	Description : 사용중인 버프가 존재하는지 조회
+	-->
+	<select id="getUsingOpenChatBoost" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			B.ID
+			, B.START_TIME
+			, B.END_TIME
+			, CASE WHEN DATEDIFF(SS, GETDATE(), B.END_TIME) > 0
+						THEN 'Y'
+					ELSE 'N'
+			END IS_BUFF_YN
+			, DATEDIFF(SS, GETDATE(), B.END_TIME) AS REMAINING_TIME
+			, DBO.FN_GET_REMAINING_TIME_STR(B.END_TIME) AS REMAINING_TIME_STR
+			, (SELECT COUNT(*) FROM SC_BUFF_OPENCHAT_BOOST
+			   WHERE OPENCHAT_ID = #{openchatId}
+				 AND (START_TIME &lt; GETDATE() AND END_TIME > GETDATE())) AS USE_CNT
+			, (SELECT COUNT(*) FROM SC_OPENCHAT WHERE DEL_YN = 'N' AND PRIVATE_YN = 'Y') AS TOTAL_ROOM
+			, A.OPENCHAT_RANK
+		FROM SC_OPENCHAT A
+		LEFT OUTER JOIN SC_BUFF_OPENCHAT_BOOST B
+			ON A.OPENCHAT_ID = B.OPENCHAT_ID
+			AND (B.START_TIME &lt; GETDATE() AND B.END_TIME > GETDATE())
+		WHERE 1=1
+		  AND A.OPENCHAT_ID = #{openchatId}
+		ORDER BY B.END_TIME DESC
+	</select>
+
+	<!--
+	Description : 구독 정보 체크
+	-->
+	<select id="getUserSubscribeInfo" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			A.USER_ID AS USER_KEY
+			, B.SUBSCRIBE_CD
+			, C.SUBSCRIBE_NM
+			, CONVERT(CHAR(10), B.START_TIME, 23) AS START_DATE
+			, CONVERT(CHAR(10), B.END_TIME, 23) AS END_DATE
+			, CASE WHEN ISNULL(B.SUBSCRIBE_YN, 'N') = 'Y' AND B.END_TIME > GETDATE() THEN 'Y'
+				ELSE 'N'
+			END SUBSCRIBE_YN
+		<if test='infiniteActionCd != null and infiniteActionCd != ""'>
+			, CASE WHEN ISNULL(B.SUBSCRIBE_YN, 'N') = 'Y' AND B.END_TIME > GETDATE() AND D.ACTION_CD IS NOT NULL THEN 'Y'
+					ELSE 'N'
+			END IS_ACTION_INFINITE
+		</if>
+		FROM SC_USER A
+		LEFT OUTER JOIN SC_SUBSCRIBE_CURRENT B
+			ON A.USER_ID = B.USER_ID
+		LEFT OUTER JOIN SC_SUBSCRIBE_CODE C
+			ON B.SUBSCRIBE_CD = C.SUBSCRIBE_CD
+		<if test='infiniteActionCd != null and infiniteActionCd != ""'>
+		LEFT OUTER JOIN SC_SUBSCRIBE_INFINITE D
+			ON B.SUBSCRIBE_CD = D.SUBSCRIBE_CD
+			AND D.ACTION_CD = #{infiniteActionCd}
+		</if>
+		WHERE 1=1
+		  AND A.USER_ID = #{ssUserId}
+-- 		  AND B.SUBSCRIBE_YN = 'Y'
+	</select>
+
+	<select id="getTargetUserSubscribeInfo" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			A.USER_ID AS USER_KEY
+			, B.SUBSCRIBE_CD
+			, C.SUBSCRIBE_NM
+			, CONVERT(CHAR(10), B.START_TIME, 23) AS START_DATE
+			, CONVERT(CHAR(10), B.END_TIME, 23) AS END_DATE
+			, CASE WHEN ISNULL(B.SUBSCRIBE_YN, 'N') = 'Y' AND B.END_TIME > GETDATE() THEN 'Y'
+				ELSE 'N'
+			END SUBSCRIBE_YN
+		<if test='infiniteActionCd != null and infiniteActionCd != ""'>
+			, CASE WHEN ISNULL(B.SUBSCRIBE_YN, 'N') = 'Y' AND B.END_TIME > GETDATE() AND D.ACTION_CD IS NOT NULL THEN 'Y'
+					ELSE 'N'
+			END IS_ACTION_INFINITE
+		</if>
+		FROM SC_USER A
+		LEFT OUTER JOIN SC_SUBSCRIBE_CURRENT B
+			ON A.USER_ID = B.USER_ID
+		LEFT OUTER JOIN SC_SUBSCRIBE_CODE C
+			ON B.SUBSCRIBE_CD = C.SUBSCRIBE_CD
+		<if test='infiniteActionCd != null and infiniteActionCd != ""'>
+		LEFT OUTER JOIN SC_SUBSCRIBE_INFINITE D
+			ON B.SUBSCRIBE_CD = D.SUBSCRIBE_CD
+			AND D.ACTION_CD = #{infiniteActionCd}
+		</if>
+		WHERE 1=1
+		  AND A.USER_ID = #{targetUserId}
+-- 		  AND B.SUBSCRIBE_YN = 'Y'
+	</select>
+
+	<!--
+	Description : 구독 DEL_YN 체크
+	-->
+	<select id="getSubscribeCodeDelCheck" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			SUBSCRIBE_CD
+			, DEL_YN
+		FROM SC_SUBSCRIBE_CODE
+		WHERE 1=1
+			AND SUBSCRIBE_CD = #{subscribeCd}
+	</select>
+
+	<!--
+	Description : 구독 구입가능 리스트 조회
+	-->
+	<select id="getSubscribeList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			REPLACE(SUBSCRIBE_CD, '_', ' ') AS TITLE
+			, SUBSCRIBE_CD
+			, SUBSCRIBE_NM
+			, PRICE AS SUBSCRIBE_PRICE
+			, DAY AS SUBSCRIBE_DAY
+			, DESCRIPTION
+		FROM SC_SUBSCRIBE_CODE
+		WHERE 1=1
+			AND DEL_YN = 'N'
+		ORDER BY DISPLAY_ORDER
+	</select>
+
+	<!--
+	Description : 선택한 구독 및 상위구독이 존재하는지 조회
+	-->
+	<select id="getSubscribeCheck" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			A.SUBSCRIBE_CD
+			, B.SUBSCRIBE_NM
+		FROM SC_SUBSCRIBE_CURRENT A
+		LEFT OUTER JOIN SC_SUBSCRIBE_CODE B
+		ON A.SUBSCRIBE_CD = B.SUBSCRIBE_CD
+		WHERE 1=1
+			AND A.USER_ID = #{ssUserId}
+		  	AND A.START_TIME &lt;= GETDATE()
+			AND A.END_TIME >= GETDATE()
+		<if test='subscribeCd != null and subscribeCd == "NAVY_PLUS"'>
+			AND A.SUBSCRIBE_CD IN ('NAVY_PLUS', 'GOLD_PASS', 'PLATINUM_PASS')
+		</if>
+		<if test='subscribeCd != null and subscribeCd == "GOLD_PASS"'>
+			AND A.SUBSCRIBE_CD IN ('GOLD_PASS', 'PLATINUM_PASS')
+		</if>
+		<if test='subscribeCd != null and subscribeCd == "PLATINUM_PASS"'>
+			AND A.SUBSCRIBE_CD IN ('PLATINUM_PASS')
+		</if>
+			AND A.SUBSCRIBE_YN = 'Y'
+	</select>
+
+	<!--
+	Description : 마지막 구독이력 조회
+	-->
+	<select id="getScSubscribeHisLast" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			A.ID AS SUBSCRIBE_ID
+			, A.SUBSCRIBE_CD
+			, B.DAY AS SUBSCRIBE_DAY
+			, A.REG_TIME
+		FROM SC_SUBSCRIBE_HIS A
+		LEFT OUTER JOIN SC_SUBSCRIBE_CODE B
+			ON A.SUBSCRIBE_CD = B.SUBSCRIBE_CD
+		WHERE 1=1
+			AND A.USER_ID = #{ssUserId}
+		ORDER BY A.REG_TIME DESC
+	</select>
+
+	<!--
+	Description : 구독에 맞는 추가 쿠폰 조회
+	-->
+	<select id="getSubscribeCouponList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			SUBSCRIBE_CD
+			, COUPON_CD
+			, QUANTITY
+		FROM SC_SUBSCRIBE_COUPON
+		WHERE 1=1
+		  AND SUBSCRIBE_CD = #{subscribeCd}
+		  AND DEL_YN = 'N'
+		ORDER BY SUBSCRIBE_CD
+	</select>
+
+	<!--
+	Description : 콘테스트 시작 여부 조회
+	-->
+	<select id="getContestStartInfo" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			CONTEST_TYPE
+		FROM SC_CONTEST
+		WHERE 1=1
+			AND CONTEST_STATE = 'START'
+		ORDER BY CONTEST_TYPE DESC
+	</select>
+
+	<!--
+	Description : 현재 차수 콘테스트 투표권 구매수량 조회
+	-->
+	<select id="getContestBuyCurrentCnt" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			CONTEST_TYPE
+			, USER_ID
+			, BUY_CNT
+		FROM SC_CONTEST_BUY_CURRENT
+		WHERE 1=1
+		  AND CONTEST_TYPE = #{contestType}
+		  AND USER_ID = #{ssUserId}
+	</select>
+
+	<select id="selectPurchaseReceiptOne" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			*
+		FROM SC_PURCHASE_HIS
+		WHERE 1=1
+		AND USER_ID = #{ssUserId}
+		AND TRANSACTION_ID = #{transactionId}
+		AND PRODUCT_ID = #{productId}
+	</select>
+
+	<update id="purchaseReceiptMerge1" parameterType="HashMap">
+		MERGE INTO SC_PURCHASE_HIS AS A
+		USING (SELECT 1 AS DUAL) AS B
+		ON (A.USER_ID = #{ssUserId} AND A.TRANSACTION_ID = #{transactionId} AND A.PRODUCT_ID = #{productId})
+		WHEN MATCHED THEN
+		UPDATE SET
+		UPD_TIME = GETDATE()
+		<if test="purchaseType != null and purchaseType != ''">
+			, PURCHASE_TYPE = #{purchaseType}
+		</if>
+		<if test="purchaseDate != null and purchaseDate != ''">
+			, PURCHASE_DATE = #{purchaseDate}
+		</if>
+		<if test="expiresDate != null and expiresDate != ''">
+			, EXPIRES_DATE = #{expiresDate}
+		</if>
+		WHEN NOT MATCHED THEN
+		INSERT (
+		USER_ID
+		, TRANSACTION_ID
+		, PRODUCT_ID
+		<if test="purchaseType != null and purchaseType != ''">
+			, PURCHASE_TYPE
+		</if>
+		<if test="purchaseDate != null and purchaseDate != ''">
+			, PURCHASE_DATE
+		</if>
+		<if test="expiresDate != null and expiresDate != ''">
+			, EXPIRES_DATE
+		</if>
+		, END_YN
+		, UPD_TIME
+		)
+		VALUES(
+		#{ssUserId}
+		, #{transactionId}
+		, #{productId}
+		<if test="purchaseType != null and purchaseType != ''">
+			, #{purchaseType}
+		</if>
+		<if test="purchaseDate != null and purchaseDate != ''">
+			, #{purchaseDate}
+		</if>
+		<if test="expiresDate != null and expiresDate != ''">
+			, #{expiresDate}
+		</if>
+		, 'N'
+		, GETDATE()
+		);
+	</update>
+
+	<update id="purchaseReceiptMerge2" parameterType="HashMap">
+		MERGE INTO SC_PURCHASE_HIS AS A
+		USING (SELECT 1 AS DUAL) AS B
+		ON (A.USER_ID = #{ssUserId} AND A.TRANSACTION_ID = #{transactionId} AND A.PRODUCT_ID = #{productId})
+		WHEN MATCHED THEN
+		UPDATE SET
+		UPD_TIME = GETDATE()
+		<if test="purchaseType != null and purchaseType != ''">
+			, PURCHASE_TYPE = #{purchaseType}
+		</if>
+		<if test="purchaseDate != null and purchaseDate != ''">
+			, PURCHASE_DATE = #{purchaseDate}
+		</if>
+		<if test="expiresDate != null and expiresDate != ''">
+			, EXPIRES_DATE = #{expiresDate}
+		</if>
+		WHEN NOT MATCHED THEN
+		INSERT (
+		USER_ID
+		, TRANSACTION_ID
+		, PRODUCT_ID
+		<if test="purchaseType != null and purchaseType != ''">
+			, PURCHASE_TYPE
+		</if>
+		<if test="purchaseDate != null and purchaseDate != ''">
+			, PURCHASE_DATE
+		</if>
+		<if test="expiresDate != null and expiresDate != ''">
+			, EXPIRES_DATE
+		</if>
+		, END_YN
+		, UPD_TIME
+		)
+		VALUES(
+		#{ssUserId}
+		, #{transactionId}
+		, #{productId}
+		<if test="purchaseType != null and purchaseType != ''">
+			, #{purchaseType}
+		</if>
+		<if test="purchaseDate != null and purchaseDate != ''">
+			, #{purchaseDate}
+		</if>
+		<if test="expiresDate != null and expiresDate != ''">
+			, #{expiresDate}
+		</if>
+		, 'N'
+		, GETDATE()
+		);
+	</update>
+
+	<!--
+	Description : PRODUCT_ID 로 아이템 조회
+	-->
+	<select id="getItemByProductId" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			ITEM_CD
+		FROM SC_STORE_ITEM
+		WHERE 1=1
+		  AND PRODUCT_ID = #{productId}
+	</select>
+
+	<!--
+	Description : PRODUCT_ID 로 구독 조회
+	-->
+	<select id="getSubscribeByProductId" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			SUBSCRIBE_CD
+		FROM SC_SUBSCRIBE_CODE
+		WHERE 1=1
+		  AND PRODUCT_ID = #{productId}
+	</select>
+
+	<!--
+	Description : 영수증 정보 조회
+	-->
+	<select id="getPurchaseHisByTransaction" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			TRANSACTION_ID
+			 , PRODUCT_ID
+			 , PURCHASE_TYPE
+			 , PURCHASE_DATE
+			 , EXPIRES_DATE
+			 , END_YN
+		FROM SC_PURCHASE_HIS
+		WHERE 1=1
+		  AND USER_ID = #{ssUserId}
+		  AND TRANSACTION_ID = #{transactionId}
+		  AND PRODUCT_ID = #{productId}
+		  AND PURCHASE_TYPE IS NULL
+	</select>
+
+
+	<!--
+	Description : 영수증 정보 조회
+	-->
+	<select id="getPurchaseHisByTransactionForApple" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			TRANSACTION_ID
+			 , PRODUCT_ID
+			 , PURCHASE_TYPE
+			 , PURCHASE_DATE
+			 , EXPIRES_DATE
+			 , END_YN
+		FROM SC_PURCHASE_HIS
+		WHERE 1=1
+		  AND USER_ID = #{ssUserId}
+		  AND TRANSACTION_ID = #{transactionId}
+		  AND PRODUCT_ID = #{productId}
+	</select>
+
+	<!--
+        Description : END YN = Y
+        -->
+	<update id="updatePurchaseReceiptEndYn" parameterType="HashMap">
+		UPDATE SC_PURCHASE_HIS
+		SET END_YN = 'Y'
+		  , UPD_TIME = GETDATE()
+		WHERE 1=1
+		  AND USER_ID = #{ssUserId}
+		  AND TRANSACTION_ID = #{transactionId}
+		  AND PRODUCT_ID = #{productId}
+	</update>
+
+	<!--
+	Description : 처리되지 않은 영수증 한 건 조회
+	-->
+	<select id="purchaseRecoveryOne" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			TRANSACTION_ID
+			 , PRODUCT_ID
+			 , PURCHASE_TYPE
+			 , PURCHASE_DATE
+			 , EXPIRES_DATE
+			 , END_YN
+		FROM SC_PURCHASE_HIS
+		WHERE 1=1
+		  AND USER_ID = #{ssUserId}
+		  AND END_YN = 'N'
+	</select>
+
+</mapper>

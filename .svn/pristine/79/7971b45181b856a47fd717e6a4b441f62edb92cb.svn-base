@@ -1,0 +1,31 @@
+# Excel 다국어
+com.excel.enterpriseNm=Enterprise Name
+com.excel.remarks=Remarks
+com.excel.enterpriseCd=Enterprise Code
+com.excel.createdUserId=Created By
+com.excel.createdDt=Created At
+com.excel.updatedUserId=Updated by
+com.excel.updatedDt=Updated At
+com.excel.useYn=Use
+com.excel.lineCd=Line Code
+
+# 열번호
+com.excel.rowNum=No.
+com.excel.no=No.
+
+## 다국어 관리 (화면용)
+com.excel.msgKo=Korean
+com.excel.msgCn=Chinese
+com.excel.msgEn=English
+com.excel.type=Type
+com.excel.key=Key
+
+# 설비코드 등록
+com.excel.eqpCd=Equipment Code
+com.excel.eqpLevel=Equipment Level
+com.excel.eqpType=Type
+com.excel.eqpDesc=Description
+com.excel.eqpNm=Equipment Name
+com.excel.parentEqpCd=Parent Equipment Code
+com.excel.eqpGroup=Equipment Group
+

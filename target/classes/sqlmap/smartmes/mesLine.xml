@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.smartmes.mesLine">
+	
+	<!--
+	QueryID     : selectLineList
+	Description : Line 정보 결과 조회
+	-->
+	<select id="selectLineList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			LINE_CD
+			, LINE_NM
+			, LINE_DESC
+			, AREA_CD
+			, AREA_NM
+			, REMARKS
+			, DISPLAY_ORDER
+			, USE_YN
+			, CREATED_DT
+			, CREATED_USER_ID
+			, UPDATED_DT
+			, UPDATED_USER_ID
+			, ROWNUM AS NO
+		FROM (
+			SELECT
+				LI.LINE_CD AS LINE_CD
+				, LI.LINE_NM AS LINE_NM
+				, LI.LINE_DESC AS LINE_DESC
+				, LI.AREA_CD AS AREA_CD
+				, AR.AREA_NM AS AREA_NM
+				, LI.REMARKS AS REMARKS
+				, LI.DISPLAY_ORDER AS DISPLAY_ORDER
+				, LI.USE_YN
+				, TO_CHAR(LI.CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+				, LI.CREATED_USER_ID
+				, TO_CHAR(LI.UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+				, LI.UPDATED_USER_ID
+			FROM COM_LINE LI
+			INNER JOIN COM_AREA AR
+			ON LI.AREA_CD = AR.AREA_CD
+			<where>
+				<if test='searchStr != null and  searchStr != ""'>
+					AND (LI.LINE_NM LIKE '%${searchStr}%')
+				</if>
+				<if test='searchStr2 != null and  searchStr2 != ""'>
+					AND (LI.AREA_CD LIKE '%${searchStr2}%' OR AR.AREA_NM  LIKE '%${searchStr2}%')
+				</if>
+				<if test='useYn != null and  useYn != ""'>
+					AND LI.USE_YN = #{useYn}
+				</if>
+			</where>
+			ORDER BY LI.DISPLAY_ORDER ASC
+			)
+		WHERE AREA_CD = #{ssCustomerAreaCd}
+	</select>
+	
+	<!--
+	QueryID     : selectLineOne
+	Description : Line 정보 상세 단건 조회
+	-->	
+	<select id="selectLineOne" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			LINE_CD
+			, LINE_NM
+			, AREA_CD
+			, USE_YN
+			, TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+			, CREATED_USER_ID
+			, TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+			, UPDATED_USER_ID
+			, DISPLAY_ORDER
+			, ENTERPRISE_CD
+	    FROM COM_LINE
+	  	<where>
+			<if test='selectKey != null and selectKey != ""'>
+				AND LINE_CD = #{selectKey}
+			</if>
+		</where>
+		ORDER BY DISPLAY_ORDER ASC
+	</select>
+		
+	<!--
+	QueryID     : insertLineByJoin
+	Description : 회원가입시 라인 신규등록
+	-->	
+	<insert id="insertLineByJoin" parameterType="HashMap" >
+		<selectKey resultType="int" keyProperty="lineSeq" order="BEFORE">
+			SELECT  SEQ_LINE_ID.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO COM_LINE (
+								LINE_CD
+							  , LINE_NM
+							  , AREA_CD
+							  , USE_YN
+							  , CREATED_DT
+							  , CREATED_USER_ID
+							  , UPDATED_DT
+							  , UPDATED_USER_ID
+							  , DISPLAY_ORDER
+							  , ENTERPRISE_CD
+							) VALUES (
+								#{lineSeq}
+							  	, '생산라인'
+							  	, #{areaSeq}
+							    , 'Y'
+							    , SYSDATE
+								, 'admin'
+					          	, SYSDATE
+					          	, 'admin'
+					          	, 1
+					          	, #{enterSeq}
+							)
+	</insert>
+
+	<!--
+	QueryID     : insertLine
+	Description : 라인 신규등록
+	-->
+	<insert id="insertLine" parameterType="HashMap" >
+		<selectKey resultType="int" keyProperty="lineSeq" order="BEFORE">
+			SELECT  SEQ_LINE_ID.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO COM_LINE (
+								LINE_CD
+							  , LINE_NM
+							  , AREA_CD
+							  , USE_YN
+							  , DISPLAY_ORDER
+							  , CREATED_DT
+							  , CREATED_USER_ID
+							  , UPDATED_DT
+							  , UPDATED_USER_ID
+							  , ENTERPRISE_CD
+							) VALUES (
+								#{lineSeq}
+								, #{lineNm}
+							  	, #{ssCustomerAreaCd}
+							  	, 'Y'
+							  	, #{displayOrder}
+							  	, SYSDATE
+								, #{ssCustomerId}
+								, SYSDATE
+								, #{ssCustomerId}
+								, #{ssCustomerEnterCd}
+							)
+	</insert>
+
+	<!--
+	QueryID     : updateLine
+	Description : Line 정보 수정
+	-->	
+	<update id="updateLine" parameterType="HashMap" >
+		UPDATE COM_LINE
+		<set>
+			UPDATED_DT = SYSDATE
+			, UPDATED_USER_ID = #{ssCustomerId}
+			<if test="lineNm != null">
+				, LINE_NM = #{lineNm}
+			</if>
+			<if test="areaCd != null">
+				, AREA_CD = #{areaCd}
+			</if>
+			<if test="useYn != null">
+				, USE_YN = #{useYn}
+			</if>
+			<if test="displayOrder != null">
+				, DISPLAY_ORDER = #{displayOrder}
+			</if>
+		</set>
+		WHERE LINE_CD = #{lineCd}
+	</update>
+	
+	<!--
+	QueryID     : deleteLine
+	Description : Line 정보 삭제
+	-->	
+	<update id="deleteLine" parameterType="HashMap" >
+		UPDATE COM_LINE
+		<set>
+			  USE_YN = 'N'
+			, UPDATED_DT = SYSDATE
+			, UPDATED_USER_ID = #{ssCustomerId}
+		</set>
+		WHERE LINE_CD = #{lineCd}
+	</update>
+
+	<!--
+	QueryID     : selectLineListByEnterCd
+	Description : 법인코드로 LINE 리스트 조회
+	-->
+	<select id="selectLineListByEnterCd" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			LINE_CD
+			, LINE_NM
+		FROM COM_LINE
+		WHERE ENTERPRISE_CD = #{enterpriseCd} AND USE_YN = 'Y'
+		ORDER BY DISPLAY_ORDER
+	</select>
+
+
+
+</mapper>

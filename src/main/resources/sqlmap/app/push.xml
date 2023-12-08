@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cronies.app.push">
+
+    <select id="getAlarmInfo" parameterType="HashMap" resultType="ExqueryMap">
+       SELECT
+			A.ALARM_CD,
+			A.ALARM_NM,
+			A.MESSAGE,
+			A.SET_CD,
+			ISNULL(B.VAL, 'Y') AS VAL
+		FROM SC_ALARM A
+		LEFT OUTER JOIN SC_USER_SET B
+		ON B.USER_ID = #{userId}
+		AND A.SET_CD = B.SET_CD
+		WHERE A.ALARM_CD = #{alarmCd}
+		AND A.USE_YN = 'Y'
+    </select>
+
+	<select id="getAlarmInfoMulti" parameterType="HashMap" resultType="ExqueryMap">
+       SELECT
+			A.ALARM_CD,
+			A.ALARM_NM,
+			A.MESSAGE,
+			A.SET_CD
+		FROM SC_ALARM A
+		WHERE A.ALARM_CD = #{alarmCd}
+		AND A.USE_YN = 'Y'
+    </select>
+
+	<select id="getAlarmInfoAboutC10" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            ISNULL(VAL, 'Y') AS VAL
+        FROM SC_USER_SET
+        WHERE USER_ID = #{userId}
+        AND SET_CD = 'C10'
+    </select>
+
+    <select id="getUserNickAboutPushMsg" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+			NICK
+        FROM SC_USER
+		WHERE USER_ID = #{sendUserId}
+    </select>
+
+
+	<select id="getUserNickAboutPushMsgCom" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			ISNULL(COMMUNITY_NICK, '익명') AS NICK
+		FROM SC_CHATROOM_USER
+		WHERE CHATROOM_ID = #{chatroomId}
+		AND USER_ID = #{sendUserId}
+	</select>
+
+    <select id="getUserPhoneNumber" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT PHON FROM SC_USER
+		WHERE USER_ID = #{userId}
+    </select>
+
+	<select id="getUserToken" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT TOKEN FROM SC_USER
+		WHERE USER_ID = #{userId}
+    </select>
+
+	<insert id="insertSmsSend" parameterType="HashMap">
+	INSERT INTO SC_TRAN
+	(TR_SENDDATE, TR_SENDSTAT, TR_MSGTYPE, TR_PHONE, TR_CALLBACK, TR_MSG)
+	VALUES
+	( GETDATE(), '0', '0', #{phoneNo}, '028483380', #{msg})
+	</insert>
+
+	<!-- MMS즉시발송 -->
+	<insert id="insertMmsSend" parameterType="HashMap" >
+		INSERT INTO MMS_MSG
+			(SUBJECT, PHONE, CALLBACK, STATUS, REQDATE, MSG, TYPE)
+		VALUES
+			(#{title}, #{phoneNo}, '028483380', '0', GETDATE(), #{msg}, '0')
+	</insert>
+
+	<insert id="insertUserAlarm" parameterType="HashMap">
+	INSERT INTO SC_USER_ALARM
+	 	(USER_ID, ALARM_CD, SEND_TIME, CONTENTS, ROUTE_LINK, PUSH_TYPE, PUSH_KEY)
+	 VALUES
+	 	(
+	 	 #{userId}, #{alarmCd}, GETDATE(), #{msg}, '', #{pushType}
+		<if test='pushKey != null and pushKey != ""'>, #{pushKey}</if>
+		<if test='pushKey == null or pushKey == ""'>, NULL</if>
+		)
+	</insert>
+</mapper>

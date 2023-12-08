@@ -1,0 +1,360 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.smartmes.mesManager">
+
+	<!--
+	QueryID     : selectManagerList
+	Description : Manager 정보 결과 조회
+	-->
+	<select id="selectManagerList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			ENTERPRISE_CD
+			, MANAGER_ID
+			, MANAGER_NM
+			, PHONE
+			, LINE_CD
+			, PROC_CD
+			, MANAGER_KEY
+			, ROWNUM AS NO
+		FROM COM_MANAGER
+		WHERE ENTERPRISE_CD = #{ssCustomerEnterCd}
+		<if test="searchStr != '' and searchStr != null">
+			AND LINE_CD = #{searchStr}
+		</if>
+		<if test="searchStr2 != '' and searchStr2 != null">
+			AND PROC_CD = #{searchStr2}
+		</if>
+		<if test="searchStr3 != '' and searchStr3 != null">
+			AND MANAGER_NM LIKE '%${searchStr3}%'
+		</if>
+		<if test="searchStr4 != '' and searchStr4 != null">
+			AND PHONE LIKE '%${searchStr4}%'
+		</if>
+	</select>
+
+	<!--
+	QueryID     : selectManagerList
+	Description : Manager 정보 결과 조회
+	-->
+	<select id="selectManagerListLineProc" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			ENTERPRISE_CD
+			, MANAGER_ID
+			, MANAGER_NM
+			, PHONE
+			, LINE_CD
+			, PROC_CD
+			, MANAGER_KEY
+			, ROWNUM AS NO
+		FROM COM_MANAGER
+		WHERE LINE_CD = #{lineCd}
+		AND PROC_CD = #{procCd}
+	</select>
+
+	<!--
+	QueryID     : selectManagerListAll
+	Description : 전체 Manager 정보 결과 조회
+	-->
+	<select id="selectManagerListAll" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			ENTERPRISE_CD
+			, MANAGER_ID
+			, MANAGER_NM
+			, PHONE
+			, LINE_CD
+			, PROC_CD
+			, MANAGER_KEY
+			, ROWNUM AS NO
+		FROM COM_MANAGER
+	</select>
+
+	<!--
+	QueryID     : selectManagerOne
+	Description : Manager 정보 상세 단건 조회
+	-->
+	<select id="selectManagerOne" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			ENTERPRISE_CD
+			, MANAGER_ID
+			, MANAGER_NM
+			, PHONE
+			, LINE_CD
+			, PROC_CD
+			, MANAGER_KEY
+		FROM COM_MANAGER
+		WHERE MANAGER_ID = #{managerId}
+	</select>
+
+	<!--
+	QueryID     : insertManager
+	Description : Manager 등록하기
+	-->
+	<insert id="insertManager" parameterType="HashMap">
+		<selectKey resultType="int" keyProperty="managerSeq" order="BEFORE">
+			SELECT  SEQ_MANAGER_ID.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO COM_MANAGER
+		(ENTERPRISE_CD, MANAGER_ID, MANAGER_NM, PHONE, LINE_CD, PROC_CD, MANAGER_KEY)
+		VALUES
+		(#{ssCustomerEnterCd}, #{managerSeq}, #{managerNm}, #{phone}, #{lineCd}, #{procCd}, #{managerKey})
+	</insert>
+
+	<!--
+	QueryID     : updateManager
+	Description : Manager 정보 수정
+	-->
+	<update id="updateManager" parameterType="HashMap" >
+		UPDATE COM_MANAGER
+		<set>
+			PHONE = #{phone}
+			<if test="managerNm != null">
+				, MANAGER_NM = #{managerNm}
+			</if>
+			<if test="lineCd != null">
+				, LINE_CD = #{lineCd}
+			</if>
+			<if test="procCd != null">
+				, PROC_CD = #{procCd}
+			</if>
+		</set>
+		WHERE MANAGER_ID = #{managerId}
+	</update>
+
+	<!--
+	QueryID     : deleteManager
+	Description : Manager 정보 삭제
+	-->
+	<delete id="deleteManager" parameterType="HashMap">
+		DELETE
+		FROM COM_MANAGER
+		WHERE MANAGER_ID = #{managerId}
+	</delete>
+
+	<!--
+	QueryID     : selectManagerByManagerKey
+	Description : ManagerKey 중복체크
+	-->
+	<select id="selectManagerByManagerKey" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			MANAGER_ID
+			, MANAGER_NM
+			, MANAGER_KEY
+			, ENTERPRISE_CD
+			, LINE_CD
+			, PROC_CD
+			, PHONE
+		FROM COM_MANAGER
+		WHERE MANAGER_KEY = #{managerKey}
+	</select>
+
+	<!--
+	QueryID     : selectEqpRunInfo
+	Description : 설비가 가동중인지 체크한다.
+	-->
+	<select id="selectEqpRunInfo" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			EQP_CD
+			, EVENT_TIME
+			, RUN_YN
+			, UPDATED_DT
+		FROM COM_EQP_STATE
+		WHERE EQP_CD = (SELECT EQP_CD FROM COM_EQUIPMENT WHERE PROC_CD = #{procCd})
+	</select>
+
+	<!--
+	QueryID     : selectEqpRunInfo
+	Description : 가동상태를 MERGE한다.
+	-->
+	<select id="mergeEqpState" parameterType="HashMap" resultType="ExqueryMap">
+		MERGE INTO COM_EQP_STATE T
+        USING DUAL
+        ON (T.EQP_CD = #{eqpCd})
+        WHEN MATCHED THEN
+         UPDATE SET
+              T.EVENT_TIME  = SYSDATE,
+              T.RUN_YN  = #{runYn},
+              T.STATE_CD = #{stateCd}
+        WHEN NOT MATCHED THEN
+         INSERT (T.EQP_CD, T.EVENT_TIME,T.RUN_YN, T.UPDATED_DT, T.STATE_CD)
+         VALUES (#{eqpCd}, SYSDATE, #{runYn}, SYSDATE, #{stateCd})
+	</select>
+
+	<!--
+	QueryID     : selectEqpRunInfo
+	Description : HISTORY를 업데이트한다.
+	-->
+	<select id="updateEqpStateHis" parameterType="HashMap" resultType="ExqueryMap">
+		UPDATE COM_EQP_STATE_HIS
+		SET END_TIME = SYSDATE
+			  ,LAST_YN = 'N'
+		WHERE EQP_CD = #{eqpCd}
+		AND LAST_YN = 'Y'
+	</select>
+
+	<!--
+	QueryID     : selectEqpRunInfo
+	Description : HISTORY를 INSERT한다.
+	-->
+	<select id="insertEqpStateHis" parameterType="HashMap" resultType="ExqueryMap">
+		INSERT INTO COM_EQP_STATE_HIS
+		(EQP_CD, EVENT_TIME, START_TIME, END_TIME, CREATED_DT, CREATED_USER_ID, UPDATED_DT, UPDATED_USER_ID, LAST_YN, RUN_YN, STATE_CD)
+		VALUES
+		(#{eqpCd}, SYSDATE, SYSDATE, SYSDATE+3600, SYSDATE, #{phone}, SYSDATE, #{phone}, 'Y', #{runYn}, #{stateCd})
+	</select>
+
+	<!--
+	QueryID     : selectEqpRunInfo
+	Description : HISTORY를 INSERT한다.
+	-->
+	<select id="selectEquipmentCd" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT EQP_CD FROM COM_EQUIPMENT WHERE PROC_CD = #{procCd}
+	</select>
+
+	<!--
+	QueryID     : regProduction
+	Description : 생산량 등록하기
+	-->
+	<insert id="regProduction" parameterType="HashMap">
+		<selectKey resultType="int" keyProperty="inputSeq" order="BEFORE">
+			SELECT  SEQ_COM_PROC_INPUT.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO COM_PROC_INPUT
+		(PROC_CD, PROD_ID, PROD_CNT, BAD_CNT, CREATED_DT, CREATED_USER_ID, SEQ)
+		VALUES
+		(#{procCd}, #{prodId}
+		<if test="prodCnt != ''">
+			, #{prodCnt}
+		</if>
+		<if test="prodCnt == ''">
+			, 0
+		</if>
+		<if test="badCnt != ''">
+			, #{badCnt}
+		</if>
+		<if test="badCnt == ''">
+			, 0
+		</if>
+		, SYSDATE, #{phone}, #{inputSeq})
+	</insert>
+
+	<!--
+	QueryID     : getTodayProduction
+	Description : 당일 생산량 리스트를 조회한다.
+	-->
+	<select id="getTodayProduction" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			CPI.PROC_CD
+			, CPI.PROD_ID
+			, CPI.PROD_CNT
+			, CPI.BAD_CNT
+			, TO_CHAR(CPI.CREATED_DT, 'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+			, CPI.CREATED_USER_ID
+			, CP.PROD_NM
+			, CPI.SEQ
+		FROM COM_PROC_INPUT CPI
+		INNER JOIN COM_PRODUCT CP
+		ON CPI.PROD_ID = CP.PROD_ID
+		WHERE CPI.PROC_CD = #{procCd}
+		AND CPI.CREATED_DT BETWEEN FN_START_DATE(TO_CHAR(SYSDATE,'YYYYMMDD')) AND FN_END_DATE(TO_CHAR(SYSDATE,'YYYYMMDD'))
+		AND (CPI.PROD_CNT != 0 OR CPI.BAD_CNT != 0)
+	</select>
+
+	<!--
+	QueryID     : getStartEndDate
+	Description : 00시 ~ 23시 59분 59초
+	-->
+	<select id="getStartEndDate" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+            TO_CHAR(FN_START_DATE(TO_CHAR(SYSDATE,'YYYYMMDD')), 'YYYY-MM-DD HH24:MI:SS') AS START_DATE
+            , TO_CHAR(FN_END_DATE(TO_CHAR(SYSDATE,'YYYYMMDD')), 'YYYY-MM-DD HH24:MI:SS') AS END_DATE
+        FROM DUAL
+	</select>
+
+	<!--
+	QueryID     : insertManager
+	Description : Manager 등록하기
+	-->
+	<insert id="insertDefaultManager" parameterType="HashMap">
+		<selectKey resultType="int" keyProperty="managerSeq" order="BEFORE">
+			SELECT  SEQ_MANAGER_ID.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO COM_MANAGER
+		(ENTERPRISE_CD, MANAGER_ID, MANAGER_NM, PHONE, LINE_CD, PROC_CD, MANAGER_KEY)
+		VALUES
+		(#{enterSeq}, #{managerSeq}, #{userNm}, #{phone}, #{lineSeq}, #{procSeq}, #{managerKey})
+	</insert>
+
+
+	<!--
+	QueryID     : selectEqpRunInfo
+	Description : 가동상태를 MERGE한다.
+	-->
+	<select id="mergeEqpStateNew" parameterType="HashMap" resultType="ExqueryMap">
+		MERGE INTO COM_EQP_STATE T
+        USING DUAL
+        ON (T.EQP_CD = #{eqpSeq})
+        WHEN MATCHED THEN
+         UPDATE SET
+              T.EVENT_TIME  = SYSDATE,
+              T.RUN_YN  = 'N',
+              T.STATE_CD = 1
+        WHEN NOT MATCHED THEN
+         INSERT (T.EQP_CD, T.EVENT_TIME,T.RUN_YN, T.UPDATED_DT, T.STATE_CD)
+         VALUES (#{eqpSeq}, SYSDATE, 'N', SYSDATE, 1)
+	</select>
+
+	<select id="insertEqpStateHisNew" parameterType="HashMap" resultType="ExqueryMap">
+		INSERT INTO COM_EQP_STATE_HIS
+		(EQP_CD, EVENT_TIME, START_TIME, END_TIME, CREATED_DT, CREATED_USER_ID, UPDATED_DT, UPDATED_USER_ID, LAST_YN, RUN_YN, STATE_CD)
+		VALUES
+		(#{eqpSeq}, SYSDATE, SYSDATE, SYSDATE+3600, SYSDATE, 'new', SYSDATE, 'new', 'Y', 'N', 1)
+	</select>
+
+	<!--
+	QueryID     : sendLineProcManager
+	Description : 해당 라인공정 담당자에게 생산등록요청 메시지를 발송한다.
+	-->
+	<select id="sendLineProcManager" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			PHONE, MANAGER_KEY
+		FROM COM_MANAGER
+		WHERE LINE_CD = #{lineCd}
+		AND PROC_CD = #{procCd}
+	</select>
+
+	<!--
+	QueryID     : selectManagerListByLineCd
+	Description : 해당 라인의 담당자 리스트를 조회한다.
+	-->
+	<select id="selectManagerListByLineCd" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			ENTERPRISE_CD
+			, MANAGER_ID
+			, MANAGER_NM
+			, PHONE
+			, LINE_CD
+			, PROC_CD
+			, MANAGER_KEY
+		FROM COM_MANAGER
+		WHERE LINE_CD = #{lineCd}
+	</select>
+
+	<!--
+	QueryID     : selectManagerListByProcCd
+	Description : 해당 공정의 담당자 리스트를 조회한다.
+	-->
+	<select id="selectManagerListByProcCd" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			ENTERPRISE_CD
+			, MANAGER_ID
+			, MANAGER_NM
+			, PHONE
+			, LINE_CD
+			, PROC_CD
+			, MANAGER_KEY
+		FROM COM_MANAGER
+		WHERE PROC_CD = #{procCd}
+	</select>
+
+</mapper>

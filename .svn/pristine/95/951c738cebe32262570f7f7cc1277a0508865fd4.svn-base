@@ -1,0 +1,387 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cronies.app.storeProcess">
+
+	<!--
+	Description : 아이템 구매 이력 INSERT
+	-->
+	<insert id="insertStoreBuyHis" parameterType="HashMap">
+		INSERT INTO SC_STORE_BUY
+			(USER_ID, ITEM_CD, BUY_TIME, PRICE_WON
+		<if test='transactionId != null and transactionId != ""'>
+			, TRANSACTION_ID
+		</if>
+			)
+		VALUES
+			(#{userId}, #{itemCd}
+		<if test='purchaseDate != null and purchaseDate != ""'>
+			, #{purchaseDate}
+		</if>
+		<if test='purchaseDate == null or purchaseDate == ""'>
+			, GETDATE()
+		</if>
+			, #{priceWon}
+		<if test='transactionId != null and transactionId != ""'>
+			, #{transactionId}
+		</if>
+			)
+	</insert>
+
+	<!--
+	Description : 쿠폰 이력 INSERT
+	-->
+	<insert id="insertStoreCoupon" parameterType="HashMap">
+		INSERT INTO SC_STORE_COUPON_LIST
+			(USER_ID, COUPON_CD, REG_TIME, BONUS_YN, USE_YN
+		<if test='transactionId != null and transactionId != ""'>
+			, TRANSACTION_ID
+		</if>
+			)
+		VALUES
+			(#{userId}, #{couponCd}, GETDATE(), 'N', 'N'
+		<if test='transactionId != null and transactionId != ""'>
+			, #{transactionId}
+		</if>
+			)
+	</insert>
+
+	<!--
+	Description : 수량 Update
+	-->
+	<update id="mergeStoreCouponCurrent" parameterType="HashMap">
+		MERGE INTO SC_STORE_COUPON_CURRENT AS A
+			USING (SELECT 1 AS DUAL) AS B
+			ON (A.USER_ID = #{userId} AND A.COUPON_CD = #{couponCd})
+			WHEN MATCHED THEN
+				UPDATE SET
+					QUANTITY = #{sumQuantity}
+					, UPDATE_DT = GETDATE()
+			WHEN NOT MATCHED THEN
+				INSERT
+					(USER_ID, COUPON_CD, QUANTITY, UPDATE_DT)
+				VALUES
+					(#{userId}, #{couponCd}, #{sumQuantity}, GETDATE());
+	</update>
+
+	<!--
+	Description : 쿠폰 단건 사용 처리
+	-->
+	<update id="useCouponOne" parameterType="HashMap">
+		UPDATE SC_STORE_COUPON_LIST
+		SET USE_YN = 'Y'
+			, USE_DATE = GETDATE()
+		WHERE 1=1
+		  AND COUPON_ID = #{couponId}
+	</update>
+
+	<!--
+	Description : 쿠폰 단건 사용 처리
+	-->
+	<update id="updateCouponCurrent" parameterType="HashMap">
+		MERGE INTO SC_STORE_COUPON_CURRENT AS A
+			USING (SELECT 1 AS DUAL) AS B
+			ON (A.USER_ID = #{userId} AND A.COUPON_CD = #{couponCd})
+			WHEN MATCHED THEN
+				UPDATE SET
+					QUANTITY = (SELECT COUNT(*) FROM SC_STORE_COUPON_LIST WHERE USER_ID = #{userId} AND COUPON_CD = #{couponCd} AND USE_YN = 'N')
+					, UPDATE_DT = GETDATE()
+			WHEN NOT MATCHED THEN
+				INSERT
+					(USER_ID
+						, COUPON_CD
+						, QUANTITY
+						, UPDATE_DT)
+					VALUES
+						(#{userId}
+						, #{couponCd}
+						, (SELECT COUNT(*) FROM SC_STORE_COUPON_LIST WHERE USER_ID = #{userId} AND COUPON_CD = #{couponCd} AND USE_YN = 'N')
+						, GETDATE());
+	</update>
+
+	<!--
+	Description : Super Like INSERT
+	-->
+	<insert id="insertSuperLike" parameterType="HashMap">
+		INSERT INTO SC_LIKE (USER_ID, TARGET_USER_ID, REG_TIME, SUPER_LIKE_YN, SUPER_LIKE_MESSAGE)
+		VALUES (#{userId}, #{targetUserId}, CONVERT(VARCHAR, GETDATE(), 120), 'Y', #{message})
+	</insert>
+
+	<!--
+	Description : 받은좋아요확인 버프 처리 (현재 사용중이지 않을 시)
+	-->
+	<update id="mergeReceivedLike" parameterType="HashMap">
+		MERGE INTO SC_BUFF_RECEIVED_LIKE AS A
+			USING (SELECT 1 AS DUAL) AS B
+			ON (A.USER_ID = #{userId})
+			WHEN MATCHED THEN
+				UPDATE SET
+					START_TIME = GETDATE()
+				    , END_TIME = DATEADD(DD, 30, GETDATE())
+					, STD_DATE = CONVERT(CHAR(8), GETDATE(), 112)
+			WHEN NOT MATCHED THEN
+				INSERT
+					(USER_ID
+					, STD_DATE
+					, START_TIME
+					, END_TIME)
+				VALUES
+					(#{userId}
+					, CONVERT(CHAR(8), GETDATE(), 112)
+					, GETDATE()
+					, DATEADD(DD, 30, GETDATE()));
+	</update>
+
+	<!--
+	Description : 받은좋아요확인 버프 처리 (현재 사용중 일 시)
+	-->
+	<update id="updateReceivedLike" parameterType="HashMap">
+		UPDATE SC_BUFF_RECEIVED_LIKE
+			SET END_TIME = DATEADD(DD, 30, END_TIME)
+				, STD_DATE = CONVERT(CHAR(8), GETDATE(), 112)
+		WHERE 1=1
+			AND USER_ID = #{userId}
+	</update>
+
+	<!--
+	Description : 허니부스트 버프 처리 (현재 사용중이지 않을 시)
+	-->
+	<update id="mergeHoneyBoost" parameterType="HashMap">
+		MERGE INTO SC_BUFF_HONEY_BOOST AS A
+			USING (SELECT 1 AS DUAL) AS B
+			ON (A.USER_ID = #{userId})
+			WHEN MATCHED THEN
+				UPDATE SET
+					START_TIME = GETDATE()
+				    , END_TIME = DATEADD(HH, 1, GETDATE())
+		    		, STD_DATE = CONVERT(CHAR(8), GETDATE(), 112)
+			WHEN NOT MATCHED THEN
+				INSERT
+					(USER_ID
+					, STD_DATE
+					, START_TIME
+					, END_TIME)
+				VALUES
+					(#{userId}
+					, CONVERT(CHAR(8), GETDATE(), 112)
+					, GETDATE()
+					, DATEADD(HH, 1, GETDATE())
+					);
+	</update>
+
+	<!--
+	Description : 허니부스트 버프 처리 (현재 사용중 일 시)
+	-->
+	<update id="updateHoneyBoost" parameterType="HashMap">
+		UPDATE SC_BUFF_HONEY_BOOST
+			SET END_TIME = DATEADD(HH, 1, END_TIME)
+		WHERE 1=1
+			AND USER_ID = #{userId}
+	</update>
+
+	<!--
+	Description : Profile AD INSERT
+	-->
+	<insert id="insertProfileAd" parameterType="HashMap">
+		INSERT INTO SC_PROFILE_AD
+		    (USER_ID, REG_TIME)
+		VALUES
+		   	(#{userId}, GETDATE())
+	</insert>
+
+	<!--
+	Description : SWIPER PLUS MERGE
+	-->
+	<update id="mergeSwiperPlusCnt" parameterType="HashMap">
+		MERGE INTO SC_SWIPER_CNT AS A
+			USING (SELECT 1 AS DUAL) AS B
+			ON (A.USER_ID = #{userId})
+			WHEN MATCHED THEN
+				UPDATE SET
+					PLUS_CNT = #{totalCnt}
+					, UPD_TIME = GETDATE()
+			WHEN NOT MATCHED THEN
+				INSERT
+					(USER_ID
+					, FREE_CNT
+					, PLUS_CNT
+					, BACK_YN
+					, UPD_TIME)
+				VALUES
+					(#{userId}
+					, 30
+					, 0
+					, 'N'
+					, GETDATE());
+	</update>
+
+	<!--
+	Description : SWIPER FREE UPDATE
+	-->
+	<update id="updateSwiperFreeCnt" parameterType="HashMap">
+		UPDATE SC_SWIPER_CNT
+		    SET FREE_CNT = #{freeCnt}
+				, BACK_YN = 'N'
+				, UPD_TIME = GETDATE()
+		WHERE 1=1
+		AND USER_ID = #{userId}
+	</update>
+<!--	<update id="updateSwiperFreeCnt" parameterType="HashMap">-->
+<!--		UPDATE SC_SWIPER_CNT-->
+<!--		    SET FREE_CNT = #{calCnt}-->
+<!--			  	, TODAY_END_NO = CONVERT(NUMERIC, #{todayUserNo})+1+CONVERT(NUMERIC, #{calCnt})+CONVERT(NUMERIC, PLUS_CNT)-->
+<!--				, BACK_YN = 'N'-->
+<!--				, UPD_TIME = GETDATE()-->
+<!--		WHERE 1=1-->
+<!--		AND USER_ID = #{userId}-->
+<!--	</update>-->
+
+	<!--
+	Description : SWIPER PLUS UPDATE
+	-->
+	<update id="updateSwiperPlusCnt" parameterType="HashMap">
+		UPDATE SC_SWIPER_CNT
+		    SET PLUS_CNT = #{plusCnt}
+			  	, BACK_YN = 'N'
+				, UPD_TIME = GETDATE()
+		WHERE 1=1
+		AND USER_ID = #{userId}
+	</update>
+<!--	<update id="updateSwiperPlusCnt" parameterType="HashMap">-->
+<!--		UPDATE SC_SWIPER_CNT-->
+<!--		    SET PLUS_CNT = #{calCnt}-->
+<!--			  	, TODAY_END_NO = CONVERT(NUMERIC, #{pageNo})+1+CONVERT(NUMERIC, #{calCnt})+CONVERT(NUMERIC, FREE_CNT)-->
+<!--			  	, BACK_YN = 'N'-->
+<!--				, UPD_TIME = GETDATE()-->
+<!--		WHERE 1=1-->
+<!--		AND USER_ID = #{userId}-->
+<!--	</update>-->
+
+	<!--
+	Description : TODAY USER_NO UPDATE
+	-->
+	<update id="updateTodayUserNo" parameterType="HashMap">
+		UPDATE SC_SWIPER_CNT
+		SET TODAY_USER_NO = CONVERT(NUMERIC, #{todayUserNo})+1
+		WHERE 1=1
+		  AND USER_ID = #{userId}
+	</update>
+
+	<!--
+	Description : OPEN CHAT BOOST INSERT
+	-->
+	<insert id="insertOpenChatBoost" parameterType="HashMap">
+		INSERT INTO SC_BUFF_OPENCHAT_BOOST
+		    (OPENCHAT_ID, USER_ID, STD_DATE, START_TIME, END_TIME)
+		VALUES
+		   	(#{openchatId}, #{userId}, CONVERT(CHAR(8), GETDATE(), 112), GETDATE(), DATEADD(HH, 5, GETDATE()))
+	</insert>
+
+	<!--
+	Description : OPEN CHAT BOOST UPDATE
+	-->
+	<update id="updateOpenChatBoost" parameterType="HashMap">
+		UPDATE SC_BUFF_OPENCHAT_BOOST
+		SET END_TIME = DATEADD(HH, 1, END_TIME)
+		WHERE 1=1
+		  AND ID = #{id}
+		  AND USER_ID = #{userId}
+	</update>
+
+	<select id="callSetPopularity" resultType="string" statementType="CALLABLE">
+		{ CALL SET_OPENCHAT_POPULARITY (NULL) }
+	</select>
+
+	<!--
+	Description : 구독 이력 INSERT
+	-->
+	<insert id="insertScSubscribeHis" parameterType="HashMap">
+		INSERT INTO SC_SUBSCRIBE_HIS
+			(USER_ID, SUBSCRIBE_CD, PAYMENT_CD, PAYMENT_TIME, REG_TIME
+		<if test='transactionId != null and transactionId != ""'>
+			, TRANSACTION_ID
+		</if>
+			)
+		VALUES
+			(#{ssUserId}, #{subscribeCd}, 'SUCCESS'
+		<if test='purchaseDate != null and purchaseDate != ""'>
+			, #{purchaseDate}
+		</if>
+		<if test='purchaseDate == null or purchaseDate == ""'>
+			, GETDATE()
+		</if>
+			,  GETDATE()
+		<if test='transactionId != null and transactionId != ""'>
+			, #{transactionId}
+		</if>
+			)
+	</insert>
+
+	<!--
+	Description : 구독 CURRENT MERGE
+	-->
+	<update id="mergeScSubscribeCurrent" parameterType="HashMap">
+		MERGE INTO SC_SUBSCRIBE_CURRENT AS A
+			USING (SELECT 1 AS DUAL) AS B
+			ON (A.USER_ID = #{ssUserId})
+			WHEN MATCHED THEN
+				UPDATE SET
+					SUBSCRIBE_CD = #{subscribeCd}
+					, START_TIME = #{purchaseDate}
+					, END_TIME = #{expiresDate}
+					, SUBSCRIBE_YN = 'Y'
+		    		, UPD_TIME = GETDATE()
+			WHEN NOT MATCHED THEN
+				INSERT
+					(USER_ID
+					, SUBSCRIBE_CD
+					, START_TIME
+					, END_TIME
+					, SUBSCRIBE_YN
+					, UPD_TIME)
+				VALUES
+					(#{ssUserId}
+					, #{subscribeCd}
+					, #{purchaseDate}
+					, #{expiresDate}
+					, 'Y'
+					, GETDATE());
+	</update>
+
+	<!--
+	Description : 콘테스트 투표권 첫 구매 INSERT
+	-->
+	<insert id="insertScContestBuyCurrentCnt" parameterType="HashMap">
+		INSERT INTO SC_CONTEST_BUY_CURRENT
+			(CONTEST_TYPE, USER_ID, BUY_CNT, UPD_TIME)
+		VALUES
+		    (#{contestType}, #{ssUserId}, 1, GETDATE())
+	</insert>
+
+	<!--
+	Description : 콘테스트 투표권 구매 UPDATE
+	-->
+	<update id="updateScContestBuyCurrentCnt" parameterType="HashMap">
+		UPDATE SC_CONTEST_BUY_CURRENT
+		SET BUY_CNT = BUY_CNT + 1
+			, UPD_TIME = GETDATE()
+		WHERE 1=1
+			AND CONTEST_TYPE = #{contestType}
+			AND USER_ID = #{ssUserId}
+	</update>
+
+
+
+
+
+	<!--
+	Description : resetSubscribeCurrent
+	-->
+	<update id="resetSubscribeCurrent" parameterType="HashMap">
+		UPDATE SC_SUBSCRIBE_CURRENT
+		SET SUBSCRIBE_YN = 'N'
+		WHERE 1=1
+		  AND USER_ID = #{ssUserId}
+	</update>
+
+</mapper>

@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.basic.sqlMtrl">
+
+	<!--
+	QueryID     : selectMtrlGroupList
+	Description : MtrlGroup 정보 조회
+	-->	
+	<select id="selectMtrlGroupList" parameterType="HashMap" resultType="ExqueryMap" >
+	    SELECT MTRL_GROUP_CD
+		     , MTRL_GROUP_NM
+		     , MTRL_GROUP_DESC
+		     , USE_YN
+		     , REMARKS
+			 , CREATED_DT
+			 , CREATED_USER_ID
+			 , UPDATED_DT
+			 , UPDATED_USER_ID
+			 , ROWNUM AS NO
+		  FROM (
+				SELECT MTRL_GROUP_CD
+				     , FN_GET_MSG(MTRL_GROUP_NM, #{ssUserLang}) AS MTRL_GROUP_NM
+				     , MTRL_GROUP_DESC
+				     , FN_GET_COMMCODE_NAME(#{ssUserLang}, 'USE_YN', USE_YN) AS USE_YN
+				     , REMARKS
+					 , TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+					 , FN_GET_USER_NAME(CREATED_USER_ID) AS CREATED_USER_ID
+					 , TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+					 , FN_GET_USER_NAME(UPDATED_USER_ID) UPDATED_USER_ID
+				  FROM COM_MATERIAL_GROUP
+				<where>
+					<if test='searchStr1 != null and  searchStr1 != ""'>
+						AND (MTRL_GROUP_CD LIKE '%${searchStr1}%'
+						 OR MTRL_GROUP_NM LIKE '%${searchStr1}%')
+					</if>
+					<if test='useYn != null and  useYn != ""'>
+						AND USE_YN = #{useYn}
+					</if>
+				</where>
+				ORDER BY MTRL_GROUP_CD ASC)
+	</select>
+	
+	<!--
+	QueryID     : selectPlantOne
+	Description :MtrlGroup 상세 단건 조회
+	-->	        
+	<select id="selectMtrlGroupOne" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT MTRL_GROUP_CD
+		     , FN_LANG_INP(MTRL_GROUP_NM,'en') AS MTRL_GROUP_NM_EN 	-- 영어 변경해야됨 수정 요청
+		  	 , FN_LANG_INP(MTRL_GROUP_NM,'ko') AS MTRL_GROUP_NM_KO 	-- 영어
+          	 , FN_LANG_INP(MTRL_GROUP_NM,'cn') AS MTRL_GROUP_NM_CN 	-- 중국어
+		     , MTRL_GROUP_DESC
+		     , USE_YN
+		     , REMARKS
+			 , TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+			 , CREATED_USER_ID
+			 , TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+			 , UPDATED_USER_ID	
+		  FROM COM_MATERIAL_GROUP
+		 WHERE MTRL_GROUP_CD = #{selectKey}
+	</select>
+		
+	<!--
+	QueryID     : insertMtrlGroup
+	Description : MtrlGroup 정보 등록
+	-->	
+	<insert id="insertMtrlGroup" parameterType="HashMap" >
+		INSERT INTO COM_MATERIAL_GROUP (
+									  MTRL_GROUP_CD
+							        , MTRL_GROUP_NM
+							        , MTRL_GROUP_DESC
+							        , USE_YN
+							        , REMARKS
+							        , CREATED_DT
+							        , CREATED_USER_ID
+							        , UPDATED_DT
+							        , UPDATED_USER_ID
+								    ) 
+								    VALUES ( #{mtrlGroupCd}
+									       , #{mtrlGroupNm}
+									       , #{mtrlGroupDesc}
+									       , #{useYn}
+									       , #{remarks}
+									       , SYSDATE
+									       , #{ssUserId}
+							               , SYSDATE
+							               , #{ssUserId}
+									       )
+	</insert>
+	
+	<!--
+	QueryID     : updateMtrlGroup
+	Description : MtrlGroup 정보 수정
+	-->	
+	<update id="updateMtrlGroup" parameterType="HashMap" >
+		UPDATE COM_MATERIAL_GROUP
+		<set>
+			  MTRL_GROUP_CD   = #{mtrlGroupCd}
+	        , MTRL_GROUP_NM   = #{mtrlGroupNm}
+	        , MTRL_GROUP_DESC = #{mtrlGroupDesc}
+	        , USE_YN          = #{useYn}
+	        , REMARKS          = #{remarks}
+	        , CREATED_DT      = SYSDATE
+	        , CREATED_USER_ID = #{ssUserId}
+	        , UPDATED_DT      = SYSDATE
+	        , UPDATED_USER_ID = #{ssUserId}
+		</set>
+		WHERE MTRL_GROUP_CD = #{mtrlGroupCd}
+	</update>
+	
+	<!--
+	QueryID     : deleteMtrlGroup
+	Description : MtrlGroup 정보 삭제
+	-->	
+	<update id="deleteMtrlGroup" parameterType="HashMap" >
+		UPDATE COM_MATERIAL_GROUP
+		<set>
+			  USE_YN = 'N'
+			, UPDATED_DT = SYSDATE
+			, UPDATED_USER_ID = #{ssUserId}
+		</set>
+		WHERE MTRL_GROUP_CD = #{mtrlGroupCd}
+	</update>
+	
+	<!--
+	QueryID     : selectMtrlTypeList
+	Description : MtrlType 정보 조회
+	-->	
+	<select id="selectMtrlTypeList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT MTRL_TYPE_CD
+		     , FN_GET_MSG(MTRL_TYPE_NM, #{ssUserLang})	 				AS MTRL_TYPE_NM
+		     , MTRL_TYPE_DESC
+		     , FN_GET_COMMCODE_NAME(#{ssUserLang}, 'USE_YN', USE_YN) 	AS USE_YN
+		     , REMARKS
+			 , TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') 				AS CREATED_DT
+			 , CREATED_USER_ID
+			 , FN_GET_USER_NAME(CREATED_USER_ID) AS CREATED_USER_NM
+			 , TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') 				AS UPDATED_DT
+			 , UPDATED_USER_ID
+			 , FN_GET_USER_NAME(UPDATED_USER_ID) AS UPDATED_USER_NM
+		  FROM COM_MATERIAL_TYPE
+		<where>
+			<if test='searchStr1 != null and  searchStr1 != ""'>
+				AND (MTRL_TYPE_CD LIKE '%${searchStr1}%' OR FN_GET_MSG(MTRL_TYPE_NM, #{ssUserLang}) LIKE '%${searchStr1}%')
+			</if>
+			<if test='useYn != null and  useYn != ""'>
+				AND USE_YN = #{useYn}
+			</if>
+		</where>
+		ORDER BY MTRL_TYPE_CD ASC
+	</select>
+	
+	<select id="selectMtrlTypeOne" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT MTRL_TYPE_CD
+		     , FN_LANG_INP(MTRL_TYPE_NM,'en') AS MTRL_TYPE_NM_EN 	-- 영어 변경해야됨 수정 요청
+		  	 , FN_LANG_INP(MTRL_TYPE_NM,'ko') AS MTRL_TYPE_NM_KO 	-- 영어
+          	 , FN_LANG_INP(MTRL_TYPE_NM,'cn') AS MTRL_TYPE_NM_CN 	-- 중국어
+		     , MTRL_TYPE_DESC
+		     , USE_YN
+		     , REMARKS
+			 , TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+			 , CREATED_USER_ID
+			 , TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+			 , UPDATED_USER_ID	
+		  FROM COM_MATERIAL_TYPE
+		 WHERE MTRL_TYPE_CD = #{mtrlTypeCd}
+	</select>
+	
+	<insert id="insertMtrlType" parameterType="HashMap" >
+		INSERT INTO COM_MATERIAL_TYPE (
+									  MTRL_TYPE_CD
+							        , MTRL_TYPE_NM
+							        , MTRL_TYPE_DESC
+							        , USE_YN
+							        , REMARKS
+							        , CREATED_DT
+							        , CREATED_USER_ID
+							        , UPDATED_DT
+							        , UPDATED_USER_ID
+								    ) 
+								    VALUES ( #{mtrlTypeCd}
+									       , #{mtrlTypeNm}
+									       , #{mtrlTypeDesc}
+									       , #{useYn}
+									       , #{remarks}
+									       , SYSDATE
+									       , #{ssUserId}
+							               , SYSDATE
+							               , #{ssUserId}
+									       )
+	</insert>
+	
+	<update id="updateMtrlType" parameterType="HashMap" >
+		UPDATE COM_MATERIAL_TYPE
+		<set>
+			  MTRL_TYPE_CD    = #{mtrlTypeCd}
+	        , MTRL_TYPE_NM    = #{mtrlTypeNm}
+	        , MTRL_TYPE_DESC  = #{mtrlTypeDesc}
+	        , USE_YN          = #{useYn}
+	        , REMARKS         = #{remarks}
+	        , CREATED_DT      = SYSDATE
+	        , CREATED_USER_ID = #{ssUserId}
+	        , UPDATED_DT      = SYSDATE
+	        , UPDATED_USER_ID = #{ssUserId}
+		</set>
+		WHERE MTRL_TYPE_CD = #{mtrlTypeCd}
+	</update>
+	
+	<update id="deleteMtrlType" parameterType="HashMap" >
+		UPDATE COM_MATERIAL_TYPE
+		<set>
+			  USE_YN = 'N'
+			, UPDATED_DT = SYSDATE
+			, UPDATED_USER_ID = #{ssUserId}
+		</set>
+		WHERE MTRL_TYPE_CD = #{mtrlTypeCd}
+	</update>
+	
+	
+</mapper>

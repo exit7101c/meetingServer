@@ -1,0 +1,932 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cronies.app.messageTalk">
+
+    <!--
+    Description :
+    -->
+    <select id="getMessageListFirst" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            A.MESSAGE_ID
+            , A.REG_USER_ID
+-- 			, CONVERT(VARCHAR, A.REG_TIME, 20) AS REG_TIME
+            , dbo.FN_GET_DATE_STR(CONVERT(VARCHAR, A.REG_TIME, 20)) AS STR_TIME
+            ,FORMAT (A.REG_TIME, 'tt hh:mm') AS FORMAT_TIME
+            , A.REG_TIME
+            , A.MESSAGE
+            , A.MESSAGE_TYPE
+            , A.FILE_ID AS IMAGE_ID
+            , CASE
+                WHEN G.CHATROOM_TYPE = 'anonymous' THEN F.COMMUNITY_NICK
+                ELSE ISNULL(B.NICK, '시스템메시지') END NICK
+            , C.PHOTO1 AS FILE_ID
+            , (D.SERVER_IP + '/' + D.FILE_PATH + D.SERVER_FILE_NM) AS CDN_NM_IMAGE
+            , CASE
+                WHEN G.CHATROOM_TYPE = 'anonymous'
+                THEN I.SERVER_IP + '/' + I.FILE_PATH + I.THUMB_FILE_NM
+                ELSE E.SERVER_IP + '/' + E.FILE_PATH + E.THUMB_FILE_NM
+                END CDN_THUMB_NM
+        FROM SC_MESSAGE_MASTER A
+            LEFT OUTER JOIN SC_USER B
+            ON A.REG_USER_ID = B.USER_ID
+            LEFT OUTER JOIN SC_USER_PIC C
+            ON A.REG_USER_ID = C.USER_ID
+            LEFT OUTER JOIN SC_ATTACH_FILE D
+            ON A.FILE_ID = D.ATTACH_FILE_ID
+            LEFT OUTER JOIN SC_ATTACH_FILE E
+            ON C.PHOTO1 = E.ATTACH_FILE_ID
+            LEFT OUTER JOIN SC_CHATROOM_USER F
+            ON A.CHATROOM_ID = F.CHATROOM_ID
+            AND B.USER_ID = F.USER_ID
+            LEFT OUTER JOIN SC_CHATROOM G
+            ON A.CHATROOM_ID = G.CHATROOM_ID
+            LEFT OUTER JOIN SC_ICON_CODE H
+            ON F.COMMUNITY_ICON = H.ICON_CD
+            LEFT OUTER JOIN SC_ATTACH_FILE I
+            ON H.FILE_ID = I.ATTACH_FILE_ID
+        WHERE A.CHATROOM_ID = #{chatroomId}
+        AND A.MESSAGE_ID >= (
+          SELECT TOP 1
+            A.MESSAGE_ID
+          FROM (
+            SELECT TOP 20
+                MESSAGE_ID
+            FROM SC_MESSAGE_MASTER
+            WHERE CHATROOM_ID = #{chatroomId}
+            AND REG_USER_ID NOT IN (
+                SELECT
+                    TARGET_USER_ID
+                FROM SC_USER_BLOCK
+                WHERE USER_ID = #{ssUserId}
+                AND DEL_YN = 'N'
+            )
+            ORDER BY MESSAGE_ID DESC
+          ) A
+          ORDER BY MESSAGE_ID ASC
+        )
+        AND A.REG_TIME >= (
+            SELECT TOP 1
+                CONNECT_TIME
+            FROM SC_CHATROOM_USER
+            WHERE CHATROOM_ID = #{chatroomId}
+            AND USER_ID = #{ssUserId}
+        )
+        AND A.REG_USER_ID NOT IN (
+            SELECT
+                TARGET_USER_ID
+            FROM SC_USER_BLOCK
+            WHERE USER_ID = #{ssUserId}
+            AND DEL_YN = 'N'
+        )
+        ORDER BY MESSAGE_ID ASC
+    </select>
+
+    <select id="getMessageListSecond" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            Q.MESSAGE_ID,
+            Q.REG_USER_ID,
+            Q.STR_TIME,
+            Q.FORMAT_TIME,
+            Q.REG_TIME,
+            Q.MESSAGE,
+            Q.MESSAGE AS REPLACE_MESSAGE,
+            Q.MESSAGE_TYPE,
+            Q.IMAGE_ID,
+            Q.NICK,
+            Q.FILE_ID,
+            Q.CDN_NM_IMAGE,
+            Q.CDN_THUMB_NM
+        FROM (
+            SELECT TOP 20
+                A.MESSAGE_ID,
+                A.REG_USER_ID,
+                -- 			CONVERT(VARCHAR, A.REG_TIME, 20) AS REG_TIME,
+                dbo.FN_GET_DATE_STR(CONVERT(VARCHAR, A.REG_TIME, 20)) AS STR_TIME,
+                FORMAT (A.REG_TIME, 'tt hh:mm') AS FORMAT_TIME,
+                A.REG_TIME,
+                A.MESSAGE,
+                A.MESSAGE_TYPE,
+                A.FILE_ID AS IMAGE_ID,
+                CASE
+                WHEN G.CHATROOM_TYPE = 'anonymous' THEN F.COMMUNITY_NICK
+                ELSE ISNULL(B.NICK, '시스템메시지') END NICK,
+                C.PHOTO1 AS FILE_ID,
+                (D.SERVER_IP + '/' + D.FILE_PATH + D.SERVER_FILE_NM) AS CDN_NM_IMAGE,
+                CASE
+                WHEN G.CHATROOM_TYPE = 'anonymous'
+                THEN I.SERVER_IP + '/' + I.FILE_PATH + I.THUMB_FILE_NM
+                ELSE E.SERVER_IP + '/' + E.FILE_PATH + E.THUMB_FILE_NM
+                END CDN_THUMB_NM
+            FROM SC_MESSAGE_MASTER A
+            LEFT OUTER JOIN SC_USER B
+            ON A.REG_USER_ID = B.USER_ID
+            LEFT OUTER JOIN SC_USER_PIC C
+            ON A.REG_USER_ID = C.USER_ID
+            LEFT OUTER JOIN SC_ATTACH_FILE D
+            ON A.FILE_ID = D.ATTACH_FILE_ID
+            LEFT OUTER JOIN SC_ATTACH_FILE E
+            ON C.PHOTO1 = E.ATTACH_FILE_ID
+            LEFT OUTER JOIN SC_CHATROOM_USER F
+            ON A.CHATROOM_ID = F.CHATROOM_ID
+            AND B.USER_ID = F.USER_ID
+            LEFT OUTER JOIN SC_CHATROOM G
+            ON A.CHATROOM_ID = G.CHATROOM_ID
+            LEFT OUTER JOIN SC_ICON_CODE H
+            ON F.COMMUNITY_ICON = H.ICON_CD
+            LEFT OUTER JOIN SC_ATTACH_FILE I
+            ON H.FILE_ID = I.ATTACH_FILE_ID
+            WHERE A.CHATROOM_ID = #{chatroomId}
+            AND A.MESSAGE_ID &lt; #{nextNo}
+            AND A.REG_TIME > (
+                SELECT TOP 1
+                    CONNECT_TIME
+                FROM SC_CHATROOM_USER
+                WHERE CHATROOM_ID = #{chatroomId}
+                AND USER_ID = #{ssUserId}
+            )
+            AND A.REG_USER_ID NOT IN (
+                SELECT
+                    TARGET_USER_ID
+                FROM SC_USER_BLOCK
+                WHERE USER_ID = #{ssUserId}
+                AND DEL_YN = 'N'
+            )
+            ORDER BY MESSAGE_ID DESC
+        ) Q
+        ORDER BY Q.MESSAGE_ID ASC
+    </select>
+<!--    <select id="getMessageListSecond" parameterType="HashMap" resultType="ExqueryMap">-->
+<!--        SELECT-->
+<!--            A.MESSAGE_ID,-->
+<!--			A.REG_USER_ID,-->
+<!--&#45;&#45; 			CONVERT(VARCHAR, A.REG_TIME, 20) AS REG_TIME,-->
+<!--            dbo.FN_GET_DATE_STR(CONVERT(VARCHAR, A.REG_TIME, 20)) AS STR_TIME,-->
+<!--            FORMAT (A.REG_TIME, 'tt hh:mm') AS FORMAT_TIME,-->
+<!--            A.REG_TIME,-->
+<!--			A.MESSAGE,-->
+<!--			A.MESSAGE_TYPE,-->
+<!--			A.FILE_ID AS IMAGE_ID,-->
+<!--			ISNULL(B.NICK, '시스템메시지') AS NICK,-->
+<!--			C.PHOTO1 AS FILE_ID,-->
+<!--            (D.SERVER_IP + '/' + D.FILE_PATH + D.SERVER_FILE_NM) AS CDN_NM_IMAGE,-->
+<!--            (E.SERVER_IP + '/' + E.FILE_PATH + E.THUMB_FILE_NM) AS CDN_THUMB_NM-->
+<!--        FROM SC_MESSAGE_MASTER A-->
+<!--		LEFT OUTER JOIN SC_USER B-->
+<!--		ON A.REG_USER_ID = B.USER_ID-->
+<!--		LEFT OUTER JOIN SC_USER_PIC C-->
+<!--		ON A.REG_USER_ID = C.USER_ID-->
+<!--		LEFT OUTER JOIN SC_ATTACH_FILE D-->
+<!--		ON A.FILE_ID = D.ATTACH_FILE_ID-->
+<!--        LEFT OUTER JOIN SC_ATTACH_FILE E-->
+<!--        ON C.PHOTO1 = E.ATTACH_FILE_ID-->
+<!--        WHERE A.CHATROOM_ID = #{chatroomId}-->
+<!--		AND A.MESSAGE_ID BETWEEN ${nextNo}-20 AND ${nextNo}-1-->
+<!--		AND A.REG_TIME > (-->
+<!--            SELECT TOP 1-->
+<!--                CONNECT_TIME-->
+<!--            FROM SC_CHATROOM_USER-->
+<!--            WHERE CHATROOM_ID = #{chatroomId}-->
+<!--            AND USER_ID = #{ssUserId}-->
+<!--        )-->
+<!--        ORDER BY MESSAGE_ID ASC-->
+<!--    </select>-->
+
+    <select id="getMessageListDateGroup" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            A.MESSAGE_ID,
+			A.REG_USER_ID,
+			CONVERT(VARCHAR, A.REG_TIME, 20) AS REG_TIME,
+			A.MESSAGE,
+			A.MESSAGE_TYPE,
+			A.FILE_ID AS IMAGE_ID,
+			ISNULL(B.NICK, '시스템메시지') AS NICK,
+			C.PHOTO1 AS FILE_ID
+        FROM SC_MESSAGE_MASTER A
+		LEFT OUTER JOIN SC_USER B
+		ON A.REG_USER_ID = B.USER_ID
+		LEFT OUTER JOIN SC_USER_PIC C
+		ON A.REG_USER_ID = C.USER_ID
+        WHERE CHATROOM_ID = #{chatroomId}
+        ORDER BY MESSAGE_ID ASC
+    </select>
+
+    <!--
+    Description : 채팅 메시지 조회 (1:1)
+    -->
+    <select id="getMessageList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT TOP 30
+            MESSAGE_ID
+            , REG_USER_ID AS SEQ
+            , REG_TIME
+            , CASE
+                WHEN LEFT(RIGHT(CONVERT(VARCHAR, REG_TIME,120),8),2) > '12'
+                    THEN '오후' + ' ' + RIGHT('0' + CONVERT(VARCHAR,CONVERT(INT,LEFT(RIGHT(CONVERT(VARCHAR, REG_TIME,120),8),2))-12),2)
+                    + LEFT(RIGHT(CONVERT(VARCHAR, REG_TIME,120),6),3)
+                WHEN LEFT(RIGHT(CONVERT(VARCHAR, REG_TIME,120),8),2) = '12'
+                    THEN '오후' + ' ' + LEFT(RIGHT(CONVERT(VARCHAR, REG_TIME,120),8),5)
+                    ELSE '오전' + ' ' + LEFT(RIGHT(CONVERT(VARCHAR, REG_TIME,120),8),5) END REG_TIME_VIEW
+            , CONVERT(CHAR(23), REG_TIME, 21) AS REG_TIME_STR
+            , CONVERT(CHAR(19), REG_TIME, 20) AS REG_TIME_STR2
+            , MESSAGE
+        FROM SC_MESSAGE_MASTER
+        WHERE 1=1
+        AND CHATROOM_ID = #{chatroomId}
+        <if test='chatDate != null and chatDate != ""'>
+            AND REG_TIME BETWEEN #{chatDate}+' 00:00:00' AND #{chatDate}+' 23:59:59'
+        </if>
+        <if test='lastSearchTime != null and lastSearchTime != ""'>
+            AND REG_TIME &lt; #{lastSearchTime}
+        </if>
+        <if test='lastSearchTime == null or lastSearchTime == ""'>
+            AND REG_TIME &lt; GETDATE()
+        </if>
+        ORDER BY MESSAGE_ID DESC
+    </select>
+
+    <!--
+    Description : 채팅 메시지 1건 조회
+    -->
+    <select id="getMessageOneByMessageId" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT TOP 1
+            MESSAGE_ID
+            , REG_USER_ID AS SEQ
+            , REG_TIME
+            , CASE
+                WHEN LEFT(RIGHT(CONVERT(VARCHAR, REG_TIME,120),8),2) > '12'
+                    THEN '오후' + ' ' + RIGHT('0' + CONVERT(VARCHAR,CONVERT(INT,LEFT(RIGHT(CONVERT(VARCHAR, REG_TIME,120),8),2))-12),2)
+                    + LEFT(RIGHT(CONVERT(VARCHAR, REG_TIME,120),6),3)
+                WHEN LEFT(RIGHT(CONVERT(VARCHAR, REG_TIME,120),8),2) = '12'
+                    THEN '오후' + ' ' + LEFT(RIGHT(CONVERT(VARCHAR, REG_TIME,120),8),5)
+                ELSE '오전' + ' ' + LEFT(RIGHT(CONVERT(VARCHAR, REG_TIME,120),8),5)
+                END REG_TIME_VIEW
+            , CONVERT(CHAR(23), REG_TIME, 21) AS REG_TIME_STR
+            , CONVERT(CHAR(19), REG_TIME, 20) AS REG_TIME_STR2
+            , MESSAGE
+            , CONVERT(CHAR(8), GETDATE(), 112) AS CHAT_DATE1
+            , CONVERT(CHAR(10), CONVERT(DATETIME, GETDATE()), 23) AS CHAT_DATE2
+            , CONVERT(CHAR(4),YEAR(GETDATE())) +'년 '
+                + RIGHT('0'+CONVERT(VARCHAR(2),MONTH(GETDATE())),2) +'월 '
+                + RIGHT('0'+CONVERT(VARCHAR(2),DAY(GETDATE())),2) +'일 '
+            AS CHAT_DATE_STR
+        FROM SC_MESSAGE_MASTER
+        WHERE 1=1
+        AND CHATROOM_ID = #{chatroomId}
+        AND MESSAGE_ID = #{maxMessageId}
+    </select>
+
+    <!--
+    Description : 개인대화 message 수신여부 update
+    -->
+    <update id="updateMessageRecept" parameterType="HashMap">
+        UPDATE SC_MESSAGE_DETAIL
+            SET RECEPT_YN = 'Y'
+                , RECEPT_TIME = GETDATE()
+        WHERE CHATROOM_ID = #{chatroomId}
+        AND RECEPT_TIME IS NULL
+        AND USER_ID = #{ssUserId}
+    </update>
+
+    <!--
+    Description : 전송메세지 max messageId 조회
+    -->
+    <select id="selectMessageMasterMaxId" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            (CONVERT(NUMERIC, MAX(MESSAGE_ID)) + 1) AS MAX_MESSAGE_ID
+        FROM SC_MESSAGE_MASTER
+    </select>
+
+    <select id="selectChatroomUserList" parameterType="HashMap" resultType="ExqueryMap">
+            SELECT
+				CHATROOM_ID
+				, USER_ID
+				, CONNECT_TIME
+			FROM SC_CHATROOM_USER
+			WHERE CHATROOM_ID = #{chatroomId}
+			ORDER BY USER_ID
+    </select>
+
+
+    <select id="selectChatroomUserListMulti" parameterType="HashMap" resultType="ExqueryMap">
+      SELECT
+				A.CHATROOM_ID
+				, A.USER_ID
+				, A.CONNECT_TIME
+				, B.TOKEN
+			FROM SC_CHATROOM_USER A
+			LEFT OUTER JOIN SC_USER B
+			ON A.USER_ID = B.USER_ID
+			WHERE A.CHATROOM_ID = #{chatroomId}
+      AND A.USER_ID NOT IN (
+        SELECT
+            USER_ID
+        FROM SC_USER_BLOCK
+        WHERE TARGET_USER_ID = #{regUserId}
+        AND DEL_YN = 'N'
+      )
+			ORDER BY A.USER_ID
+    </select>
+
+    <select id="selectChatroomType" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT CHATROOM_TYPE FROM SC_CHATROOM WHERE CHATROOM_ID = #{chatroomId}
+    </select>
+
+    <select id="selectChatroomMessageOne" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+			A.CHATROOM_ID,
+			A.MESSAGE_ID,
+			A.REG_USER_ID,
+			CONVERT(VARCHAR, A.REG_TIME, 20) AS REG_TIME,
+			A.MESSAGE,
+			B.PHOTO1 AS FILE_ID,
+			ISNULL(C.NICK, '시스템메시지') AS NICK
+		FROM SC_MESSAGE_MASTER A
+		LEFT OUTER JOIN SC_USER_PIC B
+		ON A.REG_USER_ID = B.USER_ID
+		LEFT OUTER JOIN SC_USER C
+		ON A.REG_USER_ID = C.USER_ID
+		WHERE A.MESSAGE_ID = #{messageId}
+    </select>
+
+
+    <select id="selectChatroomUserInfoOne" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+			B.PHOTO1 AS FILE_ID,
+			ISNULL(A.NICK, '시스템메시지') AS NICK,
+            (E.SERVER_IP + '/' + E.FILE_PATH + E.THUMB_FILE_NM) AS CDN_THUMB_NM
+        FROM SC_USER A
+		LEFT OUTER JOIN SC_USER_PIC B
+		ON A.USER_ID = B.USER_ID
+        LEFT OUTER JOIN SC_ATTACH_FILE E
+        ON B.PHOTO1 = E.ATTACH_FILE_ID
+		WHERE A.USER_ID = #{regUserId}
+    </select>
+
+    <select id="selectChatroomUserInfoOneCom" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT TOP 1
+			B.FILE_ID,
+			ISNULL(A.COMMUNITY_NICK, '익명') AS NICK,
+            (E.SERVER_IP + '/' + E.FILE_PATH + E.THUMB_FILE_NM) AS CDN_THUMB_NM
+		FROM SC_CHATROOM_USER A
+		LEFT OUTER JOIN SC_ICON_CODE B
+		ON A.COMMUNITY_ICON = B.ICON_CD
+        LEFT OUTER JOIN SC_ATTACH_FILE E
+        ON B.FILE_ID = E.ATTACH_FILE_ID
+		WHERE CHATROOM_ID = #{chatroomId}
+		AND USER_ID = #{regUserId}
+    </select>
+
+    <select id="selectMessageImageNmCdn" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            (SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM) AS CDN_NM_IMAGE
+        FROM SC_ATTACH_FILE
+        WHERE ATTACH_FILE_ID = #{fileId}
+    </select>
+
+    <select id="selectChatroomIsReceive" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+			ISNULL(IS_RECEIVE, 'Y') AS IS_RECEIVE,
+			(SELECT CHATROOM_TYPE FROM SC_CHATROOM WHERE CHATROOM_ID = #{chatroomId}) AS CHATROOM_TYPE
+			FROM SC_CHATROOM_USER
+			WHERE CHATROOM_ID = #{chatroomId}
+			AND USER_ID = #{userId}
+    </select>
+
+
+    <select id="selectFileSize" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT ISNULL(WIDTH,0) AS WIDTH, ISNULL(HEIGHT,0) AS HEIGHT FROM SC_ATTACH_FILE
+        WHERE ATTACH_FILE_ID = #{imageId}
+    </select>
+
+    <select id="selectSysDateTime" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT CONVERT(VARCHAR, GETDATE(), 21) AS SYS_DATE_TIME
+    </select>
+
+    <select id="selectSysDateTimeMm" parameterType="HashMap" resultType="ExqueryMap">
+--         SELECT CONVERT(VARCHAR, GETDATE(), 20) AS SYS_DATE_TIME
+        SELECT dbo.FN_GET_DATE_STR(CONVERT(VARCHAR, GETDATE(), 21)) AS SYS_DATE_TIME_MM,
+               FORMAT (GETDATE(), 'tt hh:mm') AS FORMAT_TIME
+    </select>
+
+    <select id="selectMessageIdSeq" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT NEXT VALUE FOR MESSAGE_ID_SEQ AS MESSAGE_ID
+    </select>
+
+    <!--
+    Description : 전송메세지 저장 (1:1) - loginSeq
+    -->
+    <insert id="sendMessageMasterSingleLoginSeq" parameterType="HashMap">
+        INSERT INTO SC_MESSAGE_MASTER (
+            MESSAGE_ID
+            , CHATROOM_ID
+            , REG_USER_ID
+            , REG_TIME
+            , MESSAGE
+            , MESSAGE_TYPE
+            <if test='fileId != null and fileId != ""'>
+                , FILE_ID
+            </if>
+        ) VALUES(
+            #{messageId}
+            , #{chatroomId}
+            , #{regUserId}
+            , #{sysDateTime}
+            , #{message}
+            , #{type}
+            <if test='fileId != null and fileId != ""'>
+                , #{fileId}
+            </if>
+        )
+    </insert>
+
+    <!--
+    Description : 전송메세지 저장 (1:1) - loginSeq
+    -->
+    <insert id="sendMessageMasterCommunityLoginSeq" parameterType="HashMap">
+        INSERT INTO SC_MESSAGE_MASTER (
+            MESSAGE_ID
+            , CHATROOM_ID
+            , REG_USER_ID
+            , REG_TIME
+            , MESSAGE
+            , MESSAGE_TYPE
+            <if test='fileId != null and fileId != ""'>
+                , FILE_ID
+            </if>
+        ) VALUES(
+            #{messageId}
+            , #{chatroomId}
+            , #{ssUserId}
+            , #{sysDateTime}
+            , #{message}
+            , #{type}
+            <if test='fileId != null and fileId != ""'>
+                , #{fileId}
+            </if>
+        )
+    </insert>
+
+    <!--
+    Description : 전송메세지 저장 (1:1) - userSeq
+    -->
+    <insert id="sendMessageDetailSingleUserSeq" parameterType="HashMap">
+        INSERT INTO SC_MESSAGE_DETAIL (
+            MESSAGE_ID
+            , USER_ID
+            , RECEPT_YN
+            , CHATROOM_ID
+        ) VALUES(
+            #{messageId}
+            , #{userId}
+            , #{receptYn}
+            , #{chatroomId}
+        )
+    </insert>
+
+    <insert id="sendMessageDetailSingleUserAll" parameterType="HashMap">
+        INSERT INTO SC_MESSAGE_DETAIL (
+            MESSAGE_ID
+            , USER_ID
+            , RECEPT_YN
+            , CHATROOM_ID
+        ) SELECT #{messageId}, USER_ID, 'N', CHATROOM_ID FROM SC_CHATROOM_USER
+		WHERE CHATROOM_ID = #{chatroomId}
+    </insert>
+
+    <!--
+    Description : 마지막 메시지 및 시간 update
+    -->
+    <update id="updateMessageDetailLastChat" parameterType="HashMap" >
+        UPDATE SC_CHATROOM
+            SET LAST_CHAT = #{message}
+                , LAST_TIME = GETDATE()
+        WHERE CHATROOM_ID = #{chatroomId}
+    </update>
+
+    <!--
+    Description : 전송메세지 저장
+    -->
+    <insert id="sendMsg" parameterType="HashMap">
+        INSERT INTO COM_MESSAGE (
+        CONTENTS,
+        SEND_USER_SEQ,
+        SEND_TIME,
+        GET_USER_ID,
+        MSG_ID,
+        CHANNEL_ID
+        )
+        VALUES(
+        #{contents},
+        #{loginSeq},
+        SYSDATE,
+        #{userSeq},
+        MSG_SEQ.NEXTVAL,
+        #{channelId}
+        )
+    </insert>
+
+    <!--
+    Description : 마지막 대화내용, 대화시간 업데이트
+    -->
+    <select id="channelUpdate">
+        UPDATE
+            COM_MESSAGE_CHANNEL
+        SET
+            LAST_CONTENTS = #{contents},
+            LAST_CHAT_TIME = SYSDATE
+        WHERE CHANNEL_ID = #{channelId}
+    </select>
+
+
+    <!--
+    Description : 채팅 메시지 1건 조회
+    -->
+    <select id="getRoomUserList" parameterType="HashMap" resultType="ExqueryMap">
+
+        SELECT
+            A.CHATROOM_ID
+			, I.CHATROOM_TYPE
+            , B.USER_ID
+            , A.SUB_LEADER_YN
+            , A.ABOUT_ME
+			, CASE
+				WHEN I.CHATROOM_TYPE = 'anonymous' THEN A.COMMUNITY_NICK
+				ELSE B.NICK END NICK
+            , C.PHOTO1
+            , D.LEADER_USER_ID
+            , CASE WHEN B.USER_ID = D.LEADER_USER_ID THEN 0 ELSE 1 END LEADER_NUM
+			, CASE
+				WHEN I.CHATROOM_TYPE = 'anonymous'
+				THEN H.SERVER_IP + '/' + H.FILE_PATH + H.THUMB_FILE_NM
+				ELSE E.SERVER_IP + '/' + E.FILE_PATH + E.THUMB_FILE_NM
+                END CDN_THUMB_NM
+                , ISNULL(A.LOCATION_YN, 'N') AS LOCATION_YN
+        FROM SC_CHATROOM_USER A
+        LEFT OUTER JOIN SC_USER B
+        ON A.USER_ID = B.USER_ID
+        LEFT OUTER JOIN SC_USER_PIC C
+        ON B.USER_ID = C.USER_ID
+        LEFT OUTER JOIN SC_OPENCHAT D
+        ON A.CHATROOM_ID = D.CHATROOM_ID
+        LEFT OUTER JOIN SC_ATTACH_FILE E
+        ON C.PHOTO1 = E.ATTACH_FILE_ID
+        LEFT OUTER JOIN SC_USER_ADDR F
+        ON A.USER_ID = F.USER_ID
+        LEFT OUTER JOIN SC_ICON_CODE G
+        ON A.COMMUNITY_ICON = G.ICON_CD
+        LEFT OUTER JOIN SC_ATTACH_FILE H
+        ON G.FILE_ID = H.ATTACH_FILE_ID
+        LEFT OUTER JOIN SC_CHATROOM I
+        ON A.CHATROOM_ID = I.CHATROOM_ID
+        WHERE 1=1
+        --AND A.IS_FIRST = 'N'
+        AND A.CHATROOM_ID = #{ chatroomId }
+        ORDER BY LEADER_NUM, B.NICK
+    </select>
+
+    <select id="getAttendList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            A.USER_ID
+             , A.REG_TIME
+             , A.OPENCHAT_ID
+             , B.NICK
+             , C.PHOTO1
+             , (E.SERVER_IP + '/' + E.FILE_PATH + E.THUMB_FILE_NM) AS CDN_THUMB_NM
+        FROM SC_OPENCHAT_ATTEND A
+            INNER JOIN SC_USER B
+                ON A.USER_ID = B.USER_ID
+            LEFT OUTER JOIN SC_USER_PIC C
+                ON B.USER_ID = C.USER_ID
+            INNER JOIN SC_OPENCHAT D
+                ON A.OPENCHAT_ID = D.OPENCHAT_ID
+                AND D.CHATROOM_ID = #{chatroomId}
+            LEFT OUTER JOIN SC_ATTACH_FILE E
+                ON C.PHOTO1 = E.ATTACH_FILE_ID
+        WHERE A.USER_ID != #{userId}
+          AND A.ATTENDER_CANCEL_YN = 'N'
+          AND A.LEADER_CONFIRM_YN = 'N'
+        ORDER BY REG_TIME ASC
+    </select>
+
+    <select id="chatRoomTypeCheck" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT CHATROOM_TYPE AS CHAT_TYPE from SC_CHATROOM where CHATROOM_ID = #{chatroomId}
+    </select>
+
+
+    <select id="getChatroomTitle" parameterType="HashMap" resultType="ExqueryMap">
+    <!--
+        SELECT
+            TITLE
+            , CASE WHEN LEADER_USER_ID = #{userId} THEN 'Y' ELSE 'N' END LEADER_YN
+            , OPENCHAT_RANK
+            , OPENCHAT_ID AS OPEN_CHAT_KEY
+        FROM SC_OPENCHAT
+        WHERE CHATROOM_ID = #{chatroomId}
+        ORDER BY OPENCHAT_ID
+    -->
+        IF EXISTS (
+            SELECT
+                TITLE
+            FROM SC_CHATROOM
+            WHERE CHATROOM_ID = #{chatroomId}
+            AND CHATROOM_TYPE = 'openchat'
+        )
+        BEGIN
+            SELECT
+                TITLE
+                , CASE WHEN LEADER_USER_ID = #{userId} THEN 'Y' ELSE 'N' END LEADER_YN
+                , OPENCHAT_RANK
+                , OPENCHAT_ID AS OPEN_CHAT_KEY
+            FROM SC_OPENCHAT
+            WHERE CHATROOM_ID = #{chatroomId}
+            ORDER BY OPENCHAT_ID
+        END
+        ELSE
+        BEGIN
+            SELECT
+                CASE
+                    WHEN (SELECT CHATROOM_TYPE AS CHAT_TYPE from SC_CHATROOM where CHATROOM_ID = #{chatroomId}) = 'anonymous' THEN
+                        (SELECT COMMUNITY_NICK FROM SC_CHATROOM_USER WHERE CHATROOM_ID = #{chatroomId} AND USER_ID != #{userId})
+                    ELSE NICK END TITLE
+            FROM SC_USER
+            WHERE USER_ID = (
+                SELECT USER_ID FROM SC_CHATROOM_USER WHERE CHATROOM_ID = #{chatroomId} AND USER_ID != #{userId}
+            )
+        END
+    </select>
+
+    <insert id="insertChatroomDropoutHis" parameterType="HashMap">
+        INSERT INTO SC_CHATROOM_DROPOUT_HIS
+            (CHATROOM_ID, REG_USER_ID, DROP_USER_ID, DROP_TIME)
+        VALUES
+            (#{chatroomId}, #{userId}, #{dropUserId}, GETDATE())
+    </insert>
+
+    <update id="updateOpenChatAttendN" parameterType="HashMap">
+        UPDATE SC_OPENCHAT_ATTEND
+            SET ATTEND_YN = NULL
+                , ATTENDER_CANCEL_YN = 'Y'
+        WHERE OPENCHAT_ID = (
+                SELECT
+                    OPENCHAT_ID
+                FROM SC_OPENCHAT
+                WHERE 1=1
+                AND CHATROOM_ID = #{chatroomId}
+        ) AND USER_ID = #{dropUserId}
+    </update>
+
+    <delete id="deleteChatroomUser" parameterType="HashMap">
+        DELETE SC_CHATROOM_USER
+        WHERE CHATROOM_ID = #{chatroomId}
+         AND USER_ID = #{dropUserId}
+    </delete>
+
+    <select id="getMessageUserAddr" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			ADDR_LIVE
+			 , ADDR_LIVE_SUM
+			 , LAT
+			 , LON
+			 , CURR_LAT
+			 , CURR_LON
+		FROM SC_USER_ADDR
+		WHERE USER_ID = #{userId}
+	</select>
+
+    <select id="getRoomUserLocation" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT DISTINCT
+            A.CHATROOM_ID
+            , B.USER_ID
+            , B.NICK
+            , C.PHOTO1
+            , D.LEADER_USER_ID
+            , CASE WHEN B.USER_ID = D.LEADER_USER_ID THEN 0 ELSE 1 END LEADER_NUM
+            , (E.SERVER_IP + '/' + E.FILE_PATH + E.THUMB_FILE_NM) AS CDN_THUMB_NM
+			, F.CURR_LAT
+			, F.CURR_LON
+            , A.SUB_LEADER_YN
+        FROM SC_CHATROOM_USER A
+        LEFT OUTER JOIN SC_USER B
+        ON A.USER_ID = B.USER_ID
+        LEFT OUTER JOIN SC_USER_PIC C
+        ON B.USER_ID = C.USER_ID
+        LEFT OUTER JOIN SC_OPENCHAT D
+        ON A.CHATROOM_ID = D.CHATROOM_ID
+        LEFT OUTER JOIN SC_ATTACH_FILE E
+        ON C.PHOTO1 = E.ATTACH_FILE_ID
+        LEFT OUTER JOIN SC_USER_ADDR F
+        ON A.USER_ID = F.USER_ID
+        WHERE 1=1
+        --AND A.IS_FIRST = 'N'
+        AND A.CHATROOM_ID = #{ chatroomId }
+        AND A.LOCATION_YN = 'Y'
+        ORDER BY LEADER_NUM
+    </select>
+
+
+    <select id="getLocationCheck" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            ISNULL(LOCATION_YN, 'N') AS LOCATION_YN
+        FROM SC_CHATROOM_USER
+        WHERE 1=1
+        AND CHATROOM_ID = #{chatroomId}
+        AND USER_ID = #{userId}
+    </select>
+
+    <update id="setLocationYn" parameterType="HashMap">
+        UPDATE SC_CHATROOM_USER
+            SET LOCATION_YN = #{updateValue}
+        WHERE 1=1
+        AND CHATROOM_ID = #{chatroomId}
+        AND USER_ID = #{userId}
+    </update>
+
+    <select id="getLocationListCheck" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            A.CHATROOM_ID
+            , B.USER_ID
+            , B.NICK
+            , C.PHOTO1
+            , D.LEADER_USER_ID
+            , CASE WHEN B.USER_ID = D.LEADER_USER_ID THEN 0 ELSE 1 END LEADER_NUM
+            , (E.SERVER_IP + '/' + E.FILE_PATH + E.THUMB_FILE_NM) AS CDN_THUMB_NM
+			, F.CURR_LAT
+			, F.CURR_LON
+			, A.LOCATION_YN
+            , A.SUB_LEADER_YN
+        FROM SC_CHATROOM_USER A
+        LEFT OUTER JOIN SC_USER B
+        ON A.USER_ID = B.USER_ID
+        LEFT OUTER JOIN SC_USER_PIC C
+        ON B.USER_ID = C.USER_ID
+        LEFT OUTER JOIN SC_OPENCHAT D
+        ON A.CHATROOM_ID = D.CHATROOM_ID
+        LEFT OUTER JOIN SC_ATTACH_FILE E
+        ON C.PHOTO1 = E.ATTACH_FILE_ID
+        LEFT OUTER JOIN SC_USER_ADDR F
+        ON A.USER_ID = F.USER_ID
+        WHERE 1=1
+        --AND A.IS_FIRST = 'N'
+        AND A.CHATROOM_ID = #{ chatroomId }
+        ORDER BY LEADER_NUM
+    </select>
+
+
+
+    <select id="getChatRoomAlarmList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            IS_RECEIVE AS VAL
+        FROM SC_CHATROOM_USER
+        WHERE USER_ID = #{userId}
+        AND CHATROOM_ID = #{chatroomId}
+    </select>
+    <!--
+    Description : 알람 허용여부 체크
+    -->
+    <update id="getChatRoomAlarm" parameterType="HashMap">
+        UPDATE SC_CHATROOM_USER
+        SET
+        <if test='alarmCheck == "true"'>
+            IS_RECEIVE = 'N'
+        </if>
+        <if test='alarmCheck == "false"'>
+            IS_RECEIVE = 'Y'
+        </if>
+        WHERE USER_ID = #{userId}
+        AND CHATROOM_ID = #{chatroomId}
+    </update>
+
+    <select id="getEmoticonList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            EMOTICON_CD
+             , EMOTICON_NM
+             , A.FILE_ID
+             , B.SERVER_IP + '/' + B.FILE_PATH + B.SERVER_FILE_NM AS CDN_NM
+        FROM SC_EMOTICON A
+        LEFT OUTER JOIN SC_ATTACH_FILE B
+        ON A.FILE_ID = B.ATTACH_FILE_ID
+        WHERE DEL_YN = 'N'
+    </select>
+
+    <select id="getDropOutYn" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            USER_ID
+        FROM SC_CHATROOM_USER
+        WHERE 1=1
+        AND CHATROOM_ID = #{chatroomId}
+        AND USER_ID = #{ssUserId}
+    </select>
+
+    <select id="getPartnersMap" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            A.PARTNERS_NAME
+            , A.PARTNERS_ADDRESS
+            , A.LAT
+            , A.LON
+            , A.OPEN_TIME
+            , A.CLOSE_TIME
+            , B.SERVER_IP + '/' + B.FILE_PATH + B.SERVER_FILE_NM AS CDN_NM
+            , B.SERVER_IP + '/' + B.FILE_PATH + B.THUMB_FILE_NM AS CDN_THUMB_NM
+        FROM SC_PARTNERS_COMPANY A
+        LEFT OUTER JOIN SC_ATTACH_FILE B
+            ON A.FILE_ID = B.ATTACH_FILE_ID
+    </select>
+
+    <select id="getChatRoomPrivateCheck" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT PRIVATE_YN FROM SC_OPENCHAT WHERE OPENCHAT_ID = #{openchatId}
+    </select>
+
+    <select id="getChatRoomType" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            CHATROOM_TYPE
+        FROM SC_CHATROOM
+        WHERE CHATROOM_ID = #{chatroomId}
+    </select>
+
+    <select id="chatBlock" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT TOP 1
+            DEL_YN AS IS_BLOCK
+        FROM SC_OPENCHAT A
+        WHERE A.CHATROOM_ID = #{chatroomId}
+    </select>
+
+    <select id="targetUserPrivateCount" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            COUNT(PRIVATE_YN) AS PRIVATE
+        FROM SC_OPENCHAT
+        WHERE LEADER_USER_ID = #{targetUserId}
+        AND PRIVATE_YN = 'Y'
+    </select>
+
+    <select id="selectTargetUserInfoNick" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT NICK FROM SC_USER
+        WHERE USER_ID = #{targetUserId}
+    </select>
+
+    <update id="roomMasterChange" parameterType="HashMap">
+        UPDATE SC_OPENCHAT
+        SET
+            LEADER_USER_ID = #{targetUserId}
+        WHERE CHATROOM_ID = #{chatroomId}
+        AND LEADER_USER_ID = #{ssUserId}
+    </update>
+
+    <update id="updateOpenChatRoom" parameterType="HashMap">
+        UPDATE SC_OPENCHAT
+        SET
+            DEL_YN = 'Y'
+            , PRIVATE_YN = 'N'
+        WHERE CHATROOM_ID = #{chatroomId}
+        AND LEADER_USER_ID = #{ssUserId}
+    </update>
+
+    <select id="targetUserSubLeaderCount" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            COUNT(SUB_LEADER_YN) AS SUB_LEADER
+        FROM SC_CHATROOM_USER
+        WHERE CHATROOM_ID = #{chatroomId}
+          AND SUB_LEADER_YN = 'Y'
+    </select>
+
+    <update id="roomAddSubMaster" parameterType="HashMap">
+        UPDATE SC_CHATROOM_USER
+        SET
+            SUB_LEADER_YN = 'Y'
+        WHERE CHATROOM_ID = #{chatroomId}
+          AND USER_ID = #{targetUserId}
+    </update>
+
+    <update id="roomMasterRemoval" parameterType="HashMap">
+        UPDATE SC_CHATROOM_USER
+        SET
+            SUB_LEADER_YN = 'N'
+        WHERE CHATROOM_ID = #{chatroomId}
+          AND USER_ID = #{targetUserId}
+    </update>
+
+    <select id="getChatRoomUserLeaderYn" parameterType="HashMap" resultType="ExqueryMap">
+       SELECT TOP 1
+          CASE
+            WHEN A.LEADER_USER_ID = #{ssUserId} THEN 'Y'
+			WHEN B.SUB_LEADER_YN = 'Y' THEN 'Y'
+            ELSE 'N' END LEADER_YN
+        FROM SC_OPENCHAT A
+        LEFT OUTER JOIN SC_CHATROOM_USER B
+          ON A.CHATROOM_ID = B.CHATROOM_ID
+        WHERE A.CHATROOM_ID = #{chatroomId}
+        AND B.USER_ID = #{ssUserId}
+    </select>
+
+    <select id="getChatRoomUserTargetLeaderYn" parameterType="HashMap" resultType="ExqueryMap">
+       SELECT TOP 1
+          CASE
+            WHEN A.LEADER_USER_ID = #{dropUserId} THEN 'Y'
+			WHEN B.SUB_LEADER_YN = 'Y' THEN 'Y'
+            ELSE 'N' END LEADER_YN
+        FROM SC_OPENCHAT A
+        LEFT OUTER JOIN SC_CHATROOM_USER B
+          ON A.CHATROOM_ID = B.CHATROOM_ID
+        WHERE A.CHATROOM_ID = #{chatroomId}
+        AND B.USER_ID = #{dropUserId}
+    </select>
+</mapper>

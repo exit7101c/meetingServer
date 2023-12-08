@@ -1,0 +1,51 @@
+package cronies.meeting.user.service;
+
+import java.util.HashMap;
+import java.util.List;
+
+public interface ChoiceService {
+
+    public List<HashMap<String, Object>> getChoice(HashMap<String, Object> param) throws Exception;
+
+    public HashMap<String, Object> getChiceImsiTap(HashMap<String, Object> param) throws Exception;
+
+    public HashMap<String, Object> getChiceImsiTapLocation(HashMap<String, Object> param) throws Exception;
+
+    public List<HashMap<String, Object>> getChoiceOne(HashMap<String, Object> param) throws Exception;
+
+    public HashMap<String, Object> getChoiceLeftRightSwiper(HashMap<String, Object> param) throws Exception;
+
+    public HashMap<String, Object> setLike(HashMap<String, Object> param) throws Exception;
+
+    public HashMap<String, Object> setNope(HashMap<String, Object> param) throws Exception;
+
+    public HashMap<String, Object> setSkip(HashMap<String, Object> param) throws Exception;
+
+    public HashMap<String, Object> setPartnerSkip(HashMap<String, Object> param) throws Exception;
+
+    public List<HashMap<String, Object>> getSendLike(HashMap<String, Object> param) throws Exception;
+
+    public List<HashMap<String, Object>> getReceiveLike(HashMap<String, Object> param) throws Exception;
+
+    public HashMap<String, Object> setAccept(HashMap<String, Object> param) throws Exception;
+
+    public HashMap<String, Object> setMatchChatRoom(HashMap<String, Object> param) throws Exception;
+
+    public List<HashMap<String, Object>> getChoiceCategoryList(HashMap<String, Object> param) throws Exception;
+
+    public HashMap<String, Object> revertBeforeActionCheck(HashMap<String, Object> param) throws Exception;
+
+    public HashMap<String, Object> revertBeforeAction(HashMap<String, Object> param) throws Exception;
+
+    public HashMap<String, Object> getUserReceiveLikeCnt(HashMap<String, Object> param) throws Exception;
+
+
+
+    public HashMap<String, Object> resetChoiceLogic(HashMap<String, Object> param) throws Exception;
+
+    public HashMap<String, Object> getChoiceFileter(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> filterSave(HashMap<String, Object> param) throws Exception;
+
+    public HashMap<String, Object> getFreeFlipIsPossible(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> setFreeFlip(HashMap<String, Object> param) throws Exception;
+}

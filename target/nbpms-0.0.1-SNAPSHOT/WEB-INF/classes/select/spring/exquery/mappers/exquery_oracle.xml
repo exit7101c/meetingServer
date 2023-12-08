@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="select.spring.exquery">
+
+	<!-- DUMMY 처리용 -->
+	<select id="getDummy" parameterType="HashMap" resultType="ExqueryMap" >
+	<![CDATA[
+		SELECT ${sqlStmt} FROM DUAL
+	]]>
+	</select>
+
+	<!-- Count 처리용 -->
+	<select id="getCount" parameterType="HashMap" resultType="ExqueryMap" >
+	<![CDATA[
+		${sqlStmt}
+	]]>
+	</select>
+
+	<!-- Sequence 처리 -->
+	<select id="getSequence" parameterType="String" resultType="Integer">
+		SELECT ${sequenceName}.NEXTVAL AS SEQ FROM DUAL
+	</select>
+
+	<!-- 연관 데이터 존재여부 확인 -->
+	<select id="checkExists" parameterType="HashMap" resultType="ExqueryMap" >
+	<![CDATA[
+		SELECT  COUNT(*) CNT
+		FROM  ${tableName}
+		WHERE ${colName} = #{colValue}
+	]]>
+	</select>
+
+	<!-- 연관 데이터 존재여부 확인 (다중 컬럼 조합키용) -->
+	<select id="checkExistsV2" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT  COUNT(*) CNT
+		FROM  ${tableName}
+		<where>
+			<foreach collection="pkList"  item="item"  separator=" AND ">
+				${item.colName} = '${item.colValue}'
+			</foreach>
+		</where>
+	</select>
+	
+	
+	<!-- OrderBy 처리 -->
+	<select id="getOrderedList" parameterType="HashMap" resultType="ExqueryMap" >
+	<![CDATA[
+		${sqlStmt} 
+		ORDER BY ${orderByColumns}
+	]]>
+	</select>
+	
+	<!-- 페이징 처리 -->
+	<select id="getPagingList" parameterType="HashMap" resultType="ExqueryMap" >
+	<![CDATA[
+		SELECT * 
+		FROM (
+			SELECT ROWNUM AS RNUM, PAGING_TARGET.* 
+			FROM ( ${sqlStmt} ) PAGING_TARGET 
+			WHERE ROWNUM <= #{endIndex} 
+		) A
+		WHERE RNUM >= #{startIndex}
+	]]>
+	</select>
+
+	<!-- 페이징 처리시 위치값, 페이지번호 처리 -->
+	<select id="getPagingListRnum" parameterType="HashMap" resultType="ExqueryMap" >
+	<![CDATA[
+		SELECT PAGE_PK,  CEIL(RNUM / #{pageSize}  ) PAGE_NO
+		FROM (
+			SELECT ROWNUM AS RNUM, PAGING_TARGET.* 
+			FROM ( ${sqlStmt} ) PAGING_TARGET )
+		WHERE PAGE_PK = #{pagePk} 
+	]]>
+	</select>
+	
+	<!-- OrderBy & 페이징 처리 -->
+	<select id="getOrderedPagingList" parameterType="HashMap" resultType="ExqueryMap" >
+	<![CDATA[
+		SELECT * 
+		FROM (
+			SELECT ROWNUM AS RNUM, PAGING_TARGET.* 
+			FROM ( 
+				${sqlStmt} 
+				ORDER BY ${orderByColumns}
+			) PAGING_TARGET 
+			WHERE ROWNUM <= #{endIndex}
+		) 
+		WHERE RNUM >= #{startIndex}
+	]]>
+	</select>
+
+	<!--  테이블 정의서 정보 -->
+	<select id="getTableList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+		    X.TABLE_NAME TABLE_ID ,
+		    (SELECT COMMENTS FROM USER_TAB_COMMENTS
+		                  WHERE TABLE_NAME = X.TABLE_NAME ) TABLE_NM,
+		    X.COLUMN_NAME FIELD_ID , 
+		    X.COLUMN_ID   FIELD_NO ,
+		    (SELECT COMMENTS FROM USER_COL_COMMENTS
+		                  WHERE TABLE_NAME = X.TABLE_NAME AND COLUMN_NAME = X.COLUMN_NAME ) FIELD_NM,
+		    X.DATA_TYPE AS "TYPE" ,
+		    DECODE(X.DATA_TYPE,
+		                 'DATE', NULL,
+		                 'BLOB', NULL,
+		                  X .DATA_LENGTH || CASE WHEN X.DATA_PRECISION IS NOT NULL THEN ',' || X.DATA_SCALE END )
+		                  DATATYPES ,
+		    CASE WHEN SUBSTR(Y.INDEX_NAME, 1, 2) = 'PK' THEN 'Y' ELSE 'N' END  PK
+		FROM COLS X, USER_IND_COLUMNS Y
+		WHERE X.TABLE_NAME LIKE '${tableName}%' ESCAPE '\'
+		  AND X.TABLE_NAME = Y.TABLE_NAME (+) AND X.COLUMN_NAME = Y. COLUMN_NAME(+)
+		ORDER BY X.TABLE_NAME , X. COLUMN_ID
+	</select>
+
+	
+</mapper>

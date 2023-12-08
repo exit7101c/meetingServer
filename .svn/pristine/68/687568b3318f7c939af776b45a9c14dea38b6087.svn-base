@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.common.sqlCommonModal">
+
+    <!-- [공통 모달창] 접점 상세보기 - 테이블,차트 데이터 조회 -->
+	<select id="selectTagChartList" parameterType="HashMap" resultType="ExqueryMap">
+       SELECT TAG_VAL.TAG_CD
+            , TO_CHAR(TAG_VAL.EVENT_TIME,'YYYY-MM-DD HH24:MI:SS') AS NAME
+            , TAG_VAL.EVENT_TIME                                  AS X
+            , ROUND(TAG_VAL.TAG_VALUE,1)                          AS Y
+            , FN_GET_MSG(TAG.TAG_NM, #{ssUserLang})               AS TAG_NM
+            , CASE WHEN TN.VALUE_NM IS NULL THEN  FN_THREECOMMA(RTRIM(TO_CHAR(ROUND(NVL(TAG_VAL.TAG_VALUE,''),1), 'FM9999999990.9'),'.'))
+                   ELSE FN_GET_MSG(TN.VALUE_NM, #{ssUserLang}) END TAG_VALUE
+            , TAG_VAL.TAG_VALUE AS TAG_VALUE_ORG
+            , TAG_VAL.UCL
+            , TAG_VAL.LCL
+            , TAG_VAL.USL
+            , TAG_VAL.LSL
+            , TAG_VAL.SV
+            , TAG.UNIT
+        FROM COM_TAG_VALUE TAG_VAL
+        INNER JOIN COM_TAG TAG
+        ON TAG_VAL.TAG_CD = TAG.TAG_CD
+        LEFT OUTER JOIN COM_TAG_VALUE_CODE TN
+        ON TAG_VAL.TAG_CD = TN.TAG_CD AND TAG_VAL.TAG_VALUE = TN.VALUE_CD
+        WHERE TAG_VAL.EVENT_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+        AND TAG_VAL.TAG_CD = #{tagCd}
+        <if test='type == "table"'>
+            ORDER BY TAG_VAL.EVENT_TIME DESC
+        </if>
+	</select>
+
+    <!-- [공통 모달창] 접점 상세보기 - sv 데이터 조회 -->
+	<select id="selectSvTagChartList" parameterType="HashMap" resultType="ExqueryMap">
+       SELECT TAG_VAL.TAG_CD
+            , TO_CHAR(TAG_VAL.EVENT_TIME,'YYYY-MM-DD HH24:MI:SS') AS NAME
+            , TAG_VAL.EVENT_TIME                                  AS X
+            , ROUND(TAG_VAL.TAG_VALUE,1)                          AS Y
+            , FN_GET_MSG(TAG.TAG_NM, #{ssUserLang})               AS TAG_NM
+            , FN_THREECOMMA(RTRIM(TO_CHAR(ROUND(NVL(TAG_VAL.TAG_VALUE,''),1), 'FM9999999990.9'),'.')) AS TAG_VALUE
+            , TAG_VAL.UCL
+            , TAG_VAL.LCL
+            , TAG_VAL.USL
+            , TAG_VAL.LSL
+            , TAG_VAL.SV
+            , TAG.UNIT
+        FROM COM_TAG_VALUE TAG_VAL
+        INNER JOIN COM_TAG TAG
+        ON TAG_VAL.TAG_CD = TAG.TAG_CD
+        WHERE TAG_VAL.EVENT_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+        AND TAG_VAL.TAG_CD = #{svTagCd}
+        <if test='type == "table"'>
+            ORDER BY TAG_VAL.EVENT_TIME DESC
+        </if>
+	</select>
+
+    <!-- [공통 모달창] 접점 상세보기 - 테이블,차트 데이터 조회 -->
+    <select id="selectTagOne" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            TAG_CD
+            , FN_GET_MSG(TAG_NM, #{ssUserLang}) AS TAG_NM
+            , TAG_TYPE
+            , UNIT
+            , CHART_TYPE
+            , FILL_YN
+            , AREA_CD
+            , USE_YN
+        FROM COM_TAG
+        WHERE TAG_CD = #{tagCd}
+    </select>
+
+    <!-- [공통 모달창] 접점 상세보기 - SV여부 검색 -->
+    <select id="selectTagSvInfo" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            SV_TAG_CD
+        FROM COM_TAG_REL
+        WHERE TAG_CD = #{tagCd}
+        AND ROWNUM = 1
+    </select>
+
+    <!-- [공통 모달창] 알람 상세보기 - 테이블 데이터 조회 -->
+    <select id="selectEqpOne" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            EQP_CD
+            , FN_GET_MSG(EQP_NM, #{ssUserLang}) AS EQP_NM
+        FROM COM_EQUIPMENT
+        WHERE EQP_CD = #{eqpCd}
+    </select>
+
+    <!-- [공통 모달창] 알람 상세보기 - 테이블 데이터 조회 -->
+    <select id="selectEqpAlarmList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT A_HIS.EQP_CD
+        , (SELECT FN_GET_MSG(EQP_NM, #{ssUserLang}) FROM COM_EQUIPMENT A_EQP WHERE A_HIS.EQP_CD = A_EQP.EQP_CD) AS EQP_NM
+        , TO_CHAR(A_HIS.EVENT_TIME,'YYYY-MM-DD HH24:MI:SS')  AS EVENT_TIME
+        , A_HIS.ALARM_CD
+        , FN_GET_MSG(A_CODE.ALARM_NM, #{ssUserLang}) 		  AS ALARM_NM
+        , TO_CHAR(A_HIS.CREATED_DT,'YYYY-MM-DD HH24:MI:SS')  AS CREATED_DT
+        , A_HIS.CREATED_USER_ID
+        FROM COM_EQP_ALARM_HIS          A_HIS
+        LEFT OUTER JOIN COM_ALARM_CODE  A_CODE
+        ON A_HIS.ALARM_CD = A_CODE.ALARM_CD
+        WHERE A_CODE.ALARM_LEVEL = #{alarmLevel}
+        AND A_HIS.EQP_CD = #{eqpCd}
+        <if test='fromDate != null and  fromDate != ""'>
+            AND A_HIS.EVENT_TIME &gt; FN_START_DATE(#{fromDate})
+        </if>
+        <if test='toDate != null and  toDate != ""'>
+            AND A_HIS.EVENT_TIME &lt; FN_END_DATE(#{toDate})
+        </if>
+        ORDER BY EVENT_TIME DESC
+    </select>
+
+    <!-- [공통 모달창] 가동 상세보기 - 테이블 데이터 조회 -->
+    <select id="selectEqpStateList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT ROWNUM
+        , CESH.EQP_CD
+        , (SELECT FN_GET_MSG(EQP_NM, #{ssUserLang}) FROM COM_EQUIPMENT CE WHERE CESH.EQP_CD = CE.EQP_CD) AS EQP_NM
+        , TO_CHAR(CESH.EVENT_TIME,'YYYY-MM-DD HH24:MI:SS') AS EVENT_TIME
+        , CESH.STATE_CD
+        , FN_GET_MSG(CSC.STATE_NM, #{ssUserLang}) 			AS STATE_NM
+        , CESH.PREV_STATE_CD
+        , TO_CHAR(CESH.START_TIME,'YYYY-MM-DD HH24:MI:SS') AS START_TIME
+        , TO_CHAR(CESH.END_TIME,'YYYY-MM-DD HH24:MI:SS')   AS END_TIME
+        , CESH.STOP_CD
+        , CTR.STOP_NM
+        , TO_CHAR(CESH.CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+        , CESH.CREATED_USER_ID
+        , TO_CHAR(CESH.UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+        , CESH.UPDATED_USER_ID
+        , ROUND((END_TIME - START_TIME)*24,2)				AS RUNTIME
+        FROM COM_EQP_STATE_HIS               CESH
+        LEFT OUTER JOIN COM_STATE_CODE       CSC
+        ON (CESH.EQP_CD = CSC.EQP_CD AND CESH.STATE_CD = CSC.STATE_CD)
+        LEFT OUTER JOIN COM_STOP_CODE        CTR
+        ON CESH.STOP_CD = CTR.STOP_CD
+        <where>
+            CESH.EQP_CD = #{eqpCd}
+            <if test='toDate != null and  toDate != ""'>
+                AND START_TIME &lt; FN_END_DATE(#{toDate})
+            </if>
+            <if test='fromDate != null and  fromDate != ""'>
+                AND END_TIME &gt; FN_START_DATE(#{fromDate})
+            </if>
+        </where>
+    </select>
+
+    <!-- 가동정보 -->
+    <select id="selectTagChartStateInfo" parameterType="HashMap" resultType="ExqueryMap">
+
+        SELECT
+            START_TIME,
+            END_TIME,
+            STATE_CD,
+            RUN_YN,
+        CASE WHEN RUN_YN = 'Y' THEN '가동' ELSE '정지' END RUN_YN_STR,
+        CASE WHEN RUN_YN = 'Y' THEN '#8be0a621' ELSE '#f184841a' END COLOR
+        FROM COM_EQP_STATE_HIS
+        WHERE EQP_CD = (SELECT MAX(EQP_CD) FROM COM_EQP_TAG WHERE TAG_CD = #{tagCd})
+        AND START_TIME &lt;  FN_END_DATE(#{toDate})
+        AND END_TIME > FN_START_DATE(#{fromDate})
+        ORDER BY START_TIME ASC
+
+    </select>
+    <!-- 알람정보 -->
+    <select id="selectTagChartAlarmInfo" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            X
+            ,ALARM_CD
+            ,TITLE
+            ,ROWNUM AS RN
+        FROM (
+            SELECT
+                A.EVENT_TIME AS X
+                ,A.ALARM_CD
+                ,FN_GET_MSG(B.ALARM_NM,#{ssUserLang}) AS TITLE
+            FROM COM_EQP_ALARM_HIS A, COM_ALARM_CODE B
+            WHERE A.ALARM_CD = B.ALARM_CD
+            AND EQP_CD = (SELECT MAX(EQP_CD) FROM COM_EQP_TAG WHERE TAG_CD = #{tagCd})
+            AND EVENT_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+            AND B.ALARM_LEVEL = 'H'
+            ORDER BY EVENT_TIME DESC
+        )
+        WHERE ROWNUM &lt;= 50
+        ORDER BY X ASC
+    </select>
+    <!-- 제품정보 -->
+    <select id="selectTagChartProductionInfo" parameterType="HashMap" resultType="ExqueryMap">
+
+        SELECT
+            A.LINE_CD,
+            A.START_TIME,
+            A.END_TIME,
+            A.PROD_CD,
+            FN_GET_MSG(B.PROD_NM, #{ssUserLang}) AS PROD_NM
+        FROM COM_LINE_PRODUCT_HIS A, COM_PRODUCT B
+        WHERE A.PROD_CD = B.PROD_CD
+        AND A.LINE_CD = ( SELECT LINE_CD FROM COM_EQUIPMENT WHERE EQP_CD =  (SELECT MAX(EQP_CD) FROM COM_EQP_TAG WHERE TAG_CD = #{tagCd}) )
+        AND A.START_TIME &lt;  FN_END_DATE(#{toDate})
+        AND A.END_TIME > FN_START_DATE(#{fromDate})
+        ORDER BY A.START_TIME ASC
+
+    </select>
+</mapper>

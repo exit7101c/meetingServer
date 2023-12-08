@@ -1,0 +1,367 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.basic.sqlProd">
+	
+	<!-- 제품 -->
+	<select id="selectProdList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT ROWNUM AS NO
+			, PD.PROD_CD
+			, PD.PROD_NM
+			, PD.PROD_DESC
+			, PD.PROD_GROUP_CD
+			, PD.PROD_GROUP_NM
+			, PD.MTRL_GROUP_CD
+			, PD.MTRL_GROUP_NM
+			, PD.MTRL_TYPE_CD
+			, PD.MTRL_TYPE_NM
+			, PD.BASE_QTY
+			, PD.UNIT_CD
+			, PD.REMARKS
+			, PD.USE_YN
+			, PD.CREATED_DT
+			, PD.CREATED_USER_ID
+			, PD.UPDATED_DT
+			, PD.UPDATED_USER_ID
+			, EXIST_YN
+			FROM
+			(
+			SELECT CP.PROD_CD
+				, FN_GET_MSG(CP.PROD_NM, #{ssUserLang})   AS PROD_NM
+				, FN_GET_MSG(CP.PROD_DESC, #{ssUserLang}) AS PROD_DESC
+				, CP.PROD_GROUP_CD
+				, FN_GET_MSG(CPG.PROD_GROUP_NM, #{ssUserLang}) AS PROD_GROUP_NM
+				, CP.MTRL_GROUP_CD
+				, FN_GET_MSG(CMG.MTRL_GROUP_NM, #{ssUserLang}) AS MTRL_GROUP_NM
+				, CP.MTRL_TYPE_CD
+				, FN_GET_MSG(CMT.MTRL_TYPE_NM, #{ssUserLang}) AS MTRL_TYPE_NM
+				, CP.BASE_QTY
+				, CP.UNIT_CD
+				, CP.REMARKS
+				, FN_GET_COMMCODE_NAME(#{ssUserLang}, 'USE_YN', CP.USE_YN) AS USE_YN
+				, TO_CHAR(CP.CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+				, CP.CREATED_USER_ID
+				, TO_CHAR(CP.UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+				, CP.UPDATED_USER_ID
+                , CASE WHEN CAP.PROD_CD IS NULL THEN 'X' ELSE 'O' END AS EXIST_YN
+				FROM COM_PRODUCT CP
+				LEFT OUTER JOIN COM_PRODUCT_GROUP CPG
+				ON CPG.PROD_GROUP_CD = CP.PROD_GROUP_CD
+				AND CPG.USE_YN = 'Y'
+				LEFT OUTER JOIN COM_MATERIAL_GROUP CMG
+				ON CMG.MTRL_GROUP_CD = CP.MTRL_GROUP_CD
+				AND CMG.USE_YN = 'Y'
+				LEFT OUTER JOIN COM_MATERIAL_TYPE CMT
+				ON CMT.MTRL_TYPE_CD = CP.MTRL_TYPE_CD
+				AND CMT.USE_YN = 'Y'
+                LEFT OUTER JOIN COM_AREA_PRODUCT CAP
+                ON CAP.PROD_CD = CP.PROD_CD
+                AND CAP.USE_YN = 'Y'
+				<where>
+					<if test='useYn != null and useYn != ""'>
+						AND CP.USE_YN = #{useYn}
+					</if>
+					<if test='searchStr1 != null and searchStr1 != ""'>
+						AND CP.PROD_CD LIKE '%${searchStr1}%' OR CP.PROD_NM LIKE '%${searchStr1}%'
+					</if>
+					<if test='searchStr2 !=null and searchStr2 !="" '>
+						AND CP.PROD_GROUP_CD = #{searchStr3}
+					</if>
+					<if test='searchStr3 !=null and searchStr3 !="" '>
+						AND CP.MTRL_GROUP_CD = #{searchStr3}
+					</if>
+					<if test='searchStr4 !=null and searchStr4 !="" '>
+						AND CP.MTRL_TYPE_CD = #{searchStr4}
+					</if>
+					<if test='searchStr5 !=null and searchStr5 !="" '>
+						AND CP.AREA_CD = #{searchStr5}
+					</if>
+<!--					<if test='searchStr6 !=null and searchStr6 !="" '>-->
+<!--						AND CP.LINE_CD = #{searchStr6}-->
+<!--					</if>-->
+				</where>
+				ORDER BY CASE WHEN CAP.PROD_CD IS NULL THEN 2 ELSE 1 END
+				       , CP.PROD_CD DESC
+			) PD
+	</select>
+	
+	<select id="selectProdOne" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT PROD_CD
+			, FN_GET_MSG(PROD_NM, #{ssUserLang}) AS PROD_NM
+			, FN_GET_MSG(PROD_DESC, #{ssUserLang}) AS PROD_DESC
+			, PROD_GROUP_CD
+			, MTRL_GROUP_CD
+			, MTRL_TYPE_CD
+			, UNIT_CD
+			, REMARKS
+			, USE_YN
+		FROM COM_PRODUCT
+        WHERE PROD_CD = #{prodCd}
+	</select>
+
+	<!-- 제품 -->
+	<select id="selectSpecProdList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT ROWNUM AS NO
+		, PROD_CD
+		, FN_GET_MSG(PROD_NM, #{ssUserLang})   AS PROD_NM
+		, FN_GET_MSG(PROD_DESC, #{ssUserLang}) AS PROD_DESC
+		, PROD_GROUP_CD
+		, MTRL_GROUP_CD
+		, MTRL_TYPE_CD
+		, UNIT_CD
+		, REMARKS
+		, FN_GET_COMMCODE_NAME(#{ssUserLang}, 'USE_YN', USE_YN) AS USE_YN
+		, TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+		, CREATED_USER_ID
+		, TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+		, UPDATED_USER_ID
+		FROM COM_PRODUCT
+		WHERE MTRL_TYPE_CD = 'HALB'
+		<if test='searchStr1 != null and searchStr1 != ""'>
+			AND PROD_CD LIKE '%${searchStr1}%' OR PROD_NM LIKE '%${searchStr1}%'
+		</if>
+	</select>
+
+	<!-- 제품별관리상하한 -->
+	<select id="selectSpecTagList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			A.TAG_CD
+			,FN_GET_MSG(A.TAG_NM, #{ssUserLang})   AS TAG_NM
+			,B.PROD_CD
+            ,(SELECT FN_GET_MSG(PROD_NM, #{ssUserLang}) FROM COM_PRODUCT WHERE PROD_CD = B.PROD_CD) AS PROD_NM
+			, CASE WHEN B.PROD_CD IS NOT NULL THEN 'Y'
+				ELSE 'N' END IS_EXIST
+			,B.USL
+			,B.UCL
+			,B.CL
+			,B.LCL
+			,B.LSL
+			,TO_CHAR(B.CREATED_DT, 'YYYY-MM-DD HH24:MI') AS CREATED_DT
+			,B.CREATED_USER_ID
+			,TO_CHAR(B.UPDATED_DT, 'YYYY-MM-DD HH24:MI') AS UPDATED_DT
+			,B.UPDATED_USER_ID
+		FROM COM_TAG A
+		LEFT OUTER JOIN ( SELECT * FROM COM_PRODUCT_TAG_CL WHERE PROD_CD = #{prodCd}) B ON A.TAG_CD = B.TAG_CD
+		WHERE A.AREA_CD = #{ssUserAreaCd}
+		AND A.TAG_TYPE = 'PV'
+		ORDER BY IS_EXIST DESC, TAG_CD
+	</select>
+
+	<select id="selectProdModalList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT ROWNUM AS NO
+    		 , PROD_CD
+			 , FN_GET_MSG(PROD_NM, #{ssUserLang})   AS PROD_NM
+			 , BASE_QTY
+			 , UNIT_CD
+		  FROM COM_PRODUCT
+		 WHERE USE_YN = 'Y'
+		   AND MTRL_TYPE_CD IN ('FERT', 'HALB')
+	</select>
+
+
+	<!-- 제품별관리상하한 -->
+	<select id="selectTagClModalList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			A.TAG_CD
+            , (SELECT FN_GET_MSG(TAG_NM, #{ssUserLang}) FROM COM_TAG WHERE TAG_CD = A.TAG_CD) AS TAG_NM
+			, A.PROD_CD
+            , (SELECT FN_GET_MSG(PROD_NM, #{ssUserLang}) FROM COM_PRODUCT WHERE PROD_CD = A.PROD_CD) AS PROD_NM
+            , A.CHANGE_TIME
+            , TO_CHAR(A.CHANGE_TIME, 'YYYY-MM-DD HH24:MI') AS CHANGE_TIME_STR
+            , A.PROC_TYPE
+            , NVL(TO_CHAR(A.USL), '-') AS USL
+            , NVL(TO_CHAR(A.UCL), '-') AS UCL
+            , NVL(TO_CHAR(A.CL), '-') AS CL
+            , NVL(TO_CHAR(A.LCL), '-') AS LCL
+            , NVL(TO_CHAR(A.LSL), '-') AS LSL
+			, TO_CHAR(A.CREATED_DT, 'YYYY-MM-DD HH24:MI') AS CREATED_DT
+			, (SELECT USER_NM FROM COM_USER WHERE USER_ID = A.CREATED_USER_ID) AS CREATED_USER_ID
+		FROM COM_PRODUCT_TAG_CL_HIS A
+		WHERE A.PROD_CD = #{prodCd} AND A.TAG_CD = #{tagCd}
+		AND A.CHANGE_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+		ORDER BY A.CHANGE_TIME DESC
+
+	</select>
+
+	<!-- 제품별관리상하한 -->
+	<select id="selectTagProdInfo" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			A.TAG_CD
+			, FN_GET_MSG(A.TAG_NM, #{ssUserLang})   AS TAG_NM
+			, A.UNIT
+			, B.PROD_CD
+			, FN_GET_MSG(B.PROD_NM, #{ssUserLang})   AS PROD_NM
+            , TO_CHAR(TO_DATE(#{fromDate}, 'YYYYMMDDHH24MISS'), 'YYYY-MM-DD HH24:MI:SS') AS FROM_DATE_STR
+            , TO_CHAR(TO_DATE(#{toDate}, 'YYYYMMDDHH24MISS'), 'YYYY-MM-DD HH24:MI:SS') AS TO_DATE_STR
+		FROM COM_TAG A, COM_PRODUCT B
+		WHERE A.TAG_CD = #{tagCd}
+		AND B.PROD_CD = #{prodCd}
+	</select>
+
+
+	<!-- 공정안정성 -->
+	<select id="selectProcStabilityList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			TO_CHAR(TO_DATE(STD_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS STD_DATE
+			, TO_CHAR(START_TIME,'YYYY-MM-DD HH24:MI:SS') AS START_TIME
+			, TO_CHAR(END_TIME,'YYYY-MM-DD HH24:MI:SS') AS END_TIME
+			, TAG_CD
+			, (SELECT FN_GET_MSG(TAG_NM,#{ssUserLang}) FROM COM_TAG WHERE TAG_CD = A.TAG_CD) AS TAG_NM
+			, PROD_CD
+			, (SELECT FN_GET_MSG(PROD_NM,#{ssUserLang}) FROM COM_PRODUCT WHERE PROD_CD = A.PROD_CD) AS PROD_NM
+			, VALUE_COUNT
+			, VALUE_SUM
+			, VALUE_MAX
+			, VALUE_AVG
+			, VALUE_MIN
+			, VALUE_STDDEV
+			, UCL
+			, CL
+			, LCL
+			, RS_SUM
+			, RS_MAX
+			, RS_AVG
+			, RS_MIN
+			, RS_STDDEV
+			, RS_UCL
+			, RS_CL
+			, RS_LCL
+			, TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+			, TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+		FROM COM_CONTROL_LIMIT_SUM A
+		WHERE PROD_CD = #{prodCd} AND TAG_CD = #{tagCd}
+		AND A.STD_DATE BETWEEN #{fromDate} AND #{toDate}
+        AND VALUE_COUNT > 0
+		ORDER BY STD_DATE DESC, START_TIME DESC
+	</select>
+
+
+	<!-- 제품별관리상하한 -->
+	<select id="selectAutoProdSpecSetting" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			  A.TAG_CD
+			, FN_GET_MSG(A.TAG_NM, #{ssUserLang})   AS TAG_NM
+			, A.AUTO_LIMIT_YN
+			, (SELECT FN_GET_MSG(PROD_NM, #{ssUserLang}) FROM COM_PRODUCT WHERE PROD_CD = B.PROD_CD) AS PROD_NM
+			, CASE WHEN B.PROD_CD IS NOT NULL THEN 'Y' ELSE 'N' END IS_EXIST
+			, CASE WHEN A.AUTO_LIMIT_YN = 'Y' THEN NVL(B.CALC_TIME,'180') ELSE '' END AS CALC_TIME
+		FROM COM_TAG A
+		LEFT OUTER JOIN (
+			SELECT T1.*
+			FROM COM_CONTROL_LIMIT_CALC_OPT T1
+			INNER JOIN
+			(
+				SELECT PROD_CD, TAG_CD, MAX(SEQ_ID) AS SEQ_ID
+				FROM COM_CONTROL_LIMIT_CALC_OPT
+				WHERE USE_YN = 'Y'
+				AND PROD_CD = #{prodCd}
+				GROUP BY TAG_CD , PROD_CD
+			) T2
+			ON T1.SEQ_ID = T2.SEQ_ID
+			AND T1.USE_YN = 'Y'
+			AND T1.PROD_CD = #{prodCd}
+		) B ON A.TAG_CD = B.TAG_CD
+		WHERE A.AREA_CD = #{ssUserAreaCd}
+		AND A.TAG_TYPE = 'PV'
+		ORDER BY IS_EXIST DESC, TAG_CD
+	</select>
+
+	<!--제품에 대한 CALC 조건 삭제-->
+    <update id="deleteAutoProdSpecSetting" parameterType="HashMap">
+		UPDATE COM_CONTROL_LIMIT_CALC_OPT
+		SET USE_YN = 'N'
+		WHERE PROD_CD = #{prodCd}
+    </update>
+
+	<insert id="insertAutoProdSpecSetting" parameterType="HashMap">
+		<selectKey resultType="int" keyProperty="newId" order="BEFORE">
+			SELECT  SEQ_CONTROL_LIMIT_CALC_ID.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO COM_CONTROL_LIMIT_CALC_OPT
+		(SEQ_ID, PROD_CD, TAG_CD, CALC_TIME, USE_YN, CREATED_DT, CREATED_USER_ID)
+		VALUES
+		(#{newId}, #{prodCd}, #{tagCd}, NVL(#{calcTime},'180'),'Y', SYSDATE, #{ssUserId})
+	</insert>
+
+	<!-- 제품-Area 매핑 확인 -->
+	<select id="selectAreaProdRel" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT PROD_CD
+		FROM COM_AREA_PRODUCT
+        WHERE PROD_CD = #{prodCd}
+          AND AREA_CD = #{ssUserAreaCd}
+	</select>
+
+	<!-- 제품-Area 매핑 생성 -->
+	<insert id="insertAreaProdMapping" parameterType="Hashmap">
+ 		INSERT INTO COM_AREA_PRODUCT
+ 		(PROD_CD, AREA_CD, USE_YN, CREATED_DT, CREATED_USER_ID)
+ 		VALUES
+ 		(#{prodCd}, #{ssUserAreaCd}, 'Y', SYSDATE, #{ssUserId})
+	</insert>
+
+	<!-- 제품-Area 매핑 삭제 -->
+	<delete id="deleteAreaProdMapping" parameterType="Hashmap">
+ 		DELETE
+ 		FROM COM_AREA_PRODUCT
+ 		WHERE PROD_CD = #{prodCd}
+          AND AREA_CD = #{ssUserAreaCd}
+	</delete>
+
+
+	<!-- 중량분포현황 데이터조회 <line> -->
+	<select id="selectWeightLineLastId" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT  /*+  INDEX_DESC( PMS_WEIGHT_${line} PK_PMS_WEIGHT_${line})  */
+		ID
+		FROM DEV.PMS_WEIGHT_${line}
+		WHERE ROWNUM = 1
+	</select>
+
+	<!-- 기준중량 상한 하한 조회 -->
+	<select id="selectUclLclCl" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			TOT_WEIGHT AS CL
+			, TOT_WEIGHT_LCL AS LCL
+			, TOT_WEIGHT_UCL AS UCL
+            , GOODS_CD
+            , GOODS_NAME
+		FROM DEV.PMS_GOODS
+		WHERE GOODS_CD = (
+			SELECT
+				GOODS_CD
+			FROM DEV.PMS_GOODS_PROD_SEL
+			WHERE LINE_CD = #{line}
+			AND LAST_YN = 'Y'
+			AND PROC_GB = 'P03'
+		)
+	</select>
+
+	<!-- 중량분포현황 데이터조회 <line> -->
+	<select id="selectWeightLine" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT  /*+  INDEX( PMS_WEIGHT_${line} PK_PMS_WEIGHT_${line})  */
+           ID
+           , TO_DATE(PROC_TIME, 'YYYYMMDDHH24MISS') AS X
+           , PROC_MSEC
+           , TO_CHAR(TO_DATE(PROC_TIME, 'YYYYMMDDHH24MISS'), 'YYYY-MM-DD HH24:MI:SS') AS PROC_TIME_STR
+           , VALUE AS VAL
+           , COL
+        FROM DEV.PMS_WEIGHT_${line}
+        WHERE ID > ${lastId}
+        AND USE_YN = 'Y'
+	</select>
+
+	<!-- 열별 중량 카운트  -->
+	<select id="selectColValGroupMoni" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+		COL, VAL, COUNT(*) CNT
+		FROM (
+		SELECT
+		COL, ROUND(VALUE) VAL
+		FROM DEV.PMS_WEIGHT_${line}
+		WHERE PROC_TIME BETWEEN TO_CHAR(SYSDATE-(1/24/60*20), 'YYYYMMDDHH24MISS') AND TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+		AND JUDGE = 'I'
+		AND GOODS_CD = #{goodsCd}
+		)
+		GROUP BY COL, VAL
+		ORDER BY COL, VAL
+	</select>
+</mapper>

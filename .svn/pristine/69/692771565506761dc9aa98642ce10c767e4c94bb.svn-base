@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.basic.sqlTagCode">
+	
+	<!-- 접점 리스트 조회 -->
+	<select id="selectTagCodeList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			TAG_CD
+			, FN_GET_MSG(TAG_NM, #{ssUserLang}) AS TAG_NM
+			, TAG_DESC
+			, TAG_TYPE
+			, UNIT
+			, FN_GET_COMMCODE_NAME(#{ssUserLang}, 'USE_YN', USE_YN) AS USE_YN
+			, FN_GET_DATE_STR(CREATED_DT) AS CREATED_DT
+			, CREATED_USER_ID
+			, FN_GET_DATE_STR(UPDATED_DT) AS UPDATED_DT
+			, UPDATED_USER_ID
+			, CHART_TYPE
+			, FILL_YN
+			, AREA_CD
+			, COLLECT_METHOD
+			, AUTO_LIMIT_YN
+		FROM COM_TAG
+		WHERE COLLECT_METHOD = #{collectMethod}
+		<if test='searchStr1 != null and searchStr1 !=""'>
+			AND (TAG_CD LIKE '%${searchStr1}%' OR TAG_NM LIKE '%${searchStr1}%' OR TAG_DESC LIKE '%${searchStr1}%')
+		</if>
+		<if test='useYn != null and useYn != ""'>
+			AND USE_YN = #{useYn}
+		</if>
+		<if test='collectType != null and collectType != "ALL"'>
+			AND TAG_TYPE = #{collectType}
+		</if>
+        ORDER BY TAG_CD
+	</select>
+
+	<!-- 접점 한건 조회 -->
+	<select id="selectTagCodeOne" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			TAG_CD
+    	  	, FN_LANG_INP(TAG_NM,'en') AS TAG_NM_EN 	-- 영어
+		  	, FN_LANG_INP(TAG_NM,'ko') AS TAG_NM_KO 	-- 한국어
+          	, FN_LANG_INP(TAG_NM, 'cn') AS TAG_NM_CN 	-- 중국어
+			, TAG_TYPE
+			, FN_LANG_INP(TAG_DESC,'en') AS TAG_DESC_EN 	-- 영어
+		  	, FN_LANG_INP(TAG_DESC,'ko') AS TAG_DESC_KO 		-- 한국어
+          	, FN_LANG_INP(TAG_DESC,'cn') AS TAG_DESC_CN 	-- 중국어
+			, UNIT
+			, USE_YN
+			, FN_GET_DATE_STR(CREATED_DT) AS CREATED_DT
+			, CREATED_USER_ID
+			, FN_GET_DATE_STR(UPDATED_DT) AS UPDATED_DT
+			, UPDATED_USER_ID
+			, CHART_TYPE
+			, FILL_YN
+			, AREA_CD
+			, AUTO_LIMIT_YN
+			, COLLECT_METHOD
+			, ATTR1
+			, ATTR2
+			, ATTR3
+			, ATTR4
+			, ATTR5
+		FROM COM_TAG
+		WHERE TAG_CD = #{selectKey}
+	</select>
+
+	<!-- 한건을 저장한다.  -->
+	<select id="insertTagCode" parameterType="HashMap" resultType="ExqueryMap" >
+		INSERT INTO COM_TAG
+		(
+		TAG_CD
+		, TAG_NM
+		, TAG_TYPE
+		, UNIT
+		, USE_YN
+		, CREATED_DT
+		, CREATED_USER_ID
+		, UPDATED_DT
+		, UPDATED_USER_ID
+		, CHART_TYPE
+		, FILL_YN
+		, AREA_CD
+		, AUTO_LIMIT_YN
+		, COLLECT_METHOD
+		, TAG_DESC
+		, ATTR1
+		, ATTR2
+		, ATTR3
+		, ATTR4
+		, ATTR5
+		)
+		VALUES
+		(
+		#{tagCd}
+		, #{tagNm}
+		, #{tagType}
+		, #{unit}
+		, #{useYn}
+		, sysdate
+		, #{ssUserId}
+		, sysdate
+		, #{ssUserId}
+		, #{chartType}
+		, #{fillYn}
+		, #{areaCd}
+		, #{autoLimitYn}
+		, #{collectMethod}
+		, #{tagDesc}
+		, #{attr1}
+		, #{attr2}
+		, #{attr3}
+		, #{attr4}
+		, #{attr5}
+		)
+	</select>
+
+
+	<!-- 한건을 저장한다.  -->
+	<insert id="insertEnterTagCode" parameterType="HashMap" >
+		<selectKey resultType="int" keyProperty="newId" order="BEFORE">
+			SELECT  SEQ_TAG_VALUE_ID.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO COM_TAG_VALUE
+					(
+						ID
+						, TAG_CD
+						, EVENT_TIME
+						, TAG_VALUE
+						, CREATED_DT
+					)
+					VALUES
+					(
+						#{newId},
+						#{tagCd},
+						SYSDATE,
+						#{value},
+						SYSDATE
+					)
+	</insert>
+
+	<update id="mergeEnterTagCode" parameterType="HashMap" >
+		MERGE INTO COM_TAG_VALUE_CURRENT
+		USING DUAL
+		ON (TAG_CD = #{tagCd})
+		WHEN MATCHED THEN
+			UPDATE SET
+			  EVENT_TIME = SYSDATE,
+			  TAG_VALUE = #{value},
+			  UPDATED_DT = SYSDATE
+		WHEN NOT MATCHED THEN
+			INSERT  (TAG_CD, EVENT_TIME, TAG_VALUE, UPDATED_DT)
+			VALUES (
+				#{tagCd},
+				SYSDATE,
+				#{value},
+				SYSDATE)
+	</update>
+
+	<!-- 한건을 수정한다.  -->
+	<select id="updateTagCode" parameterType="HashMap" resultType="ExqueryMap" >
+		UPDATE COM_TAG
+		SET
+		TAG_NM       		= #{tagNm},
+		TAG_TYPE            = #{tagType},
+		UNIT             	= #{unit},
+		USE_YN             	= #{useYn},
+		CHART_TYPE          = #{chartType},
+		FILL_YN             = #{fillYn},
+		AREA_CD             = #{areaCd},
+		UPDATED_USER_ID     = #{ssUserId},
+		UPDATED_DT          = sysdate,
+		AUTO_LIMIT_YN 		= #{autoLimitYn},
+		TAG_DESC			= #{tagDesc},
+		ATTR1				= #{attr1},
+		ATTR2				= #{attr2},
+		ATTR3				= #{attr3},
+		ATTR4				= #{attr4},
+		ATTR5				= #{attr5}
+		WHERE TAG_CD = #{tagCd}
+	</select>
+
+	<!-- 한건을 수정한다.  -->
+	<select id="updateTagCode2" parameterType="HashMap" resultType="ExqueryMap" >
+		UPDATE COM_EQP_TAG
+		SET
+		COLLECT_TYPE = #{tagType}
+		WHERE TAG_CD = #{tagCd}
+	</select>
+
+	<!-- 한건을 사용하지 않는다.  -->
+	<select id="disableTagCode" parameterType="HashMap" resultType="ExqueryMap" >
+		UPDATE COM_TAG
+		SET
+		USE_YN              = 'N',
+		UPDATED_USER_ID     = #{ssUserId},
+		UPDATED_DT          = sysdate
+		WHERE TAG_CD = #{tagCd}
+	</select>
+
+	<!-- 접점 리스트 조회 (공통) -->
+	<select id="selectComTagCodeList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			TAG_CD
+			, FN_GET_MSG(TAG_NM, #{ssUserLang}) AS TAG_NM
+			, '[' || TAG_CD || '] ' || FN_GET_MSG(TAG_NM, #{ssUserLang}) AS TAG_STR
+			, TAG_TYPE
+			, UNIT
+			, CHART_TYPE
+			, FILL_YN
+			, AREA_CD
+			, USE_YN
+		FROM COM_TAG
+		<where>
+			USE_YN = 'Y'
+			<if test='searchStr1 != null and  searchStr1 != ""'>
+				AND TAG_CD LIKE '%${searchStr1}%'
+			</if>
+			<if test='searchStr2 != null and  searchStr2 != ""'>
+				AND FN_GET_MSG(TAG_NM, #{ssUserLang}) LIKE '%${searchStr2}%'
+			</if>
+		</where>
+		ORDER BY TAG_CD
+	</select>
+	
+    <!-- 접점 리스트 : 공정-설비-태그 Tree 구조에 사용 -->
+	<select id="selectEqpTagList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT TAG.TAG_CD 
+			 , TAG.TAG_CD  AS CODE
+			 , TAG.TAG_CD  AS CTQ_CD
+			 , TAG.UNIT  AS UNIT
+			 , FN_GET_MSG(TAG.TAG_NM, #{ssUserLang}) AS NAME
+			 , FN_GET_MSG(TAG.TAG_NM, #{ssUserLang}) AS CTQ_NM
+			, TAG.CHART_TYPE
+			, TAG.FILL_YN
+			, TAG.TAG_TYPE
+		FROM COM_EQP_TAG 			CQT
+		INNER JOIN COM_TAG 			TAG
+		ON CQT.TAG_CD = TAG.TAG_CD
+		AND CQT.EQP_CD = #{eqpCd}
+		<if test='collectType != null and  collectType != ""'>
+			AND CQT.COLLECT_TYPE = #{collectType}
+		</if>
+		AND CQT.COLLECT_YN = 'Y'
+		AND TAG.USE_YN = 'Y'
+        ORDER BY CQT.TAG_CD
+	</select>
+
+	<select id="selectTagPopupList2" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+		TAG_CD
+		, TAG_CD  AS CODE
+		, TAG_CD  AS CTQ_CD
+		, UNIT  AS UNIT
+		, FN_GET_MSG(TAG_NM, #{ssUserLang}) AS NAME
+		, FN_GET_MSG(TAG_NM, #{ssUserLang}) AS CTQ_NM
+		, CHART_TYPE
+		, FILL_YN
+		, TAG_TYPE
+		FROM COM_TAG
+		WHERE USE_YN = 'Y'
+		<if test='searchStr1 != null and searchStr1 !=""'>
+			AND TAG_TYPE = #{searchStr1}
+		</if>
+		<if test='searchStr2 != null and searchStr2 !=""'>
+			AND (TAG_CD LIKE '%${searchStr2}%' OR TAG_NM LIKE '%${searchStr2}%')
+		</if>
+		ORDER BY TAG_CD
+	</select>
+
+	<!-- 상관분석 데이터 저장.  -->
+	<insert id="insertCtqMultipleCorrelate" parameterType="HashMap">
+		INSERT ALL
+		<foreach collection="list" item="tag" index="index" >
+			INTO COM_CORREL_DATA
+			(SEQ, KEY, IDX, VAL)
+			VALUES (#{seq}, #{key}, ${index}+1, ${tag.tagValue})
+		</foreach>
+		SELECT * FROM DUAL
+	</insert>
+
+    <insert id="insertCtqMultipleCorrelateByExcel" parameterType="HashMap">
+        INSERT INTO COM_CORREL_DATA
+        (SEQ, KEY, IDX, VAL)
+        VALUES (#{seq}, #{key}, ${idx}, ${tagValue})
+    </insert>
+
+	<select id="selectTagPopupList_moniCond" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			EQP_GROUP
+			, TAG_CD
+			, (SELECT FN_GET_MSG(TAG_NM, #{ssUserLang}) FROM COM_TAG WHERE TAG_CD = A.TAG_CD) AS NAME
+		FROM COM_EQP_CONDITION A
+		WHERE EQP_GROUP = #{type}
+		ORDER BY DISPLAY_ORDER
+	</select>
+
+	<update id="updateComTagAutoLimitYn" parameterType="HashMap">
+		UPDATE COM_TAG
+		<set>
+			AUTO_LIMIT_YN = #{autoLimitYn}
+			, UPDATED_USER_ID = #{ssUserId}
+			, UPDATED_DT = SYSDATE
+		</set>
+		WHERE TAG_CD = #{tagCd}
+	</update>
+
+</mapper>

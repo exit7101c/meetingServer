@@ -1,0 +1,994 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cronies.app.choice">
+
+	<select id="userInfo" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			USER_KEY, NICK, ICON_CD, AGE, INTRODUCE, ICON_NM, CDN_NM, CDN_THUMB_NM, R_NO
+		FROM (
+			SELECT
+				ROW_NUMBER() OVER(ORDER BY USER_ID) AS R_NO,
+				USER_ID AS USER_KEY,
+				NICK,
+				A.ICON_CD,
+				AGE,
+				(SELECT SHORT_WORD FROM SC_USER_DETAIL WHERE USER_ID = A.USER_ID) AS INTRODUCE
+				--, B.FILE_ID
+				, B.ICON_NM
+			    , C.SERVER_IP + '/' + C.FILE_PATH + C.SERVER_FILE_NM AS CDN_NM
+			    , C.SERVER_IP + '/' + C.FILE_PATH + C.THUMB_FILE_NM AS CDN_THUMB_NM
+			FROM SC_USER A
+			LEFT OUTER JOIN SC_ICON_CODE B
+				ON A.ICON_CD = B.ICON_CD
+			LEFT OUTER JOIN SC_ATTACH_FILE C
+				ON B.FILE_ID = C.ATTACH_FILE_ID
+			WHERE USER_ID != #{userId}
+		) A
+        <![CDATA[
+        WHERE R_NO BETWEEN #{todayUserNo} AND #{endRowNum}
+        ]]>
+	</select>
+
+	<select id="userInfoOne" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			USER_KEY, NICK, ICON_CD, AGE, INTRODUCE, #{pageNo} AS PAGE_NO
+		FROM (
+			 SELECT
+				 ROW_NUMBER() OVER(ORDER BY USER_ID) AS R_NO,
+					 USER_ID AS USER_KEY,
+				 NICK,
+				 ICON_CD,
+				 AGE,
+			 FROM SC_USER A
+			 WHERE A.USER_ID = #{connectUserId}
+		 ) A
+	</select>
+
+	<select id="userInfoFirst" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			USER_KEY, NICK, ICON_CD, AGE, INTRODUCE, #{pageNo} AS PAGE_NO
+		FROM (
+			SELECT
+				ROW_NUMBER() OVER(ORDER BY USER_ID) AS R_NO,
+				USER_ID AS USER_KEY,
+				NICK,
+				ICON_CD,
+				AGE,
+				(SELECT SHORT_WORD FROM SC_USER_DETAIL WHERE USER_ID = A.USER_ID) AS INTRODUCE
+			FROM SC_USER A
+			WHERE USER_ID != #{userId}
+		) A
+        <![CDATA[
+        WHERE R_NO <= ${endRowNum}
+        ]]>
+	</select>
+
+	<select id="userInfoElse" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			USER_KEY, NICK, ICON_CD, AGE, INTRODUCE, ICON_NM, R_NO
+		FROM (
+				 SELECT
+					 ROW_NUMBER() OVER(ORDER BY USER_ID) AS R_NO,
+					 USER_ID AS USER_KEY,
+					 NICK,
+					 A.ICON_CD,
+					 AGE,
+					 (SELECT SHORT_WORD FROM SC_USER_DETAIL WHERE USER_ID = A.USER_ID) AS INTRODUCE
+					 --, B.FILE_ID
+					 , B.ICON_NM
+					 , C.SERVER_IP + '/' + C.FILE_PATH + C.SERVER_FILE_NM AS CDN_NM
+					 , C.SERVER_IP + '/' + C.FILE_PATH + C.THUMB_FILE_NM AS CDN_THUMB_NM
+				 FROM SC_USER A
+				 LEFT JOIN SC_ICON_CODE B
+				 ON A.ICON_CD = B.ICON_CD
+				 LEFT JOIN SC_ATTACH_FILE C
+				 ON B.FILE_ID = C.ATTACH_FILE_ID
+				 WHERE USER_ID != #{userId}
+			 ) A
+        <![CDATA[
+		WHERE R_NO = #{endRowNum}
+		]]>
+	</select>
+
+	<select id="userInfoTest" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT 'TEST' AS T
+	</select>
+
+	<select id="getBadgeList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT 'BADGE1' AS BADGE_CD, '부자' AS BADGE_NM, '198HUDSJF' AS BADGE_FILE_KEY
+		UNION ALL
+		SELECT 'BADGE2' AS BADGE_CD, '1등' AS BADGE_NM, '198HUDSJF' AS BADGE_FILE_KEY
+		UNION ALL
+		SELECT 'BADGE3' AS BADGE_CD, '2등' AS BADGE_NM, '198HUDSJF' AS BADGE_FILE_KEY
+		UNION ALL
+		SELECT 'BADGE4' AS BADGE_CD, '3등' AS BADGE_NM, '198HUDSJF' AS BADGE_FILE_KEY
+		UNION ALL
+		SELECT 'BADGE5' AS BADGE_CD, '4등' AS BADGE_NM, '198HUDSJF' AS BADGE_FILE_KEY
+	</select>
+
+	<select id="getFileList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			PHOTO1 AS FILE_KEY1
+			, PHOTO2 AS FILE_KEY2
+			, PHOTO3 AS FILE_KEY3
+			, PHOTO4 AS FILE_KEY4
+			, PHOTO5 AS FILE_KEY5
+			, PHOTO6 AS FILE_KEY6
+		FROM SC_USER_PIC
+		WHERE USER_ID = ${userKey}
+	</select>
+
+	<select id="getFileListFirst" parameterType="HashMap" resultType="ExqueryMap">
+
+		SELECT
+			(SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = PHOTO1) AS CDN_NM_1
+			, (SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = PHOTO2) AS CDN_NM_2
+			, (SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = PHOTO3) AS CDN_NM_3
+			, (SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = PHOTO4) AS CDN_NM_4
+			, (SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = PHOTO5) AS CDN_NM_5
+			, (SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = PHOTO6) AS CDN_NM_6
+			 --, (SELECT SERVER_IP + '/' + FILE_PATH + THUMB_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = PHOTO1) AS CDN_THUMB_NM_1
+			 --, (SELECT SERVER_IP + '/' + FILE_PATH + THUMB_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = PHOTO2) AS CDN_THUMB_NM_2
+		FROM SC_USER_PIC
+		WHERE USER_ID = #{userKey}
+	</select>
+	<select id="getFileListPartner" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			(SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = A.PHOTO1) AS CDN_NM_1
+			, (SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = A.PHOTO2) AS CDN_NM_2
+			, (SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = A.PHOTO3) AS CDN_NM_3
+			, (SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = A.PHOTO4) AS CDN_NM_4
+			, (SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = A.PHOTO5) AS CDN_NM_5
+			, (SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = A.PHOTO6) AS CDN_NM_6
+		FROM SC_PARTNERS_COMPANY A
+		WHERE PARTNERS_CODE = #{userKey}
+	</select>
+
+	<select id="getFileLeftRightSwiper" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+		 <if test='photoNo != null and photoNo == "0"'>(SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = PHOTO1) AS CDN_NM</if>
+		 <if test='photoNo != null and photoNo == "1"'>(SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = PHOTO2) AS CDN_NM</if>
+		 <if test='photoNo != null and photoNo == "2"'>(SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = PHOTO3) AS CDN_NM</if>
+		 <if test='photoNo != null and photoNo == "3"'>(SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = PHOTO4) AS CDN_NM</if>
+		 <if test='photoNo != null and photoNo == "4"'>(SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = PHOTO5) AS CDN_NM</if>
+		 <if test='photoNo != null and photoNo == "5"'>(SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = PHOTO6) AS CDN_NM</if>
+		FROM SC_USER_PIC
+		WHERE USER_ID = #{connectUserId}
+	</select>
+
+	<select id="getLastLike" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			REG_TIME
+		FROM SC_LIKE
+		WHERE 1=1
+	    AND REG_TIME BETWEEN DATEADD(HH, -24, GETDATE()) AND GETDATE()
+		AND USER_ID = #{userId}
+		AND TARGET_USER_ID = #{targetUserId}
+		ORDER BY REG_TIME DESC
+	</select>
+
+	<select id="getLastNope" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			REG_TIME
+		FROM SC_NOPE
+		WHERE 1=1
+		AND REG_TIME BETWEEN DATEADD(MI, -5, GETDATE()) AND GETDATE()
+		AND USER_ID = #{userId}
+		AND TARGET_USER_ID = #{targetUserId}
+		ORDER BY REG_TIME DESC
+	</select>
+
+	<select id="getLastSkip" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			REG_TIME
+		FROM SC_SKIP
+		WHERE 1=1
+		AND REG_TIME BETWEEN DATEADD(MI, -5, GETDATE()) AND GETDATE()
+		AND USER_ID = #{userId}
+		AND TARGET_USER_ID = #{targetUserId}
+		ORDER BY REG_TIME DESC
+	</select>
+
+	<insert id="setLike" parameterType="HashMap">
+		INSERT INTO SC_LIKE (USER_ID, TARGET_USER_ID, REG_TIME)
+		VALUES (#{userId}, #{targetUserId}, GETDATE())
+	</insert>
+
+	<insert id="setNope" parameterType="HashMap">
+		INSERT INTO SC_NOPE (USER_ID, TARGET_USER_ID, REG_TIME)
+		VALUES (${userId}, ${targetUserId}, GETDATE())
+	</insert>
+
+	<insert id="setSkip" parameterType="HashMap">
+		INSERT INTO SC_SKIP (USER_ID, TARGET_USER_ID, REG_TIME)
+		VALUES (#{userId}, #{targetUserId}, GETDATE())
+	</insert>
+
+	<update id="setUserConfirm" parameterType="HashMap">
+		UPDATE SC_LIKE SET
+		    USER_CONFIRM_YN = 'Y'
+		WHERE LIKE_SEQ = #{likeSeq}
+	</update>
+
+	<select id="getSendLike" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            A.CHAT_ROOM_ID
+			 , A.PAGE_NO
+			 , A.USER_KEY
+			 , B.NICK
+			 , B.AGE
+			 , B.ICON_CD
+			 , A.ACCEPT_YN
+			 , A.LIKE_SEQ
+			 , A.REG_TIME
+			 , A.ACCEPT_TIME
+			 --, C.PHOTO1 AS FILE_ID
+			 , F.SERVER_IP + '/' + F.FILE_PATH + F.SERVER_FILE_NM AS CDN_NM
+			 , F.SERVER_IP + '/' + F.FILE_PATH + F.THUMB_FILE_NM AS CDN_THUMB_NM
+			 , A.SUPER_LIKE_YN
+			 , D.ADDR_LIVE_SUM
+			 , E.FILE_ID AS ICON_FILE_ID
+			 , G.SERVER_IP + '/' + G.FILE_PATH + G.SERVER_FILE_NM AS CDN_NM_ICON
+			 , G.SERVER_IP + '/' + G.FILE_PATH + G.THUMB_FILE_NM AS CDN_THUMB_NM_ICON
+        FROM (
+            SELECT
+                ROW_NUMBER() OVER(ORDER BY REG_TIME DESC) AS R_NO,
+                SL.CHATROOM_ID AS CHAT_ROOM_ID,
+                #{pageNo} AS PAGE_NO,
+                SL.TARGET_USER_ID AS USER_KEY,
+                SL.ACCEPT_YN,
+                SL.LIKE_SEQ,
+                CONVERT(VARCHAR, SL.REG_TIME, 120) AS REG_TIME,
+                CONVERT(VARCHAR, SL.ACCEPT_TIME, 120) AS ACCEPT_TIME,
+				SL.SUPER_LIKE_YN
+            FROM SC_LIKE SL
+			LEFT OUTER JOIN SC_CHATROOM SC
+				ON SL.CHATROOM_ID = SC.CHATROOM_ID
+				AND SC.CHATROOM_TYPE = 'single'
+			WHERE SL.USER_ID = #{userId}
+        ) A
+        INNER JOIN SC_USER B
+        	ON A.USER_KEY = B.USER_ID
+		INNER JOIN SC_USER_PIC C
+		    ON B.USER_ID = C.USER_ID
+		INNER JOIN SC_USER_ADDR D
+		    ON B.USER_ID = D.USER_ID
+		INNER JOIN SC_ICON_CODE E
+		    ON B.ICON_CD = E.ICON_CD
+		INNER JOIN SC_ATTACH_FILE F
+			ON C.PHOTO1 = F.ATTACH_FILE_ID
+		INNER JOIN SC_ATTACH_FILE G
+			ON E.FILE_ID = G.ATTACH_FILE_ID
+        <![CDATA[
+		WHERE R_NO BETWEEN ${startRowNum}+1 AND ${endRowNum}
+		ORDER BY R_NO ASC
+        ]]>
+	</select>
+
+	<select id="getReceiveLike" parameterType="HashMap" resultType="ExqueryMap">
+			SELECT
+					A.CHAT_ROOM_ID
+					, A.PAGE_NO
+					, A.USER_KEY
+					, B.NICK
+					, B.AGE
+					, B.ICON_CD
+					, A.ACCEPT_YN
+					, A.LIKE_SEQ
+					, A.REG_TIME
+					, A.ACCEPT_TIME
+					, A.FREE_FLIP_YN
+								--, C.PHOTO1 AS FILE_ID
+					, F.SERVER_IP + '/' + F.FILE_PATH + F.SERVER_FILE_NM AS CDN_NM
+					, F.SERVER_IP + '/' + F.FILE_PATH + F.THUMB_FILE_NM AS CDN_THUMB_NM
+					, A.SUPER_LIKE_YN
+					, A.SUPER_LIKE_MESSAGE
+					, D.ADDR_LIVE_SUM
+					--, E.FILE_ID AS ICON_FILE_ID
+					, G.SERVER_IP + '/' + G.FILE_PATH + G.SERVER_FILE_NM AS CDN_NM_ICON
+					, G.SERVER_IP + '/' + G.FILE_PATH + G.THUMB_FILE_NM AS CDN_THUMB_NM_ICON
+			FROM (
+					SELECT
+							ROW_NUMBER() OVER(ORDER BY REG_TIME DESC) AS R_NO,
+							SC.CHATROOM_ID AS CHAT_ROOM_ID,
+							#{pageNo} AS PAGE_NO,
+							SL.USER_ID AS USER_KEY,
+							SL.ACCEPT_YN,
+							SL.LIKE_SEQ,
+							CONVERT(VARCHAR, SL.REG_TIME, 120) AS REG_TIME,
+							CONVERT(VARCHAR, SL.ACCEPT_TIME, 120) AS ACCEPT_TIME,
+							SL.SUPER_LIKE_YN,
+							SL.SUPER_LIKE_MESSAGE,
+							FREE_FLIP_YN
+					FROM SC_LIKE SL
+		-- 			LEFT OUTER JOIN SC_CHATROOM_USER SCU
+		-- 				ON SL.USER_ID = SCU.USER_ID
+					LEFT OUTER JOIN SC_CHATROOM SC
+						ON SL.CHATROOM_ID = SC.CHATROOM_ID
+						AND SC.CHATROOM_TYPE = 'single'
+					WHERE SL.TARGET_USER_ID = #{userId}
+						AND SL.USER_CONFIRM_YN IS NULL
+						AND SL.USER_ID NOT IN (
+							SELECT
+								TARGET_USER_ID
+							FROM SC_USER_BLOCK
+							WHERE 1=1
+								AND USER_ID = #{userId}
+								AND DEL_YN = 'N'
+						)
+			) A
+			LEFT OUTER JOIN SC_USER B
+				ON A.USER_KEY = B.USER_ID
+			LEFT OUTER JOIN SC_USER_ADDR D
+				ON B.USER_ID = D.USER_ID
+			LEFT OUTER JOIN SC_USER_PIC C
+				ON B.USER_ID = C.USER_ID
+			LEFT OUTER JOIN SC_ICON_CODE E
+				ON B.ICON_CD = E.ICON_CD
+			LEFT OUTER JOIN SC_ATTACH_FILE F
+				ON C.PHOTO1 = F.ATTACH_FILE_ID
+			LEFT OUTER JOIN SC_ATTACH_FILE G
+				ON E.FILE_ID = G.ATTACH_FILE_ID
+			<![CDATA[
+			WHERE R_NO BETWEEN ${startRowNum}+1 AND ${endRowNum}
+		ORDER BY A.REG_TIME DESC
+		]]>
+	</select>
+
+	<select id="getConnectUsers" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			USER_ID, TARGET_USER_ID, LIKE_SEQ
+		FROM SC_LIKE
+		WHERE 1=1
+		AND LIKE_SEQ = ${likeSeq}
+	</select>
+
+	<update id="setAccept" parameterType="HashMap">
+		UPDATE SC_LIKE
+		SET
+			ACCEPT_YN = 'Y',
+			ACCEPT_TIME = CONVERT(VARCHAR, GETDATE(), 120),
+			CHATROOM_ID = #{chatRoomId}
+		WHERE 1=1
+		AND LIKE_SEQ = ${likeSeq}
+	</update>
+
+	<insert id="createSingleChat" parameterType="HashMap">
+		INSERT INTO SC_CHATROOM (CHATROOM_TYPE, CREATED_TIME, CREATED_USER_ID)
+		VALUES ('single', CONVERT(VARCHAR, GETDATE(), 120), ${targetUserId})
+	</insert>
+
+<!--	<select id="getChatRoomId" parameterType="HashMap" resultType="ExqueryMap">-->
+<!--		SELECT-->
+<!--			MAX(A.CHATROOM_ID) AS CHAT_ROOM_ID, B.USER_ID , B.TARGET_USER_ID-->
+<!--		FROM-->
+<!--			SC_CHATROOM A-->
+<!--		INNER JOIN SC_LIKE B-->
+<!--			ON A.CREATED_USER_ID = B.TARGET_USER_ID-->
+<!--			AND B.LIKE_SEQ = ${likeSeq}-->
+<!--		GROUP BY B.USER_ID, B.TARGET_USER_ID-->
+<!--	</select>-->
+
+	<insert id="createUserChat" parameterType="HashMap">
+		INSERT INTO SC_CHATROOM_USER (USER_ID, CHATROOM_ID, CONNECT_TIME, IS_RECEIVE)
+		SELECT
+			USER_ID, ${chatRoomId} AS CHATROOM_ID, ACCEPT_TIME AS CONNECT_TIME, 'Y'
+		FROM SC_LIKE
+		WHERE LIKE_SEQ = ${likeSeq}
+		UNION ALL
+		SELECT
+			TARGET_USER_ID, #{chatRoomId} AS CHATROOM_ID, ACCEPT_TIME AS CONNECT_TIME, 'Y'
+		FROM SC_LIKE
+		WHERE LIKE_SEQ = ${likeSeq}
+	</insert>
+
+	<select id="getChoiceCategoryList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			CATEGORY_CD
+			 , CATEGORY_NM
+			 , DESCRIPTION
+			 , SHOW_ORDER
+		FROM SC_HEART_ATTACK_CATEGORY
+		ORDER BY SHOW_ORDER ASC
+	</select>
+
+	<update id="setActionLastTime" parameterType="HashMap">
+		MERGE INTO SC_ACTION_LASTTIME
+			USING (VALUES (1)) AS Source (Number)
+			ON (USER_ID = #{userId} AND TARGET_USER_ID = #{targetUserId})
+			WHEN MATCHED THEN
+				UPDATE SET
+				<if test='actionType != null and actionType == "like"'>
+					LIKE_TIME = GETDATE()
+				</if>
+				<if test='actionType != null and actionType == "nope"'>
+					NOPE_TIME = GETDATE()
+				</if>
+				<if test='actionType != null and actionType == "skip"'>
+					SKIP_TIME = GETDATE()
+				</if>
+			WHEN NOT MATCHED THEN
+				INSERT (USER_ID, TARGET_USER_ID
+			<if test='actionType != null and actionType == "like"'>, LIKE_TIME</if>
+			<if test='actionType != null and actionType == "nope"'>, NOPE_TIME</if>
+			<if test='actionType != null and actionType == "skip"'>, SKIP_TIME</if>
+			)
+				VALUES (#{userId}, #{targetUserId}, GETDATE());
+	</update>
+
+	<select id="getTargetMeLikeInfo" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			LIKE_TIME
+		FROM SC_ACTION_LASTTIME
+		WHERE 1=1
+		AND USER_ID = #{targetUserId}
+		AND TARGET_USER_ID = #{userId}
+		AND LIKE_TIME > DATEADD(DD, -60, GETDATE())
+	</select>
+
+	<select id="getMatchedChatroom" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			A.CHATROOM_ID
+		FROM SC_CHATROOM A
+		INNER JOIN SC_CHATROOM_USER B
+			ON A.CHATROOM_ID = B.CHATROOM_ID
+		INNER JOIN SC_CHATROOM_USER C
+			ON B.CHATROOM_ID = C.CHATROOM_ID
+		WHERE 1=1
+		  AND A.CHATROOM_TYPE = 'single'
+		  AND B.USER_ID = #{ssUserId}
+		  AND C.USER_ID = #{targetUserId}
+	</select>
+
+	<select id="setMatchingChatroom" parameterType="HashMap" resultType="ExqueryMap">
+		INSERT INTO SC_CHATROOM (
+			LAST_CHAT
+			, LAST_TIME
+			, CHATROOM_TYPE
+			, CREATED_TIME
+			, CREATED_USER_ID
+			, TITLE
+		) VALUES (
+			''
+			, GETDATE()
+			, 'single'
+			, GETDATE()
+			, #{ssUserId}
+			, (SELECT NICK FROM SC_USER WHERE USER_ID = #{ssUserId}) + '님과 '
+				+ (SELECT NICK FROM SC_USER WHERE USER_ID = #{targetUserId}) + '님의 대화방'
+		)
+		SELECT [CHATROOM_ID] = SCOPE_IDENTITY()
+	</select>
+
+	<insert id="setMatchingChatroomUser" parameterType="HashMap">
+		INSERT INTO SC_CHATROOM_USER (
+			CHATROOM_ID
+			, USER_ID
+			, CONNECT_TIME
+			, IS_FIRST
+			, IS_RECEIVE
+		) VALUES (
+			#{chatroomId}
+			, #{ssUserId}
+			, GETDATE()
+			, 'Y'
+			, 'Y'
+		)
+	</insert>
+
+	<insert id="setMatchingChatroomTarget" parameterType="HashMap">
+		INSERT INTO SC_CHATROOM_USER (
+			CHATROOM_ID
+			, USER_ID
+			, CONNECT_TIME
+			, IS_FIRST
+			, IS_RECEIVE
+		) VALUES (
+			#{chatroomId}
+			, #{targetUserId}
+			, GETDATE()
+			, 'N'
+			, 'Y'
+		)
+	</insert>
+
+	<update id="mergeMatchingUser" parameterType="HashMap">
+		MERGE INTO SC_MATCHING
+		USING (VALUES (1)) AS Source (Number)
+		ON (USER_ID = #{userId} AND TARGET_USER_ID = #{targetUserId})
+		WHEN MATCHED THEN
+		UPDATE SET
+			UPD_TIME = GETDATE()
+		WHEN NOT MATCHED THEN
+		INSERT (USER_ID, TARGET_USER_ID, UPD_TIME)
+		VALUES (#{userId}, #{targetUserId}, GETDATE());
+	</update>
+
+	<update id="mergeMatchingTargetUser" parameterType="HashMap">
+		MERGE INTO SC_MATCHING
+			USING (VALUES (1)) AS Source (Number)
+			ON (USER_ID = #{targetUserId} AND TARGET_USER_ID = #{userId})
+			WHEN MATCHED THEN
+				UPDATE SET
+					UPD_TIME = GETDATE()
+			WHEN NOT MATCHED THEN
+				INSERT (USER_ID, TARGET_USER_ID, UPD_TIME)
+					VALUES (#{targetUserId}, #{userId}, GETDATE());
+	</update>
+
+	<select id="getUserLastAction" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+		    BACK_YN
+			, LAST_ACTION
+			, LAST_ACTION_USER
+		FROM SC_SWIPER_CNT
+		WHERE 1=1
+		AND USER_ID = #{ssUserId}
+	</select>
+
+	<update id="updateSwiperLastAction" parameterType="HashMap">
+		UPDATE SC_SWIPER_CNT
+		SET LAST_ACTION = #{actionTypeUpper}
+		  	, LAST_ACTION_USER = #{targetUserId}
+		    , UPD_TIME = GETDATE()
+			, BACK_YN = 'N'
+		WHERE 1=1
+		  AND USER_ID = #{userId}
+	</update>
+
+	<select id="getUserLastSuperLike" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			LIKE_SEQ AS ACTION_SEQ
+		FROM SC_LIKE
+		WHERE 1=1
+		  AND USER_ID = #{ssUserId}
+		  AND TARGET_USER_ID = #{lastActionUser}
+		  AND SUPER_LIKE_YN = 'Y'
+		ORDER BY LIKE_SEQ DESC
+	</select>
+
+	<select id="getUserLastLike" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			LIKE_SEQ AS ACTION_SEQ
+		FROM SC_LIKE
+		WHERE 1=1
+		  AND USER_ID = #{ssUserId}
+		  AND TARGET_USER_ID = #{lastActionUser}
+		  AND SUPER_LIKE_YN IS NULL
+		ORDER BY LIKE_SEQ DESC
+	</select>
+
+	<select id="getUserLastLikeAll" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			LIKE_SEQ
+			, CONVERT(CHAR(23), REG_TIME, 21) AS REG_TIME
+		FROM SC_LIKE
+		WHERE 1=1
+		  AND USER_ID = #{ssUserId}
+		  AND TARGET_USER_ID = #{lastActionUser}
+		ORDER BY LIKE_SEQ DESC
+	</select>
+
+	<select id="getUserLastNope" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			NOPE_SEQ AS ACTION_SEQ
+			, CONVERT(CHAR(23), REG_TIME, 21) AS REG_TIME
+		FROM SC_NOPE
+		WHERE 1=1
+		  AND USER_ID = #{ssUserId}
+		  AND TARGET_USER_ID = #{lastActionUser}
+		ORDER BY NOPE_SEQ DESC
+	</select>
+
+	<select id="getUserLastSkip" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			SKIP_SEQ AS ACTION_SEQ
+			, CONVERT(CHAR(23), REG_TIME, 21) AS REG_TIME
+		FROM SC_SKIP
+		WHERE 1=1
+		  AND USER_ID = #{ssUserId}
+		  AND TARGET_USER_ID = #{lastActionUser}
+		ORDER BY SKIP_SEQ DESC
+	</select>
+
+	<select id="getUserLastPartnerSkip" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			SKIP_SEQ AS ACTION_SEQ
+			, CONVERT(CHAR(23), REG_TIME, 21) AS REG_TIME
+		FROM SC_PARTNERS_SKIP
+		WHERE 1=1
+		  AND USER_ID = #{ssUserId}
+		ORDER BY SKIP_SEQ DESC
+	</select>
+
+	<delete id="deleteScLike" parameterType="HashMap">
+		DELETE SC_LIKE
+		WHERE LIKE_SEQ = #{actionSeq}
+	</delete>
+
+	<delete id="deleteScNope" parameterType="HashMap">
+		DELETE SC_NOPE
+		WHERE NOPE_SEQ = #{actionSeq}
+	</delete>
+
+	<delete id="deleteScSkip" parameterType="HashMap">
+		DELETE SC_SKIP
+		WHERE SKIP_SEQ = #{actionSeq}
+	</delete>
+
+	<update id="updateUserLastActionTime" parameterType="HashMap">
+		UPDATE SC_ACTION_LASTTIME
+		SET
+		<if test='lastAction != null and lastAction == "SUPER_LIKE" and beforeActionTime != null'>
+			LIKE_TIME = #{beforeActionTime}
+		</if>
+		<if test='lastAction != null and lastAction == "SUPER_LIKE" and beforeActionTime == null'>
+			LIKE_TIME = NULL
+		</if>
+		<if test='lastAction != null and lastAction == "LIKE" and beforeActionTime != null'>
+			LIKE_TIME = #{beforeActionTime}
+		</if>
+		<if test='lastAction != null and lastAction == "LIKE" and beforeActionTime == null'>
+			LIKE_TIME = NULL
+		</if>
+		<if test='lastAction != null and lastAction == "NOPE" and beforeActionTime != null'>
+			NOPE_TIME = #{beforeActionTime}
+		</if>
+		<if test='lastAction != null and lastAction == "NOPE" and beforeActionTime == null'>
+			NOPE_TIME = NULL
+		</if>
+		<if test='lastAction != null and lastAction == "SKIP" and beforeActionTime != null'>
+			SKIP_TIME = #{beforeActionTime}
+		</if>
+		<if test='lastAction != null and lastAction == "SKIP" and beforeActionTime == null'>
+			SKIP_TIME = NULL
+		</if>
+		<if test='lastAction != null and lastAction == "PARTNER_SKIP" and beforeActionTime != null'>
+			SKIP_TIME = #{beforeActionTime}
+		</if>
+		<if test='lastAction != null and lastAction == "PARTNER_SKIP" and beforeActionTime == null'>
+			SKIP_TIME = NULL
+		</if>
+		WHERE 1=1
+		  AND USER_ID = #{ssUserId}
+		  AND TARGET_USER_ID = #{lastActionUser}
+	</update>
+
+	<select id="getUserActionLastTime" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			USER_ID
+			, CONVERT(CHAR(23), LIKE_TIME, 21) AS LIKE_TIME
+		FROM SC_ACTION_LASTTIME
+		WHERE 1=1
+		  AND USER_ID = #{ssUserId}
+		  AND TARGET_USER_ID = #{lastActionUser}
+	</select>
+
+	<select id="getChatRoomId" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+		  A.CHATROOM_ID
+		FROM SC_CHATROOM A
+		INNER JOIN SC_CHATROOM_USER B
+		  ON A.CHATROOM_ID = B.CHATROOM_ID
+		INNER JOIN SC_CHATROOM_USER C
+		  ON A.CHATROOM_ID = C.CHATROOM_ID
+		WHERE 1=1
+		  AND A.CHATROOM_TYPE = 'single'
+		  AND B.USER_ID = #{ssUserId}
+		  AND C.USER_ID = #{lastActionUser}
+	</select>
+
+	<delete id="deleteSingleChatRoom" parameterType="HashMap">
+		DELETE SC_CHATROOM
+		WHERE CHATROOM_ID = #{chatroomId}
+	</delete>
+
+	<delete id="deleteSingleChatRoomUser" parameterType="HashMap">
+		DELETE SC_CHATROOM_USER
+		WHERE CHATROOM_ID = #{chatroomId}
+	</delete>
+
+	<update id="updateUserBackYn" parameterType="HashMap">
+		UPDATE SC_SWIPER_CNT
+		SET BACK_YN = 'Y'
+		WHERE 1=1
+		  AND USER_ID = #{ssUserId}
+	</update>
+
+	<select id="getUserReceiveLikeCnt" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			COUNT(*) AS RECEIVE_LIKE_CNT
+		FROM SC_LIKE A
+		WHERE 1=1
+		  AND A.TARGET_USER_ID = #{ssUserId}
+		  AND A.USER_CONFIRM_YN IS NULL
+	</select>
+
+
+
+
+
+
+	<update id="resetActionLastTime" parameterType="HashMap">
+		UPDATE SC_ACTION_LASTTIME
+			SET LIKE_TIME = NULL
+				, NOPE_TIME = NULL
+				, SKIP_TIME = NULL
+		WHERE 1=1
+		AND USER_ID = #{ssUserId}
+	</update>
+
+	<update id="resetMatching" parameterType="HashMap">
+		UPDATE SC_MATCHING
+			SET UPD_TIME = NULL
+		WHERE 1=1
+		AND USER_ID = #{ssUserId}
+	</update>
+
+	<update id="resetMyFavorite" parameterType="HashMap">
+		UPDATE SC_MY_FAVORITE
+			SET AGE_AVG = NULL
+				, TALL_AVG = NULL
+				, WEIGHT_AVG = NULL
+				, BEST_ICON = NULL
+				, UPD_DATE = NULL
+		WHERE 1=1
+		AND USER_ID = #{ssUserId}
+	</update>
+
+
+	<select id="getChoiceFilter" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			A.KM_MAX,
+			A.AGE_MIN,
+			A.AGE_MAX,
+			CASE WHEN B.END_TIME > GETDATE()
+						 THEN ISNULL(A.ICON, 'A,B,C,D,E,F')
+						ELSE 'A,B,C,D,E,F'
+		 	END ICON,
+			CASE WHEN B.END_TIME > GETDATE()
+							THEN (SELECT CHOICE_AD_YN FROM SC_USER WHERE USER_ID = A.USER_ID)
+						ELSE 'Y'
+		 	END CHOICE_ADD
+		FROM SC_CHOICE_FILTER A
+		LEFT OUTER JOIN SC_SUBSCRIBE_CURRENT B
+			ON A.USER_ID = B.USER_ID
+		WHERE A.USER_ID = #{ssUserId}
+	</select>
+
+	<update id="choiceFilterSave" parameterType="HashMap">
+		MERGE INTO SC_CHOICE_FILTER A
+		USING (SELECT 1 AS DUAL) AS B
+		ON (A.USER_ID = #{ssUserId})
+		WHEN MATCHED THEN
+		UPDATE SET
+				KM_MAX = #{distance}
+				,AGE_MIN = #{ageMin}
+				,AGE_MAX = #{ageMax}
+				,UPD_TIME = GETDATE()
+				<if test='subscribeYn == "Y"'>
+				,ICON = #{characters}
+				</if>
+		WHEN NOT MATCHED THEN
+		INSERT (
+				USER_ID
+				,KM_MAX
+				,AGE_MIN
+				,AGE_MAX
+				,UPD_TIME
+				<if test='subscribeYn == "Y"'>
+				,ICON
+				</if>
+		)
+		VALUES (
+		    #{ssUserId}
+				,#{distance}
+				,#{ageMin}
+				,#{ageMax}
+				,GETDATE()
+				<if test='subscribeYn == "Y"'>
+				,#{characters}
+				</if>
+		);
+	</update>
+
+	<update id="updateChoiceAdYn" parameterType="HashMap">
+		UPDATE SC_USER
+		SET CHOICE_AD_YN = #{choiceAdd}
+		WHERE USER_ID = #{ssUserId}
+	</update>
+
+	<insert id="partnerSkip" parameterType="HashMap">
+		INSERT INTO SC_PARTNERS_SKIP (USER_ID, PARTNERS_CODE, REG_TIME)
+		VALUES (#{ssUserId}, #{partnersCode}, GETDATE())
+	</insert>
+
+	<select id="getFreeFlipIsPossible" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			CASE WHEN CONVERT(INT,SUBSTRING(CONVERT(CHAR(8), GETDATE(), 24), 1,2)) &lt; 8
+						THEN (	SELECT
+											COUNT(*)
+										FROM SC_LIKE_FREE_FLIP
+										WHERE REG_TIME BETWEEN CONVERT(CHAR(10), GETDATE(), 23) + ' 00:00:00' AND GETDATE()
+										AND USER_ID = #{ssUserId}
+						)
+						WHEN CONVERT(INT,SUBSTRING(CONVERT(CHAR(8), GETDATE(), 24), 1,2)) &lt; 16
+						THEN (	SELECT
+											COUNT(*)
+										FROM SC_LIKE_FREE_FLIP
+										WHERE REG_TIME BETWEEN CONVERT(CHAR(10), GETDATE(), 23) + ' 08:00:00' AND GETDATE()
+										AND USER_ID = #{ssUserId}
+						)
+						ELSE
+									(	SELECT
+											COUNT(*)
+										FROM SC_LIKE_FREE_FLIP
+										WHERE REG_TIME BETWEEN CONVERT(CHAR(10), GETDATE(), 23) + ' 16:00:00' AND GETDATE()
+										AND USER_ID = #{ssUserId}
+									)
+			END USE_CNT
+	</select>
+
+	<insert id="insertFreeFlipInfo" parameterType="HashMap">
+		INSERT INTO SC_LIKE_FREE_FLIP (USER_ID, LIKE_SEQ, REG_TIME)
+		VALUES (#{ssUserId}, #{likeSeq}, GETDATE())
+	</insert>
+
+	<update id="updateScLikeFreeFlip" parameterType="HashMap">
+		UPDATE SC_LIKE
+			SET FREE_FLIP_YN = 'Y'
+		WHERE LIKE_SEQ = #{likeSeq}
+	</update>
+
+  <select id="getFreeFlipInfo" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			CASE WHEN CONVERT(INT,SUBSTRING(CONVERT(CHAR(8), GETDATE(), 24), 1,2)) &lt; 8
+						THEN '00시 ~ 08시'
+						WHEN CONVERT(INT,SUBSTRING(CONVERT(CHAR(8), GETDATE(), 24), 1,2)) &lt; 16
+						THEN '08시 ~ 16시'
+						ELSE '16시 ~ 24시'
+			END FREE_FLIP_INFO
+			, CASE WHEN CONVERT(INT,SUBSTRING(CONVERT(CHAR(8), GETDATE(), 24), 1,2)) &lt; 8
+						THEN (	SELECT
+											COUNT(*)
+										FROM SC_LIKE_FREE_FLIP
+										WHERE REG_TIME BETWEEN CONVERT(CHAR(10), GETDATE(), 23) + ' 00:00:00' AND GETDATE()
+										AND USER_ID = #{ssUserId}
+						)
+						WHEN CONVERT(INT,SUBSTRING(CONVERT(CHAR(8), GETDATE(), 24), 1,2)) &lt; 16
+						THEN (	SELECT
+											COUNT(*)
+										FROM SC_LIKE_FREE_FLIP
+										WHERE REG_TIME BETWEEN CONVERT(CHAR(10), GETDATE(), 23) + ' 08:00:00' AND GETDATE()
+										AND USER_ID = #{ssUserId}
+						)
+						ELSE
+									(	SELECT
+											COUNT(*)
+										FROM SC_LIKE_FREE_FLIP
+										WHERE REG_TIME BETWEEN CONVERT(CHAR(10), GETDATE(), 23) + ' 16:00:00' AND GETDATE()
+										AND USER_ID = #{ssUserId}
+									)
+			END USE_CNT
+	</select>
+
+	<select id="getChiceImsiTap" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT * FROM (
+			SELECT TOP 100 PERCENT
+				B.USER_ID
+				, A.NICK
+				<if test='selectedLat == ""'>
+					, CASE
+						WHEN
+							COS(RADIANS(C.LAT)) * COS(RADIANS(ISNULL(B.CURR_LAT, B.LAT))) * COS(RADIANS(ISNULL(B.CURR_LON, B.LON))
+								- RADIANS(C.LON)) + SIN(RADIANS(C.LAT)) * SIN(RADIANS(ISNULL(B.CURR_LAT, B.LAT))) BETWEEN -1 AND 1
+							THEN ROUND( 6371 * ACOS( COS(RADIANS(C.LAT)) * COS(RADIANS(ISNULL(B.CURR_LAT, B.LAT))) * COS(RADIANS(ISNULL(B.CURR_LON, B.LON))
+								- RADIANS(C.LON)) + SIN(RADIANS(C.LAT)) * SIN(RADIANS(ISNULL(B.CURR_LAT, B.LAT)))  ), 1  )
+						   ELSE 0  END AS LATLON_DISTANCE
+				</if>
+				<if test='selectedLat != ""'>
+					, CASE
+						WHEN
+							COS(RADIANS(#{selectedLat})) * COS(RADIANS(ISNULL(B.CURR_LAT, B.LAT))) * COS(RADIANS(ISNULL(B.CURR_LON, B.LON))
+								- RADIANS(#{selectedLng})) + SIN(RADIANS(#{selectedLat})) * SIN(RADIANS(ISNULL(B.CURR_LAT, B.LAT))) BETWEEN -1 AND 1
+							THEN ROUND( 6371 * ACOS( COS(RADIANS(#{selectedLat})) * COS(RADIANS(ISNULL(B.CURR_LAT, B.LAT))) * COS(RADIANS(ISNULL(B.CURR_LON, B.LON))
+								- RADIANS(#{selectedLng})) + SIN(RADIANS(#{selectedLat})) * SIN(RADIANS(ISNULL(B.CURR_LAT, B.LAT)))  ), 1  )
+						   ELSE 0  END AS LATLON_DISTANCE
+				</if>
+				, (SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = PHOTO1) AS CDN_NM_1
+				, (SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = PHOTO2) AS CDN_NM_2
+				, (SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = PHOTO3) AS CDN_NM_3
+				, (SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = PHOTO4) AS CDN_NM_4
+				, (SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = PHOTO5) AS CDN_NM_5
+				, (SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = PHOTO6) AS CDN_NM_6
+				<if test='selectedLat == ""'>
+					 , ROW_NUMBER() OVER(
+						ORDER BY CASE
+							WHEN COS(RADIANS(C.LAT)) * COS(RADIANS(ISNULL(B.CURR_LAT, B.LAT))) * COS(RADIANS(ISNULL(B.CURR_LON, B.LON))
+								- RADIANS(C.LON)) + SIN(RADIANS(C.LAT)) * SIN(RADIANS(ISNULL(B.CURR_LAT, B.LAT))) BETWEEN -1 AND 1
+							THEN ROUND( 6371 * ACOS( COS(RADIANS(C.LAT)) * COS(RADIANS(ISNULL(B.CURR_LAT, B.LAT))) * COS(RADIANS(ISNULL(B.CURR_LON, B.LON))
+								- RADIANS(C.LON)) + SIN(RADIANS(C.LAT)) * SIN(RADIANS(ISNULL(B.CURR_LAT, B.LAT)))  ), 1  )
+							ELSE 0  END ASC
+						) AS ROWNUM
+				</if>
+				<if test='selectedLat != ""'>
+					, ROW_NUMBER() OVER(
+						ORDER BY CASE
+						WHEN COS(RADIANS(#{selectedLat})) * COS(RADIANS(ISNULL(B.CURR_LAT, B.LAT))) * COS(RADIANS(ISNULL(B.CURR_LON, B.LON))
+							- RADIANS(#{selectedLng})) + SIN(RADIANS(#{selectedLat})) * SIN(RADIANS(ISNULL(B.CURR_LAT, B.LAT))) BETWEEN -1 AND 1
+						THEN ROUND( 6371 * ACOS( COS(RADIANS(#{selectedLat})) * COS(RADIANS(ISNULL(B.CURR_LAT, B.LAT))) * COS(RADIANS(ISNULL(B.CURR_LON, B.LON))
+							- RADIANS(#{selectedLng})) + SIN(RADIANS(#{selectedLat})) * SIN(RADIANS(ISNULL(B.CURR_LAT, B.LAT)))  ), 1  )
+						ELSE 0  END ASC
+					) AS ROWNUM
+				</if>
+				, G.SERVER_IP + '/' + G.FILE_PATH + G.THUMB_FILE_NM AS CDN_THUMB_NM_ICON
+			FROM SC_USER A
+				LEFT OUTER JOIN SC_ICON_CODE F
+				ON A.ICON_CD = F.ICON_CD
+				LEFT OUTER JOIN SC_ATTACH_FILE G
+				ON F.FILE_ID = G.ATTACH_FILE_ID
+				JOIN SC_USER_ADDR B
+				ON A.USER_ID = B.USER_ID
+				JOIN SC_USER_ADDR C
+				ON C.USER_ID = #{ssUserId}
+				JOIN SC_USER_PIC D
+				ON A.USER_ID = D.USER_ID
+				LEFT OUTER JOIN SC_USER_BLOCK E
+				ON A.USER_ID = E.TARGET_USER_ID
+				 AND E.USER_ID = #{ssUserId}
+				 AND DEL_YN = 'N'
+			WHERE 1=1
+			AND A.USER_ID != #{ssUserId}
+			AND CHOICE_OPEN_YN = 'Y'
+			AND A.CI IS NOT NULL
+			AND D.PHOTO1 != 2295
+			ORDER BY LATLON_DISTANCE ASC
+		) A
+	</select>
+
+	<select id="getChiceImsiTapLocation" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT * FROM SC_USER_ADDR WHERE USER_ID = #{ssUserId}
+	</select>
+
+	<update id="updateChoiceAroundLatLon" parameterType="HashMap">
+		UPDATE SC_USER_ADDR
+			SET
+			<if test='selectedLat != null and selectedLat != ""'>
+				AROUND_LAT = #{selectedLat}
+			</if>
+			<if test='selectedLat == null || selectedLat == ""'>
+				AROUND_LAT = NULL
+			</if>
+			<if test='selectedLng != null and selectedLng != ""'>
+				, AROUND_LON = #{selectedLng}
+			</if>
+			<if test='selectedLng == null || selectedLng == ""'>
+				, AROUND_LON = NULL
+			</if>
+			<if test='aroundLiveSum != null and aroundLiveSum != ""'>
+				, AROUND_LIVE_SUM = #{aroundLiveSum}
+			</if>
+			<if test='aroundLiveSum == null'>
+				, AROUND_LIVE_SUM = NULL
+			</if>
+		WHERE USER_ID = #{ssUserId}
+	</update>
+
+
+	<!-- 초이스 프로시저 콜 -->
+	<select id="callChoiceProcedure" resultType="ExqueryMap" statementType="CALLABLE">
+		{ CALL GET_CHOICE_LIST (#{userId}) }
+	</select>
+
+	<!-- 초이스(근처) 프로시저 콜 -->
+	<select id="callChoiceAroundProcedure" resultType="ExqueryMap" statementType="CALLABLE">
+		{ CALL GET_CHOICE_AROUND_LIST (#{userId}, #{pageNo}) }
+	</select>
+
+	<!-- 내가받은 좋아요 화면 한명 조회 프로시저 콜 -->
+	<select id="callChoiceOneProcedure" resultType="ExqueryMap" statementType="CALLABLE">
+		{ CALL GET_CHOICE_ONE (#{ssUserId}, #{targetUserId}) }
+	</select>
+
+</mapper>

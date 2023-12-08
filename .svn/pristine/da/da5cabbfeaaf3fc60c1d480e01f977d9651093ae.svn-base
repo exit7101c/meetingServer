@@ -1,0 +1,186 @@
+package cronies.meeting.user.controller;
+
+import cronies.meeting.user.service.CommonService;
+import cronies.meeting.user.service.HomeService;
+import cronies.meeting.user.service.OpenChatService;
+import cronies.meeting.user.service.StoreCommonService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.*;
+import select.spring.exquery.service.ExqueryService;
+
+import javax.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@RestController
+public class HomeController {
+
+    @Autowired
+    private HomeService homeService;
+
+    @Autowired
+    private OpenChatService openChatService;
+
+    @Autowired
+    private StoreCommonService storeCommonService;
+
+    @Autowired
+    private ExqueryService exqueryService;
+
+    @Autowired
+    private CommonService commonService;
+
+
+    @RequestMapping(value = "getUserListByHome", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getUserListByHome(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+        return homeService.getUserListByHome(param);
+    }
+
+    @RequestMapping(value = "getUserNewListByHome", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getUserNewListByHome(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+        return homeService.getUserNewListByHome(param);
+    }
+
+    @RequestMapping(value = "getHomeCommunityList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getHomeCommunityList(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+        return homeService.getHomeCommunityList(param);
+    }
+
+    @RequestMapping(value = "getHotpeopleState", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getHotpeopleState(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+        return homeService.getHotpeopleState(param);
+    }
+
+
+    @RequestMapping(value = "getHomeNoticeList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getHomeNoticeList(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+        return homeService.getHomeNoticeList(param);
+    }
+
+
+    @RequestMapping(value = "getHomeContestUserList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getHomeContestUserList(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        HashMap<String, Object> returnMap = new HashMap<String, Object>();
+        List<HashMap<String, Object>> contestUserList = new ArrayList<>();
+
+        returnMap = exqueryService.selectOne("cronies.app.home.getContestTypeNotEnd", param);
+        // 진행중인 콘테스트가 존재하면
+        if(returnMap != null){
+            param.put("contestType", returnMap.get("contestType"));
+            // 콘테스트의 상태가 시작단계
+            if(returnMap.get("contestState").toString().equals("START")){
+                contestUserList = exqueryService.selectList("cronies.app.home.getHomeContestUserListStart", param);
+            } else {
+                // 콘테스트의 상태가 준비단계
+                contestUserList = exqueryService.selectList("cronies.app.home.getHomeContestUserListSupport", param);
+            }
+            for (Map<String, Object> result : contestUserList) {
+                result.put("userKey", commonService.getEncoding(String.valueOf(result.get("userKey"))));
+                result.put("articleKey", commonService.getEncoding(String.valueOf(result.get("articleKey"))));
+            }
+
+            resultMap.put("contestState", returnMap.get("contestState"));
+        } else {
+            resultMap.put("contestState", "END");
+        }
+
+        resultMap.put("contestUserList", contestUserList);
+
+        return resultMap;
+    }
+
+    @RequestMapping(value = "getHomeItemListAll", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getHomeItemListAll(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+
+        //가장 인기있는 오픈챗 목록 15개 조회
+        List<HashMap<String, Object>> openChatList = exqueryService.selectList("cronies.app.home.getHomeOpenChatList", param);
+        for (Map<String, Object> result : openChatList) {
+            result.put("openChatId", result.get("openChatKey"));
+            result.put("openChatKey", commonService.getEncoding(String.valueOf(result.get("openChatKey"))));
+        }
+        resultMap.put("openChatList", openChatList);
+        //홈 인기 게시글 목록(임시)
+        List<HashMap<String, Object>> articleList = exqueryService.selectList("cronies.app.home.getHomeCommunityList", param);
+        resultMap.put("articleList", articleList);
+
+        //홈 HOT PEOPLE 사용자 목록
+        List<HashMap<String, Object>> hotPeopleList = exqueryService.selectList("cronies.app.home.getHomeHotPeopleList", param);
+        for (Map<String, Object> result : hotPeopleList) {
+            result.put("userKey", commonService.getEncoding(String.valueOf(result.get("userKey"))));
+        }
+        resultMap.put("hotPeopleList", hotPeopleList);
+
+        //홈 HOT ASK ME 사용자 목록
+        List<HashMap<String, Object>> hotAskMeList = exqueryService.selectList("cronies.app.home.getHomeHotAskMeList", param);
+        for (Map<String, Object> result : hotAskMeList) {
+            result.put("userKey", commonService.getEncoding(String.valueOf(result.get("userKey"))));
+        }
+        resultMap.put("hotAskMeList", hotAskMeList);
+
+
+
+        //홈 AD 사용자 목록
+        List<HashMap<String, Object>> userAdList = storeCommonService.getProfileAdList(param);
+        resultMap.put("userAdList", userAdList);
+
+        return resultMap;
+    }
+
+    @RequestMapping(value = "hotpeopleCategory", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> hotpeopleCategory(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+
+        // 홈 HOT PEOPLE 사용자 목록
+        List<HashMap<String, Object>> hotPeopleList = exqueryService.selectList("cronies.app.home.getHomeHotPeopleList", param);
+        for (Map<String, Object> result : hotPeopleList) {
+            result.put("userKey", commonService.getEncoding(String.valueOf(result.get("userKey"))));
+        }
+        resultMap.put("hotPeopleList", hotPeopleList);
+
+        return resultMap;
+    }
+
+    @RequestMapping(value = "openChatCategory", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> openChatCategory(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+
+        // 소모임 카테고리
+        List<HashMap<String, Object>> openChatList = exqueryService.selectList("cronies.app.home.getHomeOpenChatList", param);
+        for (Map<String, Object> result : openChatList) {
+            result.put("openChatId", result.get("openChatKey"));
+            result.put("openChatKey", commonService.getEncoding(String.valueOf(result.get("openChatKey"))));
+        }
+        resultMap.put("openChatList", openChatList);
+
+        return resultMap;
+    }
+
+    @RequestMapping(value = "bestTopicCategory", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> bestTopicCategory(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+
+        List<HashMap<String, Object>> articleList = exqueryService.selectList("cronies.app.home.getHomeCommunityList", param);
+        resultMap.put("articleList", articleList);
+
+        return resultMap;
+    }
+}

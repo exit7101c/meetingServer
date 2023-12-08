@@ -1,0 +1,383 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.basic.sqlProcess">
+	
+	<!-- 설비 API에 쓰이는  공정 리스트 -->
+	<select id="selectApiLineProcList" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT CP.PROC_CD
+	         , FN_LANG_INP(CP.PROC_NM, #{ssUserLang}) AS PROC_NM
+	         , FN_LANG_INP(CP.PROC_NM, #{ssUserLang}) AS NAME
+	         , CP.PROC_CD 					          AS CODE
+	         , CP.PROC_DESC
+	         , CP.PROC_TYPE
+	         , CP.RESULT_PROC_YN
+	         , CP.MAPPED_CD
+	         , CP.USE_YN
+	         , CP.REMARKS
+	         , CP.CREATED_DT
+	         , CP.CREATED_USER_ID
+	         , CP.UPDATED_DT
+	         , CP.UPDATED_USER_ID
+			 , (SELECT COUNT(*) FROM COM_PROCESS_EQP WHERE PROC_CD = CP.PROC_CD) AS EQP_CNT
+        FROM COM_PROCESS 			CP
+        INNER JOIN COM_LINE_PROCESS CLP
+        ON CP.PROC_CD = CLP.PROC_CD
+        WHERE CP.USE_YN = 'Y'
+		<if test='lineCd != null and lineCd !=""'>
+			AND CLP.LINE_CD = #{lineCd}
+		</if>
+		<if test='searchProc != null and searchProc !=""'>
+			AND (CP.PROC_CD LIKE '%${searchProc}%' OR FN_GET_MSG(CP.PROC_NM, #{ssUserLang}) LIKE '%${searchProc}%')
+		</if>
+		ORDER BY CLP.DISPLAY_ORDER
+	</select>
+	
+	<select id="selectApiLineProcEqpList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			CE.EQP_CD
+			, FN_GET_MSG(CE.EQP_NM, #{ssUserLang}) AS EQP_NM
+			, FN_GET_MSG(CE.EQP_NM, #{ssUserLang}) AS NAME
+			, CE.EQP_CD                   AS CODE
+			, CE.PARENT_EQP_CD
+			, CE.EQP_LEVEL
+			, CE.EQP_TYPE
+			, CE.EQP_GROUP
+			, CE.DISPLAY_ORDER
+			, ROWNUM AS NO
+		FROM COM_EQUIPMENT     CE
+		WHERE EQP_CD IN (
+			SELECT
+			EQP_CD
+			FROM COM_PROCESS_EQP
+			WHERE PROC_CD = #{procCd}
+		)
+        AND CE.USE_YN = 'Y'
+		ORDER BY CE.DISPLAY_ORDER
+	</select>
+	
+	<!--
+	QueryID     : selectProcessList
+	Description : Process 정보 조회
+	-->	
+	<select id="selectProcessList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT PROC_CD
+		     , PROC_NM
+		     , PROC_DESC
+		     , PROC_TYPE
+		     , RESULT_PROC_YN
+		     , MAPPED_CD
+		     , USE_YN
+		     , REMARKS
+			 , CREATED_DT
+			 , CREATED_USER_ID
+			 , UPDATED_DT
+			 , UPDATED_USER_ID	
+		     , ROWNUM AS NO
+		  FROM (
+				 SELECT PROC_CD
+				     , FN_GET_MSG(PROC_NM, #{lang}) AS PROC_NM
+				     , PROC_DESC
+				     , PROC_TYPE
+				     , RESULT_PROC_YN
+				     , MAPPED_CD
+				     , FN_GET_COMMCODE_NAME(#{lang}, 'USE_YN', USE_YN) AS USE_YN
+				     , REMARKS
+					 , TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+					 , CREATED_USER_ID
+					 , TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+					 , UPDATED_USER_ID	
+				     , ROWNUM AS NO
+				  FROM COM_PROCESS
+				<where>
+					<if test='proc != null and  proc != ""'>
+						AND (PROC_CD LIKE '%${proc}%' OR FN_GET_MSG(PROC_NM, #{lang}) LIKE '%${proc}%')
+					</if>
+					<if test='useYn != null and  useYn != ""'>
+						AND USE_YN = #{useYn}
+					</if>
+				</where>
+				ORDER BY PROC_CD ASC)
+	</select>
+	
+	<!--
+	QueryID     : selectPlantOne
+	Description : Line 정보 상세 단건 조회
+	-->	        
+	<select id="selectProcessOne" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT PROC_CD
+		     , FN_LANG_INP(PROC_NM,'en') AS PROC_NM_EN 	-- 영어 변경해야됨 수정 요청
+		  	 , FN_LANG_INP(PROC_NM,'ko') AS PROC_NM_KO 	-- 영어
+          	 , FN_LANG_INP(PROC_NM,'cn') AS PROC_NM_CN 	-- 중국어
+		     , PROC_DESC
+		     , PROC_TYPE
+		     , RESULT_PROC_YN
+		     , MAPPED_CD
+		     , USE_YN
+		     , REMARKS
+			 , TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+			 , CREATED_USER_ID
+			 , TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+			 , UPDATED_USER_ID	
+		  FROM COM_PROCESS
+		 WHERE PROC_CD = #{selectKey}
+	</select>
+	
+	<!--
+	QueryID     : selectProcessList
+	Description : Process 정보 조회
+	-->	
+	<select id="selectProcessTypeList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT CODE_CD
+		     , CODE_VALUE AS PROC_TYPE
+		     , FN_LANG_INP(CODE_NM, #{ssUserLang}) AS PROC_NM
+		     , CODE_DESC
+		     , DISPLAY_ORDER
+		  FROM COM_COMMONCODE
+		 WHERE CODE_CD = 'PROC_TYPE'
+      ORDER BY DISPLAY_ORDER ASC
+	</select>	
+	
+	
+		
+	<!--
+	QueryID     : insertProcess
+	Description : Plant 정보 등록 -> 제품그룹 추가여부 확인 필요
+	-->	
+	<insert id="insertProcess" parameterType="HashMap" >
+		INSERT INTO COM_PROCESS ( PROC_CD
+						        , PROC_NM
+						        , PROC_DESC
+						        , PROC_TYPE
+						        , USE_YN
+						        , CREATED_DT
+						        , CREATED_USER_ID
+						        , UPDATED_DT
+						        , UPDATED_USER_ID
+							    ) 
+							    VALUES ( #{procCd}
+								       , #{procNm}
+								       , #{procDesc}
+								       , #{procType}
+								       , #{useYn}
+								       , SYSDATE
+								       , #{ssUserId}
+						               , SYSDATE
+						               , #{ssUserId}
+								       )
+	</insert>
+	
+	<!--
+	QueryID     : updateProcess
+	Description : Process 정보 수정
+	-->	
+	<update id="updateProcess" parameterType="HashMap" >
+		UPDATE COM_PROCESS
+		<set>
+			  PROC_NM         = #{procNm} 
+			, PROC_DESC       = #{procDesc}
+	        , PROC_TYPE       = #{procType}
+	        , RESULT_PROC_YN  = 'N'
+	        , MAPPED_CD       = ''
+			, USE_YN          = #{useYn}
+			, UPDATED_DT      = SYSDATE
+			, UPDATED_USER_ID = #{ssUserId}
+		</set>
+		WHERE PROC_CD = #{procCd}
+	</update>
+	
+	<!--
+	QueryID     : deleteLine
+	Description : Plant 정보 삭제
+	-->	
+	<update id="deleteProcess" parameterType="HashMap" >
+		UPDATE COM_PROCESS
+		<set>
+			  USE_YN = 'N'
+			, UPDATED_DT = SYSDATE
+			, UPDATED_USER_ID = #{ssUserId}
+		</set>
+		WHERE PROCESS_CD = #{procCd}
+	</update>	
+	
+	<!-- 공정-설비 매핑 삭제 -->
+	<delete id="deleteProcEqpMapping" parameterType="Hashmap">
+ 		DELETE 
+ 		FROM COM_PROCESS_EQP
+ 		WHERE PROC_CD = #{procCd} 
+	</delete>
+
+	<!-- 제품-상하한 매핑 삭제 -->
+	<delete id="deleteProdClEqpMapping" parameterType="Hashmap">
+ 		DELETE 		FROM COM_PRODUCT_TAG_CL
+ 		WHERE PROD_CD = #{prodCd}
+
+	</delete>
+
+	<!-- 공정-설비 매핑 삭제 -->
+	<insert id="insertProcEqpMapping" parameterType="Hashmap">
+ 		INSERT INTO COM_PROCESS_EQP
+ 		(PROC_CD, EQP_CD, DISPLAY_ORDER, CREATED_DT, CREATED_USER_ID)
+ 		VALUES
+ 		(#{procCd},#{eqpCd},#{displayOrder},SYSDATE,#{ssUserId})
+	</insert>
+
+	<!-- 제품별 관리상하한 입력 -->
+	<insert id="insertProdSpecMapping" parameterType="Hashmap">
+ 		INSERT INTO COM_PRODUCT_TAG_CL
+ 		(PROD_CD, TAG_CD, USL, UCL, CL, LCL, LSL, CREATED_DT, CREATED_USER_ID)
+ 		VALUES
+ 		(#{prodCd}, #{tagCd},
+		<choose>
+			<when test='usl != null '>#{usl}</when>
+			<otherwise>''</otherwise>
+		</choose>
+		,
+		<choose>
+		    <when test='ucl != null '>#{ucl}</when>
+			<otherwise>''</otherwise>
+		</choose>
+		,
+		<choose>
+		    <when test='cl != null '>#{cl}</when>
+			<otherwise>''</otherwise>
+		</choose>
+		,
+		<choose>
+		    <when test='lcl != null '>#{lcl}</when>
+			<otherwise>''</otherwise>
+		</choose>
+		,
+		<choose>
+			<when test='lsl != null '>#{lsl}</when>
+			<otherwise>''</otherwise>
+		</choose>
+ 		,SYSDATE,#{ssUserId})
+	</insert>
+
+
+	<!-- 제품별 관리상하한 입력 (로그저장) -->
+	<insert id="insertProdSpecMappingLog" parameterType="Hashmap">
+	  	INSERT INTO COM_PRODUCT_TAG_CL_HIS
+	  	(
+	  	PROD_CD
+	  	, TAG_CD
+	  	, CHANGE_TIME
+		, USL
+		, UCL
+		, CL
+		, LCL
+		, LSL
+		, CREATED_DT
+		, CREATED_USER_ID
+		, PROC_TYPE
+	  	)
+	  	VALUES
+	  	(
+	  	#{prodCd}
+	  	, #{tagCd}
+	  	, SYSDATE
+	  	,
+		<choose>
+			<when test='usl != null '>#{usl}</when>
+			<otherwise>''</otherwise>
+		</choose>
+		,
+		<choose>
+			<when test='ucl != null '>#{ucl}</when>
+			<otherwise>''</otherwise>
+		</choose>
+		,
+		<choose>
+			<when test='cl != null '>#{cl}</when>
+			<otherwise>''</otherwise>
+		</choose>
+		,
+		<choose>
+			<when test='lcl != null '>#{lcl}</when>
+			<otherwise>''</otherwise>
+		</choose>
+		,
+		<choose>
+			<when test='lsl != null '>#{lsl}</when>
+			<otherwise>''</otherwise>
+		</choose>
+		, SYSDATE
+		, #{ssUserId}
+		, 'USER'
+	  	)
+	</insert>
+
+
+	<select id="selectCheckDataFormat" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			TO_CHAR(FN_START_DATE(#{fromDate}), 'YYYY-MM-DD HH24:MI:SS') AS START_TIME_STR,
+			TO_CHAR(FN_END_DATE(#{toDate}), 'YYYY-MM-DD HH24:MI:SS') AS END_TIME_STR
+		FROM DUAL
+	</select>
+
+	<select id="selectCheckEqpInfoList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+            EQP_CD
+            , EQP_NM
+            , ROWNUM AS NO
+         FROM (
+             SELECT
+                EQP_CD
+                , FN_GET_MSG(EQP_NM, #{ssUserLang}) AS EQP_NM
+             FROM COM_EQUIPMENT
+             WHERE EQP_CD IN (
+				<foreach collection="eqpList" item="item" index="index" separator=",">
+					'${item.eqpCd}'
+				</foreach>
+             )
+             ORDER BY DISPLAY_ORDER
+         )
+	</select>
+
+	<select id="selectEqpRunStateList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			EQP_CD
+			, TO_CHAR(X, 'YYYY-MM-DD HH24:MI:SS') AS S_DATE_STR
+			, TO_CHAR(X2, 'YYYY-MM-DD HH24:MI:SS') AS E_DATE_STR
+			, X
+			, X2
+			, STATE_CD
+			, STATE_TYPE
+			, STATE_NM
+			, CASE WHEN STATE_TYPE = 'Y' THEN '#39a45a'
+			WHEN STATE_TYPE = 'N' THEN '#e73f2d'
+			WHEN STATE_TYPE = 'W' THEN '#f3cd35'
+			ELSE '#e73f2d' END COLOR
+			, #{idx} AS Y
+		FROM (
+			SELECT
+				A.EQP_CD
+				, CASE WHEN START_TIME &lt; FN_START_DATE(#{fromDate})
+				THEN FN_START_DATE(#{fromDate})
+				ELSE START_TIME
+				END  AS X
+				, CASE WHEN END_TIME > FN_END_DATE(#{toDate})
+				THEN FN_END_DATE(#{toDate})
+				ELSE END_TIME
+				END  AS X2
+				, A.STATE_CD
+				, B.STATE_TYPE
+				, FN_GET_MSG(B.STATE_NM, #{ssUserLang}) AS STATE_NM
+			FROM COM_EQP_STATE_HIS A
+			INNER JOIN COM_STATE_CODE B
+			ON A.STATE_CD = B.STATE_CD AND A.EQP_CD = B.EQP_CD
+			WHERE A.EQP_CD = #{eqpCd}
+			AND START_TIME &lt; FN_END_DATE(#{toDate})
+			AND END_TIME > FN_START_DATE(#{fromDate})
+		) ORDER BY X
+	</select>
+
+	<select id="selectMESProcessList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT DISTINCT MAPPED_CD PROC_CD
+			 , FN_GET_COMMCODE_NAME(#{lang}, 'MES_PROCESS', MAPPED_CD) PROC_NM
+		  FROM COM_PROCESS 
+		 WHERE USE_YN = 'Y'
+		  AND PROC_TYPE = 'R'
+	</select>
+</mapper>

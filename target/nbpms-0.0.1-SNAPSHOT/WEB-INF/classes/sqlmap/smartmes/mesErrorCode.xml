@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.smartmes.mesErrorCode">
+
+	<!--
+	QueryID     : selectDailyProdRecordList
+	Description : 해당 법인의 생산일지를 조회한다.
+	-->
+	<select id="insertErrorCodeByJoin" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			*
+		FROM COM_EQP_STATE
+	</select>
+
+</mapper>

@@ -1,0 +1,479 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.equipment.sqlRepair">
+
+	<select id="selectProcList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			B.PROC_CD
+			, FN_GET_MSG(B.PROC_NM, #{ssUserLang}) AS PROC_NM
+			, A.LINE_CD
+		FROM COM_LINE_PROCESS A
+		INNER JOIN COM_PROCESS B
+		ON A.PROC_CD = B.PROC_CD
+		WHERE A.LINE_CD = #{lineCd}
+		ORDER BY A.LINE_CD, A.DISPLAY_ORDER
+	</select>
+
+	<select id="selectEqpList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			B.EQP_CD
+			, FN_GET_MSG(B.EQP_NM, #{ssUserLang}) AS EQP_NM
+			, A.PROC_CD
+		FROM COM_PROCESS_EQP A
+		INNER JOIN COM_EQUIPMENT B
+		ON A.EQP_CD = B.EQP_CD
+		WHERE A.PROC_CD = #{procCd}
+		ORDER BY A.PROC_CD, A.DISPLAY_ORDER
+	</select>
+
+	<select id="selectRepairList" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT
+        	STD_DATE
+			, TO_CHAR(TO_DATE(STD_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') AS STD_DATE_STR
+            , SEQ_ID
+            , LINE_CD
+            , (SELECT FN_GET_MSG(LINE_NM, #{ssUserLang}) FROM COM_LINE WHERE LINE_CD = A.LINE_CD) AS LINE_NM
+            , PROC_CD
+            , (SELECT FN_GET_MSG(PROC_NM, #{ssUserLang}) FROM COM_PROCESS WHERE PROC_CD = A.PROC_CD) AS PROC_NM
+            , EQP_CD
+            , (SELECT FN_GET_MSG(EQP_NM, #{ssUserLang}) FROM COM_EQUIPMENT WHERE EQP_CD = A.EQP_CD) AS EQP_NM
+            , REPAIR_TYPE
+            , REPAIR_CONTENT
+            , REPAIR_MIN
+            , REPAIR_PART
+            , REPAIR_USED
+            , REPAIR_SPARE
+            , WORKER
+            , TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+            , CREATED_USER_ID
+            , TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+            , UPDATED_USER_ID
+        FROM COM_EQP_REPAIR A
+		<where>
+			STD_DATE BETWEEN #{fromDate} AND #{toDate}
+			<if test='selType != null and selType  != ""'>
+				AND REPAIR_TYPE = #{selType}
+			</if>
+			<if test='selLine != null and selLine  != "" '>
+				AND LINE_CD = #{selLine}
+			</if>
+			<if test='selProc != null and selProc  != "" '>
+				AND PROC_CD = #{selProc}
+			</if>
+			<if test='selEqp != null and selEqp  != "" '>
+				AND EQP_CD = #{selEqp}
+			</if>
+		</where>
+        ORDER BY STD_DATE DESC, SEQ_ID DESC
+	</select>
+
+	<select id="selectRepairOne" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+		STD_DATE
+		, TO_CHAR(TO_DATE(STD_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') AS STD_DATE_STR
+        , TO_DATE(STD_DATE, 'YYYYMMDD') AS STD_DATE_TIMESTAMP
+		, SEQ_ID
+		, LINE_CD
+		, (SELECT FN_GET_MSG(LINE_NM, #{ssUserLang}) FROM COM_LINE WHERE LINE_CD = A.LINE_CD) AS LINE_NM
+		, PROC_CD
+		, (SELECT FN_GET_MSG(PROC_NM, #{ssUserLang}) FROM COM_PROCESS WHERE PROC_CD = A.PROC_CD) AS PROC_NM
+		, EQP_CD
+		, (SELECT FN_GET_MSG(EQP_NM, #{ssUserLang}) FROM COM_EQUIPMENT WHERE EQP_CD = A.EQP_CD) AS EQP_NM
+		, REPAIR_TYPE
+		, REPAIR_CONTENT
+		, REPAIR_MIN
+		, REPAIR_PART
+		, REPAIR_USED
+		, REPAIR_SPARE
+		, WORKER
+		, TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+		, CREATED_USER_ID
+		, TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+		, UPDATED_USER_ID
+		FROM COM_EQP_REPAIR A
+		WHERE STD_DATE = #{stdDate} AND SEQ_ID = #{seqId}
+	</select>
+
+	<!-- 한건을 저장한다.  -->
+	<insert id="insertEqpRepair" parameterType="HashMap">
+		<selectKey resultType="int" keyProperty="newId" order="BEFORE">
+			SELECT  SEQ_EQP_REPAIR_ID.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO COM_EQP_REPAIR
+		(
+		STD_DATE
+		, SEQ_ID
+		, LINE_CD
+		, PROC_CD
+		, EQP_CD
+		, REPAIR_TYPE
+		, REPAIR_CONTENT
+		, REPAIR_MIN
+		, REPAIR_PART
+		, REPAIR_USED
+		, REPAIR_SPARE
+		, WORKER
+		, CREATED_DT
+		, CREATED_USER_ID
+		, UPDATED_DT
+		, UPDATED_USER_ID
+		)
+		VALUES
+		(
+		#{stdDate}
+		, #{newId}
+		, #{lineCd}
+		, #{procCd}
+		, #{eqpCd}
+		, #{repairType}
+		, #{repairContent}
+		, #{repairMin}
+		, #{repairPart}
+		, #{repairUsed}
+		, #{repairSpare}
+		, #{worker}
+		, sysdate
+		, #{ssUserId}
+		, sysdate
+		, #{ssUserId}
+		)
+	</insert>
+
+	<update id="updateEqpRepair" parameterType="HashMap" >
+		UPDATE COM_EQP_REPAIR
+		<set>
+			  LINE_CD			= #{lineCd}
+			, PROC_CD   		= #{procCd}
+			, EQP_CD   			= #{eqpCd}
+			, REPAIR_TYPE   	= #{repairType}
+			, REPAIR_CONTENT   	= #{repairContent}
+			, REPAIR_MIN   		= #{repairMin}
+			, REPAIR_PART   	= #{repairPart}
+			, REPAIR_USED   	= #{repairUsed}
+			, REPAIR_SPARE   	= #{repairSpare}
+			, WORKER   			= #{worker}
+			, UPDATED_DT   		= SYSDATE
+			, UPDATED_USER_ID   = #{ssUserId}
+		</set>
+		WHERE STD_DATE = #{stdDate} AND SEQ_ID = #{seqId}
+	</update>
+
+	<delete id="deleteEqpRepair" parameterType="HashMap" >
+		DELETE FROM COM_EQP_REPAIR
+		WHERE STD_DATE = #{stdDate} AND SEQ_ID = #{seqId}
+	</delete>
+
+	<select id="selectRepairCharts1" parameterType="HashMap" resultType="ExqueryMap" >
+		WITH TMP_DATE AS (
+		SELECT
+			TO_CHAR(TRUNC( FN_END_DATE(#{toDate}) -(KEY-1), 'DD'), 'YYYY-MM-DD') AS NAME
+			,TRUNC( FN_END_DATE(#{toDate}) -(KEY-1), 'DD') AS X
+			,0 AS Y
+		FROM ( SELECT LEVEL AS KEY FROM DUAL CONNECT BY LEVEL &lt;= (FN_END_DATE(#{toDate})-FN_END_DATE(#{fromDate})+1) )
+		)
+		SELECT
+			TMP_DATE.NAME
+			, TMP_DATE.X
+			, NVL(A.Y,0) AS Y
+			, STD_DATE
+		FROM (
+		SELECT
+			TO_CHAR(TO_DATE(STD_DATE, 'YYYYMMDD'),'YYYY-MM-DD') AS NAME
+			, TO_DATE(STD_DATE, 'YYYYMMDD') AS X
+			, SUM(REPAIR_MIN) AS Y
+			, STD_DATE
+		FROM COM_EQP_REPAIR
+		WHERE STD_DATE BETWEEN #{fromDate} AND #{toDate}
+		AND REPAIR_TYPE = 'B'
+		<if test='lineCd != null and lineCd != "" and lineCd != "all"'>
+			AND LINE_CD = #{lineCd}
+		</if>
+		GROUP BY STD_DATE
+		ORDER BY STD_DATE
+		) A
+		RIGHT OUTER JOIN TMP_DATE
+		ON TMP_DATE.NAME = A.NAME
+		ORDER BY X
+	</select>
+
+	<select id="selectRepairCharts1Sub" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+            A.STD_DATE,
+            A.REPAIR_MIN,
+            A.EQP_CD,
+            FN_GET_MSG(B.EQP_NM, #{ssUserLang}) AS EQP_NM
+        FROM COM_EQP_REPAIR A, COM_EQUIPMENT B
+        WHERE A.EQP_CD = B.EQP_CD
+        AND A.STD_DATE = #{stdDate}
+        AND A.REPAIR_MIN IS NOT NULL
+	</select>
+
+	<select id="selectRepairCharts2" parameterType="HashMap" resultType="ExqueryMap" >
+		WITH TMP_DATE AS (
+		SELECT
+			TO_CHAR(TRUNC( FN_END_DATE(#{toDate}) -(KEY-1), 'DD'), 'YYYY-MM-DD') AS NAME
+			,TRUNC( FN_END_DATE(#{toDate}) -(KEY-1), 'DD') AS X
+			,0 AS Y
+		FROM ( SELECT LEVEL AS KEY FROM DUAL CONNECT BY LEVEL &lt;= (FN_END_DATE(#{toDate})-FN_END_DATE(#{fromDate})+1) )
+		)
+		SELECT
+			TMP_DATE.NAME
+			, TMP_DATE.X
+			, NVL(A.Y,0) AS Y
+			, STD_DATE
+		FROM (
+		SELECT
+			TO_CHAR(TO_DATE(STD_DATE, 'YYYYMMDD'),'YYYY-MM-DD') AS NAME
+			, TO_DATE(STD_DATE, 'YYYYMMDD') AS X
+			, SUM(REPAIR_MIN) AS Y
+			, STD_DATE
+		FROM COM_EQP_REPAIR
+		WHERE STD_DATE BETWEEN #{fromDate} AND #{toDate}
+		AND REPAIR_TYPE = 'C'
+		<if test='lineCd != null and lineCd != "" and lineCd != "all"'>
+			AND LINE_CD = #{lineCd}
+		</if>
+		GROUP BY STD_DATE
+		ORDER BY STD_DATE
+		) A
+		RIGHT OUTER JOIN TMP_DATE
+		ON TMP_DATE.NAME = A.NAME
+		ORDER BY X
+	</select>
+
+	<select id="selectRepairCharts3" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT
+            EQP_CD
+            , EQP_NM AS X
+            , EQP_NM AS NAME
+            , Y
+        FROM (
+            SELECT
+                    EQP_CD
+                    , EQP_NM
+                    , SUM(REPAIR_MIN) AS Y
+            FROM (
+                    SELECT
+                        A.EQP_CD
+                        , FN_GET_MSG(B.EQP_NM, #{ssUserLang}) AS EQP_NM
+                        , A.REPAIR_MIN
+                    FROM COM_EQP_REPAIR A, COM_EQUIPMENT B
+                    WHERE A.EQP_CD = B.EQP_CD
+                    AND A.STD_DATE BETWEEN #{fromDate} AND #{toDate}
+                    AND REPAIR_TYPE = 'B'
+					<if test='lineCd != null and lineCd != "" and lineCd != "all"'>
+						AND A.LINE_CD = #{lineCd}
+					</if>
+            ) A
+            GROUP BY EQP_CD, EQP_NM
+            ORDER BY Y DESC
+        )
+	</select>
+
+	<select id="selectRepairCharts4" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+		EQP_CD
+		, EQP_NM AS X
+		, EQP_NM AS NAME
+		, Y
+		FROM (
+		SELECT
+		EQP_CD
+		, EQP_NM
+		, SUM(REPAIR_MIN) AS Y
+		FROM (
+		SELECT
+		A.EQP_CD
+		, FN_GET_MSG(B.EQP_NM, #{ssUserLang}) AS EQP_NM
+		, A.REPAIR_MIN
+		FROM COM_EQP_REPAIR A, COM_EQUIPMENT B
+		WHERE A.EQP_CD = B.EQP_CD
+		AND A.STD_DATE BETWEEN #{fromDate} AND #{toDate}
+		AND REPAIR_TYPE = 'C'
+		<if test='lineCd != null and lineCd != "" and lineCd != "all"'>
+			AND A.LINE_CD = #{lineCd}
+		</if>
+		) A
+		GROUP BY EQP_CD, EQP_NM
+		ORDER BY Y DESC
+		)
+	</select>
+
+	<select id="selectEqpPartList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			A.EQP_CD
+			, (SELECT FN_GET_MSG(EQP_NM,#{ssUserLang}) FROM COM_EQUIPMENT WHERE EQP_CD = A.EQP_CD) AS EQP_NM
+			, A.SPAREPART_CD
+			, A.SPAREPART_NM
+			, A.SPAREPART_LIFE
+			, A.LIFE_UNIT
+			, A.TAG_CD
+			, TO_CHAR(A.REPLACEMENT_DATE,'YYYY-MM-DD HH24:MI:SS') AS REPLACEMENT_DATE
+			, A.NOTICE_YN
+			, A.PREINFORM_TIME
+			, A.REMARKS
+			, A.USE_YN
+			, TO_CHAR(A.CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+			, A.CREATED_USER_ID
+			, (SELECT USER_NM FROM COM_USER WHERE USER_ID = A.CREATED_USER_ID) AS CREATED_USER_NM
+			, TO_CHAR(A.UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+			, A.UPDATED_USER_ID
+			, (SELECT USER_NM FROM COM_USER WHERE USER_ID = A.UPDATED_USER_ID) AS UPDATED_USER_NM
+			, REMAIN_TIME
+			, ITEM_NO
+			, CALC_TYPE
+		FROM COM_EQP_SPAREPART A
+		WHERE EQP_CD IN
+		<foreach collection="equipmentList" item="item"  open="(" close=")" separator=",">
+			'${item.eqpCd}'
+		</foreach>
+	</select>
+
+
+	<select id="selectEqpPartOne" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			A.EQP_CD
+			, (SELECT FN_GET_MSG(EQP_NM,#{ssUserLang}) FROM COM_EQUIPMENT WHERE EQP_CD = A.EQP_CD) AS EQP_NM
+			, A.SPAREPART_CD
+			, A.SPAREPART_NM
+			, A.SPAREPART_LIFE
+			, A.LIFE_UNIT
+			, A.TAG_CD
+			, A.REPLACEMENT_DATE
+			, TO_CHAR(A.REPLACEMENT_DATE,'YYYY-MM-DD HH24:MI:SS') AS REPLACEMENT_DATE_STR
+			, A.NOTICE_YN
+			, A.PREINFORM_TIME
+			, A.REMARKS
+			, A.USE_YN
+			, TO_CHAR(A.CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+			, A.CREATED_USER_ID
+			, (SELECT USER_NM FROM COM_USER WHERE USER_ID = A.CREATED_USER_ID) AS CREATED_USER_NM
+			, TO_CHAR(A.UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+			, A.UPDATED_USER_ID
+			, (SELECT USER_NM FROM COM_USER WHERE USER_ID = A.UPDATED_USER_ID) AS UPDATED_USER_NM
+			, CALC_TYPE
+			, REMAIN_TIME
+			, ITEM_NO
+			, DECODE(DAY_HOUR,'','24',DAY_HOUR) AS DAY_HOUR
+		FROM COM_EQP_SPAREPART A
+		WHERE EQP_CD = #{eqpCd} AND SPAREPART_CD = #{sparepartCd} AND ITEM_NO = #{itemNo}
+	</select>
+
+	<insert id="insertEqpPart" parameterType="HashMap">
+		<selectKey resultType="int" keyProperty="newId" order="BEFORE">
+			SELECT  SEQ_SPAREPART_NO.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO COM_EQP_SPAREPART
+		(
+		EQP_CD
+		, SPAREPART_CD
+		, SPAREPART_NM
+		, SPAREPART_LIFE
+		, LIFE_UNIT
+		, TAG_CD
+		, REPLACEMENT_DATE
+		, NOTICE_YN
+		, PREINFORM_TIME
+		, REMARKS
+		, USE_YN
+		, CREATED_DT
+		, CREATED_USER_ID
+		, UPDATED_DT
+		, UPDATED_USER_ID
+		, CALC_TYPE
+		, REMAIN_TIME
+		, ITEM_NO
+		, DAY_HOUR
+		)
+		VALUES
+		(
+		#{eqpCd}
+		, #{sparepartCd}
+		, #{sparepartNm}
+		, #{sparepartLife}
+		, 'H'
+		, ''
+        , TO_DATE(#{replacementDate},'YYYYMMDDHH24MISS')
+		, #{noticeYn}
+		, #{preinformTime}
+		, #{remarks}
+		, 'Y'
+		, sysdate
+		, #{ssUserId}
+		, sysdate
+		, #{ssUserId}
+		, #{calcType}
+		, #{sparepartLife}
+		, #{newId}
+		, #{dayHour}
+		)
+	</insert>
+
+	<update id="updateEqpPart" parameterType="HashMap" >
+		UPDATE COM_EQP_SPAREPART
+		<set>
+			SPAREPART_NM		= #{sparepartNm}
+			, SPAREPART_LIFE   	= #{sparepartLife}
+			, REPLACEMENT_DATE  = TO_DATE(#{replacementDate},'YYYYMMDDHH24MISS')
+			, NOTICE_YN   		= #{noticeYn}
+			, PREINFORM_TIME   	= #{preinformTime}
+			, REMARKS   		= #{remarks}
+			, UPDATED_DT   		= SYSDATE
+			, UPDATED_USER_ID   = #{ssUserId}
+			, CALC_TYPE			= #{calcType}
+			,	DAY_HOUR		= #{dayHour}
+		</set>
+		WHERE EQP_CD = #{eqpCd} AND SPAREPART_CD = #{sparepartCd} AND ITEM_NO = #{itemNo}
+	</update>
+
+	<delete id="deleteEqpPart" parameterType="HashMap" >
+		DELETE FROM COM_EQP_SPAREPART
+		WHERE EQP_CD = #{eqpCd} AND SPAREPART_CD = #{sparepartCd} AND ITEM_NO = #{itemNo}
+	</delete>
+
+	<!-- 설비가동시간 초과 조회 및 알람대상 조회 -->
+	<select id="selectEqpPartMainPopup" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT * FROM (
+			SELECT
+				W.EQP_CD
+				, (SELECT FN_GET_MSG(EQP_NM,#{ssUserLang}) FROM COM_EQUIPMENT WHERE EQP_CD = W.EQP_CD) AS EQP_NM
+				, W.SPAREPART_CD
+				, W.SPAREPART_NM
+				, W.SPAREPART_LIFE
+				, W.LIFE_UNIT
+				, W.TAG_CD
+				, TO_CHAR(W.REPLACEMENT_DATE,'YYYY-MM-DD') AS REPLACEMENT_DATE_STR
+				, W.REPLACEMENT_DATE
+				, W.NOTICE_YN
+				, W.PREINFORM_TIME
+				, W.REMARKS
+				, W.USE_YN
+				, TO_CHAR(W.CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+				, W.CREATED_USER_ID
+				, (SELECT USER_NM FROM COM_USER WHERE USER_ID = W.CREATED_USER_ID) AS CREATED_USER_NM
+				, TO_CHAR(W.UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+				, W.UPDATED_USER_ID
+				, (SELECT USER_NM FROM COM_USER WHERE USER_ID = W.UPDATED_USER_ID) AS UPDATED_USER_NM
+				, CASE WHEN REMAIN_TIME &lt;= PREINFORM_TIME THEN 'Y' ELSE 'N' END AS ALARM_YN
+				, REMAIN_TIME
+				, CASE WHEN 0 - REMAIN_TIME &lt; 0 THEN 0 ELSE 0 - REMAIN_TIME END PASS_TIME
+                , ITEM_NO
+			FROM COM_EQP_SPAREPART W
+			WHERE NOTICE_YN = 'Y'
+		)
+		WHERE ALARM_YN = 'Y'
+		ORDER BY REPLACEMENT_DATE
+	</select>
+
+	<update id="updateEqpPartAlarmOff" parameterType="HashMap" >
+		UPDATE COM_EQP_SPAREPART
+		<set>
+			NOTICE_YN   		= 'N'
+			, UPDATED_DT   		= SYSDATE
+			, UPDATED_USER_ID   = #{ssUserId}
+		</set>
+		WHERE EQP_CD = #{eqpCd} AND SPAREPART_CD = #{sparepartCd} AND ITEM_NO = #{itemNo}
+	</update>
+
+</mapper>

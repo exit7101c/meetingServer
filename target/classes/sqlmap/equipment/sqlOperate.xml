@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.equipment.sqlOperate">
+
+	<select id="selectEquipmentList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT ROWNUM
+				, CE.EQP_CD
+				, FN_GET_MSG(CE.EQP_NM, #{lang}) AS EQP_NM
+				, CE.PARENT_EQP_CD
+				, CE.EQP_LEVEL
+				, CE.EQP_TYPE
+				, CE.EQP_GROUP
+				, CE.DISPLAY_ORDER
+		FROM COM_EQUIPMENT           CE
+				 INNER JOIN COM_LINE          CL
+							ON CE.LINE_CD = CL.LINE_CD
+								AND CL.USE_YN = 'Y'
+				 INNER JOIN COM_AREA          CA
+							ON CL.AREA_CD = CA.AREA_CD
+								AND CA.USE_YN = 'Y'
+		WHERE CA.AREA_CD = 'QD2U'
+			START WITH CE.PARENT_EQP_CD = 'root'
+		CONNECT BY PRIOR CE.EQP_CD = CE.PARENT_EQP_CD
+	</select>
+	
+	<select id="selectEquipmentRunHis" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT ROWNUM
+	         , CESH.EQP_CD
+	         , TO_CHAR(CESH.EVENT_TIME,'YYYY-MM-DD HH24:MI:SS') AS EVENT_TIME
+	         , CESH.STATE_CD
+	         , FN_GET_MSG(CSC.STATE_NM, #{lang}) 					AS STATE_NM
+	         , CESH.PREV_STATE_CD
+	         , TO_CHAR(CESH.START_TIME,'YYYY-MM-DD HH24:MI:SS') AS START_TIME
+	         , TO_CHAR(CESH.END_TIME,'YYYY-MM-DD HH24:MI:SS')   AS END_TIME
+	         , CESH.STOP_CD
+	         , CTR.STOP_NM
+	         , TO_CHAR(CESH.CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+	         , CESH.CREATED_USER_ID
+	         , TO_CHAR(CESH.UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+	         , CESH.UPDATED_USER_ID
+		FROM COM_EQP_STATE_HIS               CESH
+		LEFT OUTER JOIN COM_STATE_CODE       CSC
+		ON CESH.STATE_CD = CSC.STATE_CD
+		LEFT OUTER JOIN COM_STOP_CODE      CTR
+		ON CESH.STOP_CD = CTR.STOP_CD
+		<where>
+			EQP_CD = #{searchStr1}
+			<if test='fromDate != null and  fromDate != ""'>
+			AND	CESH.START_TIME = #{fromDate}
+			</if>
+			<if test='toDate != null and  toDate != ""'>
+			AND CESH.END_TIME = #{toDate}	
+			</if>
+		</where>
+	</select>
+	
+	
+	<select id="selectEquipmentAlarmHis" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT A_HIS.EQP_CD
+		     , A_HIS.EVENT_TIME
+		     , A_HIS.ALARM_CD
+		     , A_CODE.ALARM_NM
+		     , A_HIS.CREATED_DTh
+		     , A_HIS.CREATED_USER_ID
+		FROM COM_EQP_ALARM_HIS          A_HIS 
+		LEFT OUTER JOIN COM_ALARM_CODE  A_CODE
+		ON A_HIS.ALARM_CD = A_CODE.ALARM_CD
+		<if test='fromDate != null and  fromDate != ""'>
+		AND A_HIS.EVENT_TIME &gt; #{fromDate}h
+		</if>
+		<if test='toDate != null and  toDate != ""'>
+		AND A_HIS.EVENT_TIME &lt; #{toDate}	
+		</if>
+	</select>
+	
+	
+</mapper>

@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.basic.sqlCtqCode">
+	
+	<!-- 리스트 조회 ( CTQ인자목록 ) -->
+	<select id="selectCtqCodeList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+            A.CTQ_CD
+            , FN_GET_MSG(A.CTQ_NM, #{ssUserLang}) AS CTQ_NM
+            , A.CTQ_DESC
+            , A.PARENT_CTQ_CD
+            , A.CTQ_TYPE
+            , A.AREA_CD
+			, FN_GET_COMMCODE_NAME(#{ssUserLang}, 'USE_YN', A.USE_YN) AS USE_YN
+            , FN_GET_DATE_STR(A.CREATED_DT) AS CREATED_DT
+            , A.CREATED_USER_ID
+            , FN_GET_DATE_STR(A.UPDATED_DT) AS UPDATED_DT
+            , A.UPDATED_USER_ID
+            , A.DISPLAY_ORDER
+            , B.TAG_CD
+            , FN_GET_MSG(C.TAG_NM, #{ssUserLang}) AS TAG_NM
+            , FN_GET_MSG(D.AREA_NM, #{ssUserLang}) AS AREA_NM
+            , ROWNUM AS NO
+			, DECODE(CONNECT_BY_ISLEAF, 1, 'Y', 'N') AS LEAF
+			, SYS_CONNECT_BY_PATH(LPAD(A.DISPLAY_ORDER, 2, 0), '/') AS PATH
+        FROM COM_CTQ_CODE A, COM_CTQ_TAG B, COM_TAG C, COM_AREA D
+		<where>
+				A.CTQ_CD = B.CTQ_CD(+)
+				AND B.TAG_CD = C.TAG_CD(+)
+				AND A.AREA_CD = D.AREA_CD
+			<if test='searchType != null and  searchType != ""'>
+				AND A.CTQ_TYPE = #{searchType}
+			</if>
+			<if test='searchArea != null and  searchArea != ""'>
+				AND A.AREA_CD = #{searchArea}
+			</if>
+			<if test='searchStr1 != null and searchStr1 !=""'>
+				AND (A.CTQ_CD LIKE '%${searchStr1}%' OR FN_GET_MSG(A.CTQ_NM, #{ssUserLang}) LIKE '%${searchStr1}%')
+			</if>
+			<if test='useYn != null and useYn != ""'>
+				AND A.USE_YN = #{useYn}
+			</if>
+		</where>
+        START WITH PARENT_CTQ_CD = 'ROOT'
+        CONNECT BY PRIOR A.CTQ_CD = A.PARENT_CTQ_CD
+        ORDER BY PATH
+	</select>
+
+	<!-- 한건 조회 ( CTQ인자 ) -->
+	<select id="selectCtqCodeOne" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT
+            A.CTQ_CD
+            , FN_LANG_INP(A.CTQ_NM,'en') AS CTQ_NM_EN     -- 영어
+            , FN_LANG_INP(A.CTQ_NM,'ko') AS CTQ_NM_KO     -- 한국어
+            , FN_LANG_INP(A.CTQ_NM, 'cn') AS CTQ_NM_CN     -- 중국어
+            , A.CTQ_DESC
+            , A.PARENT_CTQ_CD
+            , (SELECT FN_GET_MSG(CTQ_NM, #{ssUserLang}) FROM COM_CTQ_CODE WHERE CTQ_CD = A.PARENT_CTQ_CD) AS PARENT_CTQ_NM
+            , A.DISPLAY_ORDER
+            , A.CTQ_TYPE
+            , A.AREA_CD
+            , A.USE_YN
+            , FN_GET_DATE_STR(A.CREATED_DT) AS CREATED_DT
+            , A.CREATED_USER_ID
+            , FN_GET_DATE_STR(A.UPDATED_DT) AS UPDATED_DT
+            , A.UPDATED_USER_ID
+            , C.TAG_CD
+            , FN_GET_MSG(C.TAG_NM, #{ssUserLang}) AS TAG_NM
+            , NVL2(C.TAG_CD, ('[' || C.TAG_CD || '] ' || FN_GET_MSG(C.TAG_NM, #{ssUserLang})), '') AS TAG_NM_STR
+        FROM COM_CTQ_CODE A
+        LEFT OUTER JOIN COM_CTQ_TAG B
+        ON A.CTQ_CD = B.CTQ_CD
+        LEFT OUTER JOIN COM_TAG C
+        ON B.TAG_CD = C.TAG_CD
+        WHERE A.CTQ_CD = #{selectKey}
+	</select>
+
+	<!-- 한건을 저장한다.  -->
+	<select id="insertCtqCode" parameterType="HashMap" resultType="ExqueryMap" >
+		INSERT INTO COM_CTQ_CODE
+		(CTQ_CD, CTQ_NM, CTQ_DESC, PARENT_CTQ_CD, CTQ_TYPE, AREA_CD, USE_YN, CREATED_DT, CREATED_USER_ID, UPDATED_DT, UPDATED_USER_ID, DISPLAY_ORDER)
+		VALUES
+		(#{ctqCd}, #{ctqNm}, #{ctqDesc}, #{parentCtqCd}, #{ctqType}, #{areaCd}, #{useYn}, sysdate, #{ssUserId}, sysdate, #{ssUserId}, #{displayOrder})
+	</select>
+
+	<select id="insertCtqTag" parameterType="HashMap" resultType="ExqueryMap" >
+		MERGE INTO COM_CTQ_TAG
+		USING DUAL
+		ON (CTQ_CD = #{ctqCd})
+		WHEN MATCHED THEN
+			UPDATE SET
+			  TAG_CD = #{tagCd},
+			  UPDATED_DT = SYSDATE,
+			  UPDATED_USER_ID = #{ssUserId}
+		WHEN NOT MATCHED THEN
+			INSERT  (CTQ_CD, TAG_CD, CREATED_DT, CREATED_USER_ID)
+			VALUES (
+				#{ctqCd},
+				#{tagCd},
+				SYSDATE,
+				#{ssUserId}
+				)
+	</select>
+
+	<!-- 한건을 수정한다.  -->
+	<select id="updateCtqCode" parameterType="HashMap" resultType="ExqueryMap" >
+		UPDATE COM_CTQ_CODE
+		SET
+		CTQ_NM       		= #{ctqNm},
+		CTQ_DESC            = #{ctqDesc},
+		PARENT_CTQ_CD             	= #{parentCtqCd},
+		CTQ_TYPE             	= #{ctqType},
+		AREA_CD          = #{areaCd},
+		USE_YN             = #{useYn},
+		DISPLAY_ORDER = #{displayOrder},
+		UPDATED_USER_ID     = #{ssUserId},
+		UPDATED_DT          = sysdate
+		WHERE CTQ_CD = #{ctqCd}
+	</select>
+
+	<!-- 한건을 사용하지 않는다.  -->
+	<select id="disableCtqCode" parameterType="HashMap" resultType="ExqueryMap" >
+		UPDATE COM_CTQ_CODE
+		SET
+		USE_YN              = 'N',
+		UPDATED_USER_ID     = #{ssUserId},
+		UPDATED_DT          = sysdate
+		WHERE CTQ_CD = #{ctqCd}
+	</select>
+
+	<delete id="disableCtqTag" parameterType="HashMap">
+		DELETE FROM COM_CTQ_TAG
+		WHERE CTQ_CD = #{ctqCd}
+	</delete>
+
+
+	<!-- 한건의 이름을 변경한다(접점명 변경 시 CTQ명 변경) -->
+	<update id="updateCtqByTagCd" parameterType="HashMap" >
+		MERGE INTO COM_CTQ_CODE C
+		USING (
+		SELECT TAG_CD, CTQ_CD FROM COM_CTQ_TAG WHERE TAG_CD = #{tagCd}
+		)  T
+		ON (C.CTQ_CD = T.CTQ_CD)
+		WHEN MATCHED THEN
+		UPDATE SET
+		<if test='tagNm != null and  tagNm != ""'>
+		C.CTQ_NM = #{tagNm},
+		</if>
+		C.UPDATED_DT = SYSDATE,
+		C.UPDATED_USER_ID = #{ssUserId}
+	</update>
+
+</mapper>

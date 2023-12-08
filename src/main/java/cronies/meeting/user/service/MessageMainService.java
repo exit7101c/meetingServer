@@ -1,0 +1,43 @@
+package cronies.meeting.user.service;
+
+import java.util.HashMap;
+import java.util.List;
+
+public interface MessageMainService {
+
+    public List<HashMap<String, Object>> getMessageMainList(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> getMessageMainMap(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> isOpenChatRoom(HashMap<String, Object> param) throws Exception;
+
+    public List<HashMap<String, Object>> getMessageList(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> updateMessageRecept(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> sendMessageSingle(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> getChatroomTitle(HashMap<String, Object> param) throws Exception;
+
+    public List<HashMap<String, Object>> getRoomUserList(HashMap<String, Object> param) throws Exception;
+    public List<HashMap<String, Object>> getAttendList(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> setDropOutUser(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> setDropOutLeader(HashMap<String, Object> param) throws Exception;
+
+    public List<HashMap<String, Object>> getMessageUserAddr(HashMap<String, Object> param) throws Exception;
+    public List<HashMap<String, Object>> getRoomUserLocation(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> getLocationYn(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> setLocationYn(HashMap<String, Object> param) throws Exception;
+    public List<HashMap<String, Object>> getLocationListCheck(HashMap<String, Object> param) throws Exception;
+
+    public HashMap<String, Object> getChatRoomAlarmList(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> getChatRoomAlarm(HashMap<String, Object> param) throws Exception;
+
+    public List<HashMap<String, Object>> getEmoticonList(HashMap<String, Object> param) throws Exception;
+
+    public List<HashMap<String, Object>> getPartnersMap(HashMap<String, Object> param) throws Exception;
+
+    public HashMap<String, Object> getChatRoomPrivateCheck(HashMap<String, Object> param) throws Exception;
+
+    public HashMap<String, Object> getChatRoomType(HashMap<String, Object> param) throws Exception;
+
+    public HashMap<String, Object> chatBlock(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> setRoomMasterChange(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> setSubRoomMasterChange(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> setSubRoomMasterRemoval(HashMap<String, Object> param) throws Exception;
+}

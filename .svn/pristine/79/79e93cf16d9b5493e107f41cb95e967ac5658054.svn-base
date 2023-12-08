@@ -1,0 +1,199 @@
+html,body,#wrapper {
+    width: 100%;
+    height: 100%;
+    margin: 0 auto;
+}
+/*Css for ticks*/
+.grid .tick {
+    stroke: lightgrey;
+    opacity: 0.7;
+}
+.grid path {
+    stroke-width: 0;
+}
+
+.chart {
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+}
+
+.axis path,.axis line {
+    fill: none;
+    stroke: #000;
+    shape-rendering: crispEdges;
+}
+.gantt-xAxis-table {
+    /* Border overlapping */
+    border-collapse: separate;
+    border-spacing: 0;
+}
+/*.chart-xAxis-column {
+	border: 1px solid black;
+	box-sizing: border-box;	Prevent width from changing
+	background-color: #666;
+	color: #fff;
+	font-weight: bold;
+	padding: 6px;
+	text-align: center;
+}*/
+
+/* Tooltip */
+div.tooltip {
+    position: absolute;
+    text-align: center;
+    padding: 15px 2px;
+    font-size: 12px;
+    background-color: #fff;
+    pointer-events: none;
+    max-width: 300px;
+    min-width: 220px;
+    word-wrap: break-word;
+    border-width:1px !important; border-radius:3px;
+}
+div.tooltip:before {
+    content: " ";
+    display: block;
+    position: absolute;
+    width: 0;
+    height: 0;
+}
+/*Tooltip arrow pointing down*/
+.tooltip-arrow-left:after, .tooltip-arrow-left:before {
+    border: solid transparent;
+    content: ' ';
+    height: 0;
+    right: 100%;
+    position: absolute;
+    width: 0;
+}
+.tooltip-arrow-left:after {
+    border-width: 10px;
+    border-right-color: #fafafa;
+    top: 11px;
+}
+.tooltip-arrow-left:before {
+    border-width: 11px;
+    top: 10px;
+}
+/*Pointing left - center */
+.tooltip-arrow-left-center:before {
+    top: 50%;
+    right: 100%;
+    bottom: 5px;
+    margin-top: -12px;
+    margin-left: 0;
+    border-left: 0;
+    border-top: 12px solid transparent;
+    border-bottom: 12px solid transparent;
+    border-right: 12px solid lightsteelblue;
+}
+/* Pointing down  */
+.tooltip-arrow-bottom:after, .tooltip-arrow-bottom:before {
+    border: solid transparent;
+    content: ' ';
+    height: 0;
+    top: 100%;
+    position: absolute;
+    width: 0;
+}
+.tooltip-arrow-bottom:after {
+    border-width: 10px;
+    border-top-color: #fafafa;
+    left: 11px;
+}
+
+.tooltip-arrow-bottom:before {
+    border-width: 11px;
+    left: 10px;
+}
+/* Pointing right - top */
+.tooltip-arrow-right:after, .tooltip-arrow-right:before {
+    border: solid transparent;
+    content: ' ';
+    height: 0;
+    left: 100%;
+    position: absolute;
+    width: 0;
+}
+.tooltip-arrow-right:after {
+    border-width: 10px;
+    border-left-color: #fafafa;
+    top: 11px;
+}
+
+.tooltip-arrow-right:before {
+    border-width: 11px;
+    top: 10px;
+}
+/*Pointing right - center*/
+.tooltip-arrow-right-center:before {
+    top: 50%;
+    left: 100%;
+    bottom: 5px;
+    border-right: 0;
+    margin-top: -12px;
+    border-top: 12px solid lightsteelblue;
+    border-bottom: 12px solid transparent;
+    border-left: 12px solid transparent;
+}
+/*Bar-text*/
+.bar-failed-text {
+    color: red;
+}
+.bar-running-text {
+    color: chartreuse;
+}
+/*Chart rect mouse pointer*/
+div#chart rect {
+    cursor: pointer;
+}
+
+div#chart {
+    position: relative;
+    /*추가 border:1px solid #ddd; */
+}
+/*Gantt Y axis table
+.gantt-yAxis {
+
+}
+.gantt-yAxis td {
+	border: 1px solid #ddd;
+	margin: 0 !important;
+	padding: 0 !important;
+}*/
+/* Tooltip arrows pointing to the left */
+.tooltip-arrow-left-bar:before {border-right-color: #78d441;}
+.tooltip-arrow-left-bar-stop:before {border-right-color: #ee5365;}
+.tooltip-arrow-left-bar-repair:before {border-right-color: #777;}
+.tooltip-arrow-left-bar-fault:before {border-right-color: #FF9900;}
+.tooltip-arrow-left-bar-error:before {border-right-color: #817aae;}
+/* Tooltip arrows pointing to the right */
+.tooltip-arrow-right-bar:before {border-left-color: #78d441;}
+.tooltip-arrow-right-bar-stop:before {border-left-color: #ee5365;}
+.tooltip-arrow-right-bar-repair:before {border-left-color: #777;}
+.tooltip-arrow-right-bar-fault:before {border-left-color: #FF9900;}
+.tooltip-arrow-right-bar-error:before {border-left-color: #817aae;}
+/* Tooltip arrows pointing down */
+.tooltip-arrow-bottom-bar:before {border-top-color: #78d441;}
+.tooltip-arrow-bottom-bar-stop:before {border-top-color: #ee5365;}
+.tooltip-arrow-bottom-bar-repair:before {border-top-color: #777;}
+.tooltip-arrow-bottom-bar-fault:before {border-top-color: #FF9900;}
+.tooltip-arrow-bottom-bar-error:before {border-top-color: #817aae;}
+
+/*css 추가---------------------------------------------------------------------------------------------------------------------*/
+/*차트*/
+g.x-hour-axis.grid{margin-left:10px;} /*svg{height:500px;}*/
+/*가동라인 y*/
+.gantt-yAxis-container{margin-top:0 !important; padding-top:87px; background-color:#eee; box-sizing:border-box; border:1px solid #ddd;}
+table.gantt-yAxis{width:100%; border-collapse:collapse; border-spacing:0;}
+.gantt-yAxis td{padding:7px; box-sizing:border-box; background-color:#eee; /*background-image: linear-gradient(to bottom, #fafafa, #eee); background-image: -webkit-linear-gradient(top, #fafafa, #eee);*/ border-top:1px solid #ddd; text-align:center;}
+.gantt-yAxis td[rowspan]{border-right:1px solid #ddd;}
+/*시간 x*/
+.axis path.domain{stroke:#aaa;}
+.chart-xAxis-column{padding:7px 4px; background-color:#eee; border-right:1px solid #ddd; border-bottom:1px solid #ddd;  box-sizing:border-box; text-align:center; white-space:nowrap; text-overflow:ellipsis;}
+.chart-xAxis-row:first-child .chart-xAxis-column{border-top:1px solid #ddd;} .chart-xAxis-column:first-child{border-left:1px solid #ddd;}
+text[y="8"]{display:none;}
+/*차트라인*/
+.tick.major line{stroke-width:1;stroke:#d5d5d5;stroke-dasharray:3,2;}
+.tick.major text{fill:#555; font-size:11px;}
+.gantt-chart rect { cursor: pointer; }

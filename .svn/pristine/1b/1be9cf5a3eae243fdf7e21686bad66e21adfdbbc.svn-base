@@ -1,0 +1,34 @@
+package cronies.meeting.user.service;
+
+import java.util.HashMap;
+import java.util.List;
+
+public interface OpenChatService {
+
+    public List<HashMap<String, Object>> getPartitionList(HashMap<String, Object> param) throws Exception;
+    public List<HashMap<String, Object>> getPartitionSubList(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> getOpenChatList(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> getOpenChatDetail(HashMap<String, Object> param) throws Exception;
+    public List<HashMap<String, Object>> getAttendInfo(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> getChatRoomUserCountCheck(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> updateOpenChatAttendYn(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> setOpenChatBookmark(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> setOpenChatInvite(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> setOpenChat(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> setOpenChatDel(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> setOpenChatUpdate(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> setOpenChatReport(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> getOpenChatMyList(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> getOpenChatInviteList(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> getOpenChatMyBookmarkList(HashMap<String, Object> param) throws Exception;
+    public List<HashMap<String, Object>> getDefaultImgList(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> setUserLatLon(HashMap<String, Object> param) throws Exception;
+    public List<HashMap<String, Object>> getOpenChatUserAddr(HashMap<String, Object> param) throws Exception;
+
+    public List<HashMap<String, Object>> getOpenChatLatLon(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> getOpenChatDelYn(HashMap<String, Object> param) throws Exception;
+
+    public HashMap<String, Object> getPrivateYnCountCheck(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> setCheckPrivateYn(HashMap<String, Object> param) throws Exception;
+
+}

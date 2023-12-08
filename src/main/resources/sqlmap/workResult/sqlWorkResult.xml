@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.workResult.sqlWorkResult">
+	
+	<!-- 작업지시 조회 -->
+	<select id="selectWorkResultList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT ROWNUM AS NO
+			 	 , CASE WHEN SHIFT_CD IS NULL THEN FN_GET_CODE_MSG('common_stats_sum', #{ssUserLang}) ELSE WORK_DT END AS WORK_DT
+			 	 , WO_ID
+			 	 , CASE WHEN SHIFT_CD IS NULL THEN NULL ELSE PROD_CD END AS PROD_CD
+			 	 , PROD_NM
+			 	 , FN_THREECOMMA(PLAN_QTY) AS PLAN_QTY
+			 	 , PLAN_UNIT_CD
+       	 		 , FN_THREECOMMA(WORK_QTY) AS WORK_QTY
+			 	 , WORK_UNIT_CD
+			 	 , LINE_NM
+			 	 , CASE WHEN SHIFT_CD IS NULL THEN NULL ELSE LINE_CD END AS LINE_CD
+			 	 , PROC_NM
+			 	 , CASE WHEN SHIFT_CD IS NULL THEN NULL ELSE PROC_CD END AS PROC_CD
+			 	 , SHIFT_NM
+			 	 , SHIFT_CD
+			 	 , LOT_ID
+			 	 , USE_YN
+			 	 , CREATED_DT
+			 	 , CREATED_USER_ID
+			 	 , UPDATED_DT
+			 	 , UPDATED_USER_ID
+		  FROM (
+							SELECT WORK_DT
+						  		 , CASE WHEN SHIFT_CD IS NULL THEN NULL ELSE MAX(WO_ID) END AS WO_ID
+						  		 , PROD_CD
+						  		 , CASE WHEN SHIFT_CD IS NULL THEN NULL ELSE MAX(PROD_NM) END AS PROD_NM
+						  		 , SUM(PLAN_QTY) AS PLAN_QTY
+						  		 , CASE WHEN SHIFT_CD IS NULL THEN NULL ELSE MAX(PLAN_UNIT_CD) END AS PLAN_UNIT_CD
+						  		 , SUM(WORK_QTY) AS WORK_QTY
+						  		 , CASE WHEN SHIFT_CD IS NULL THEN NULL ELSE MAX(WORK_UNIT_CD) END AS WORK_UNIT_CD
+						  		 , CASE WHEN SHIFT_CD IS NULL THEN NULL ELSE MAX(LINE_NM) END AS LINE_NM
+						  		 , LINE_CD
+						  		 , CASE WHEN SHIFT_CD IS NULL THEN NULL ELSE MAX(PROC_NM) END AS PROC_NM
+						  		 , PROC_CD
+						  		 , CASE WHEN SHIFT_CD IS NULL THEN NULL ELSE MAX(SHIFT_NM) END AS SHIFT_NM
+						  		 , SHIFT_CD
+						  		 , CASE WHEN SHIFT_CD IS NULL THEN NULL ELSE MAX(LOT_ID) END AS LOT_ID
+						  		 , CASE WHEN SHIFT_CD IS NULL THEN NULL ELSE MAX(USE_YN) END AS USE_YN
+						  		 , CASE WHEN SHIFT_CD IS NULL THEN NULL ELSE MAX(CREATED_DT) END AS CREATED_DT
+						  		 , CASE WHEN SHIFT_CD IS NULL THEN NULL ELSE MAX(CREATED_USER_ID) END AS CREATED_USER_ID
+						  		 , CASE WHEN SHIFT_CD IS NULL THEN NULL ELSE MAX(UPDATED_DT) END AS UPDATED_DT
+						  		 , CASE WHEN SHIFT_CD IS NULL THEN NULL ELSE MAX(UPDATED_USER_ID) END AS UPDATED_USER_ID
+					    	FROM (
+												SELECT TO_CHAR(TO_DATE(CPL.WORK_DT, 'YYYYMMDD'), 'YYYY-MM-DD') AS WORK_DT
+									 					 , CPL.WO_ID
+									 					 , CPL.PROD_CD
+									 					 , FN_GET_MSG(CP.PROD_NM, #{ssUserLang}) AS PROD_NM
+									 					 , CW.QTY AS PLAN_QTY
+									 					 , CW.UNIT_CD AS PLAN_UNIT_CD
+									 					 , CPL.QTY AS WORK_QTY
+									 					 , CPL.UNIT_CD AS WORK_UNIT_CD
+									 					 , FN_GET_MSG(CL.LINE_NM, #{ssUserLang}) AS LINE_NM
+									 					 , CPL.LINE_CD
+									 					 , FN_GET_COMMCODE_NAME(#{ssUserLang},'MES_PROCESS',CPL.PROC_CD) AS PROC_NM
+									 					 , CPL.PROC_CD
+									 					 , FN_GET_MSG(CS.SHIFT_NM, #{ssUserLang}) AS SHIFT_NM
+									 					 , CPL.SHIFT_CD
+									 					 , CPL.LOT_ID
+									 					 , FN_GET_COMMCODE_NAME(#{ssUserLang},'USE_YN',CPL.USE_YN) AS USE_YN
+									 					 , TO_CHAR(CPL.CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+									 					 , NVL(CU1.USER_NM, CPL.CREATED_USER_ID) AS CREATED_USER_ID
+									 					 , TO_CHAR(CPL.UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+									 					 , NVL(CU2.USER_NM, CPL.UPDATED_USER_ID) AS UPDATED_USER_ID
+													FROM COM_PRODUCT_LOT CPL
+													LEFT OUTER JOIN COM_WORKORDER CW
+														ON CW.WO_ID = CPL.WO_ID
+													 AND CW.USE_YN = 'Y'
+													LEFT OUTER JOIN COM_PRODUCT CP
+														ON CP.PROD_CD = CPL.PROD_CD
+													 AND CP.USE_YN = 'Y'
+													LEFT OUTER JOIN COM_LINE CL
+														ON CL.LINE_CD = CPL.LINE_CD
+												 	 AND CL.USE_YN = 'Y'
+													LEFT OUTER JOIN COM_SHIFT CS
+														ON CS.SHIFT_CD = CPL.SHIFT_CD
+													 AND CS.USE_YN = 'Y'
+													LEFT OUTER JOIN COM_USER CU1
+														ON CU1.USER_ID = CPL.CREATED_USER_ID
+													 AND CU1.USE_YN = 'Y'
+													LEFT OUTER JOIN COM_USER CU2
+														ON CU2.USER_ID = CPL.UPDATED_USER_ID
+													 AND CU2.USE_YN = 'Y'
+												 WHERE CPL.WORK_DT BETWEEN TO_CHAR(FN_START_DATE(#{fromDate}), 'YYYYMMDD') AND TO_CHAR(FN_END_DATE(#{toDate}), 'YYYYMMDD')
+													 AND CPL.STATE = 'Finished'
+													 AND CPL.LOT_TYPE != 'VL'
+													 AND CPL.LINE_CD IN (SELECT LINE_CD FROM COM_LINE WHERE AREA_CD = #{ssUserAreaCd})
+													 <if test='useYn != null and useYn !="" '>
+													 	AND CPL.USE_YN = #{useYn}
+													 </if>
+													 <if test='searchStr1 !=null and searchStr1 !="" '>
+													 	AND CPL.WO_ID LIKE '%#{searchStr1}%'
+													 </if>
+													 <if test='searchStr2 !=null and searchStr2 !="" '>
+													 	AND CPL.PROD_CD LIKE '%${searchStr2}%' OR CP.PROD_NM LIKE '%${searchStr2}%'
+													 </if>
+													 <if test='searchStr3 !=null and searchStr3 !="" '>
+													 	AND CPL.LINE_CD = #{searchStr3}
+													 </if>
+													 <if test='searchStr4 !=null and searchStr4 !="" '>
+													 	AND CPL.PROC_CD = #{searchStr4}
+													 </if>
+													 <if test='searchStr5 !=null and searchStr5 !="" '>
+													 	AND CPL.SHIFT_CD = #{searchStr5}
+													 </if>
+											)
+									GROUP BY ROLLUP(WORK_DT, PROD_CD, LINE_CD, PROC_CD, SHIFT_CD)
+								 HAVING GROUPING_ID(WORK_DT, PROD_CD, LINE_CD, PROC_CD, SHIFT_CD) IN (0, 1)
+									ORDER BY WORK_DT DESC
+												 , PROD_CD
+												 , LINE_CD
+												 , PROC_CD
+												 , SHIFT_CD
+				)
+	</select>
+
+	<select id="selectWorkResultTree" parameterType="HashMap" resultType="ExqueryMap">
+		WITH RAWDATA AS (        
+			SELECT DISTINCT LOT_ID
+				 	 , MTRL_LOT_ID
+				 	 , LEVEL AS LV
+				 	 , SYS_CONNECT_BY_PATH(LOT_ID, '/') AS PATH
+			  FROM COM_PRODUCT_LOT_MAP 
+			 START WITH LOT_ID = #{lotId}
+		 CONNECT BY PRIOR MTRL_LOT_ID = LOT_ID
+			 ORDER BY PATH
+		)
+		, TREEDATA AS (
+			SELECT DISTINCT 'ROOT' AS LOT_ID
+				 	 , LOT_ID AS MTRL_LOT_ID
+				 	 , LV
+				 	 , PATH 
+			  FROM RAWDATA 
+			 WHERE LV = 1
+			 UNION ALL
+			SELECT LOT_ID
+				 	 , MTRL_LOT_ID
+				 	 , LV
+				 	 , PATH 
+			  FROM RAWDATA
+			 WHERE LOT_ID NOT IN (
+									SELECT LOT_ID 
+									  FROM RAWDATA 
+									 WHERE LV = 1 
+									   AND LOT_ID NOT IN (
+															SELECT MIN(LOT_ID) KEEP(DENSE_RANK FIRST ORDER BY LOT_ID) 
+															  FROM RAWDATA 
+															 WHERE LV = 1
+														)
+								)
+		)
+
+		SELECT TD.LOT_ID
+			 , TD.MTRL_LOT_ID 
+			 , CPL.PROC_CD
+			 , FN_GET_COMMCODE_NAME(#{ssUserLang},'MES_PROCESS',CPL.PROC_CD) AS PROC_NM
+			 , NVL(CPL.PROD_CD, CML.MTRL_CD) AS PROD_CD
+			 , NVL(FN_GET_MSG(CPP.PROD_NM, #{ssUserLang}), FN_GET_MSG(CPM.PROD_NM, #{ssUserLang})) AS PROD_NM
+			 , NVL(CPL.QTY, CML.QTY) AS QTY
+			 , NVL(CPL.UNIT_CD, CML.UNIT_CD) AS UNIT_CD
+		  FROM TREEDATA TD
+		  LEFT OUTER JOIN COM_PRODUCT_LOT CPL
+			ON CPL.LOT_ID = TD.MTRL_LOT_ID
+		   AND CPL.USE_YN = 'Y'
+		  LEFT OUTER JOIN COM_PRODUCT CPP
+			ON CPP.PROD_CD = CPL.PROD_CD
+		   AND CPP.USE_YN = 'Y'
+		  LEFT OUTER JOIN COM_MATERIAL_LOT CML
+			ON CML.LOT_ID = TD.MTRL_LOT_ID
+		   AND CML.USE_YN = 'Y'
+		  LEFT OUTER JOIN COM_PRODUCT CPM
+			ON CPM.PROD_CD = CML.MTRL_CD
+		   AND CPM.USE_YN = 'Y'  
+		 ORDER BY TD.LV
+		 	 , TD.MTRL_LOT_ID DESC
+	</select>
+
+	<select id="selectWorkOrderLineList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT CL.LINE_CD
+			 , FN_GET_MSG(CL.LINE_NM, #{ssUserLang}) AS LINE_NM
+			 , FN_GET_MSG(CL.LINE_NM, #{ssUserLang}) AS NAME
+			 , CL.LINE_CD AS CODE
+			 , CL.LINE_DESC
+			 , CL.AREA_CD
+			 , CL.REMARKS
+			 , CL.DISPLAY_ORDER
+			 , FN_GET_COMMCODE_NAME(#{ssUserLang}, 'USE_YN', CL.USE_YN) AS USE_YN
+			 , TO_CHAR(CL.CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+			 , CL.CREATED_USER_ID
+			 , TO_CHAR(CL.UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+			 , CL.UPDATED_USER_ID			 
+  		  FROM COM_WORKORDER CW
+ 		 INNER JOIN COM_LINE CL
+    		ON CL.LINE_CD = cW.LINE_CD
+   		   AND CL.USE_YN = 'Y'	  
+ 		 WHERE CW.WO_ID = #{woId}
+ 		 ORDER BY DISPLAY_ORDER
+	</select>
+
+	<select id="selectSearchRangeStr" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT CASE WHEN CW.START_DT IS NULL THEN CW.PLAN_DT || CLS.START_TIME ELSE TO_CHAR(CW.START_DT, 'YYYYMMDDHHMMSS') END AS FROM_DATE
+			 , CASE WHEN CW.END_DT IS NULL THEN CW.PLAN_DT || CLS.END_TIME ELSE TO_CHAR(CW.END_DT, 'YYYYMMDDHHMMSS') END  AS TO_DATE
+			 , CASE WHEN CW.START_DT IS NULL THEN TO_CHAR(FN_START_DATE(CW.PLAN_DT || CLS.START_TIME), 'YYYY-MM-DD HH24:MI:SS') ELSE TO_CHAR(CW.START_DT, 'YYYY-MM-DD HH24:MI:SS') END AS START_TIME_STR
+			 , CASE WHEN CW.END_DT IS NULL THEN TO_CHAR(FN_END_DATE(CW.PLAN_DT || CLS.END_TIME), 'YYYY-MM-DD HH24:MI:SS') ELSE TO_CHAR(CW.END_DT, 'YYYY-MM-DD HH24:MI:SS') END  AS END_TIME_STR
+		  FROM COM_WORKORDER CW
+		  LEFT OUTER JOIN COM_LINE_SHIFT CLS
+		    ON CLS.LINE_CD = CW.LINE_CD
+		   AND CLS.SHIFT_CD = CW.SHIFT_CD
+		 WHERE CW.WO_ID = #{woId}
+	</select>
+
+	<select id="selectWorkConditionList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT CTV.TAG_CD 
+			 , TO_CHAR(CTV.EVENT_TIME,'YYYY-MM-DD HH24:MI:SS') AS NAME
+			 , CTV.EVENT_TIME AS X
+			 , ROUND(CTV.TAG_VALUE, 1) AS Y
+			 , FN_GET_MSG(CT.TAG_NM, #{ssUserLang}) AS TAG_NM
+	    	 , CTV.TAG_VALUE
+			 , CTV.UCL
+			 , CTV.LCL
+			 , CTV.SV
+         	 , CT.UNIT
+	      FROM COM_TAG_VALUE CTV
+	     INNER JOIN COM_TAG CT
+	        ON CTV.TAG_CD = CT.TAG_CD
+	       AND CTV.EVENT_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+	       AND CTV.TAG_CD = #{tagCd}
+	</select>
+
+	<select id="selectWeatherConditionTempList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT 'Temprature' AS TAG_CD 
+			 , TO_CHAR(MEASURE_TIME,'YYYY-MM-DD HH24:MI:SS') AS NAME
+			 , MEASURE_TIME AS X
+			 , ROUND(TEMP, 2) AS Y
+			 , FN_GET_CODE_MSG('weather_temp', #{ssUserLang}) AS TAG_NM
+			 , TEMP AS TAG_VALUE
+		  FROM COM_WEATHER
+		 WHERE MEASURE_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate}) 
+	</select>
+
+	<select id="selectWeatherConditionHumidList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT 'Humidity' AS TAG_CD 
+			 , TO_CHAR(MEASURE_TIME,'YYYY-MM-DD HH24:MI:SS') AS NAME
+			 , MEASURE_TIME AS X
+			 , ROUND(HUMIDITY, 2) AS Y
+			 , FN_GET_CODE_MSG('weather_hum', #{ssUserLang}) AS TAG_NM
+			 , HUMIDITY AS TAG_VALUE
+		  FROM COM_WEATHER
+		 WHERE MEASURE_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate}) 
+	</select>
+
+	<select id="selectWeatherConditionPressList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT 'Pressure' AS TAG_CD 
+			 , TO_CHAR(MEASURE_TIME,'YYYY-MM-DD HH24:MI:SS') AS NAME
+			 , MEASURE_TIME AS X
+			 , ROUND(PRESSURE, 2) AS Y
+			 , FN_GET_CODE_MSG('weather_Press', #{ssUserLang}) AS TAG_NM
+			 , PRESSURE AS TAG_VALUE
+		  FROM COM_WEATHER
+		 WHERE MEASURE_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate}) 
+	</select>
+</mapper>

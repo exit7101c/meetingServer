@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cronies.app.usePoint">
+
+    <select id="getUserQrcode" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			QRCODE
+			, DATEDIFF(SS, GETDATE(), DATEADD(MI, 3, REG_TIME)) AS DIFF_SECOND
+		FROM SC_USER_QRCODE
+		WHERE 1=1
+		AND USER_ID = #{userId}
+		AND REG_TIME BETWEEN DATEADD(MI, -3, GETDATE()) AND GETDATE()
+    </select>
+
+	<update id="mergeUserQrcode" parameterType="HashMap">
+		MERGE INTO SC_USER_QRCODE AS A
+		USING (SELECT 1 AS DUAL) AS B
+		ON (A.USER_ID = #{userId})
+		WHEN MATCHED THEN
+			UPDATE SET
+				QRCODE = #{qrcode}
+				, REG_TIME = GETDATE()
+		WHEN NOT MATCHED THEN
+			INSERT
+				(USER_ID
+				, QRCODE
+				, REG_TIME
+				)
+			VALUES
+				(#{userId}
+				, #{qrcode}
+				, GETDATE()
+				);
+	</update>
+
+	<delete id="deleteUserQrcode" parameterType="HashMap">
+		DELETE SC_USER_QRCODE
+		WHERE USER_ID = #{userId}
+	</delete>
+</mapper>

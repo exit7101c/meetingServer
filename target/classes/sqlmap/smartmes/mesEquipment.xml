@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.smartmes.mesEquipment">
+
+	<!--
+	QueryID     : insertEquipmentByJoin
+	Description : 회원가입 시 설비 신규등록
+	-->
+	<insert id="insertEquipmentByJoin" parameterType="HashMap">
+		<selectKey resultType="int" keyProperty="eqpSeq" order="BEFORE">
+			SELECT  SEQ_EQUIPMENT_ID.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO COM_EQUIPMENT
+		(EQP_CD, EQP_NM, PROC_CD, LINE_CD, USE_YN, CREATED_DT, CREATED_USER_ID, UPDATED_DT, UPDATED_USER_ID, DISPLAY_ORDER)
+		VALUES
+		(#{eqpSeq}, '기본설비', #{procSeq}, #{lineSeq}, 'Y', SYSDATE, 'admin', SYSDATE, 'admin', 1)
+	</insert>
+
+	<!--
+	QueryID     : selectEquipmentOneRunYn
+	Description : 공정등록 시 설비 신규등록
+	-->
+	<select id="selectEquipmentOrderNo" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT MAX(DISPLAY_ORDER)+1 AS NEXT_EQP_ORDER FROM COM_EQUIPMENT
+		WHERE PROC_CD = #{procSeq}
+	</select>
+
+	<!--
+	QueryID     : insertEquipmentByProc
+	Description : 공정등록 시 설비 신규등록
+	-->
+	<insert id="insertEquipmentByProc" parameterType="HashMap">
+		<selectKey resultType="int" keyProperty="eqpSeq" order="BEFORE">
+			SELECT  SEQ_EQUIPMENT_ID.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO COM_EQUIPMENT
+		(EQP_CD, EQP_NM, PROC_CD, USE_YN, CREATED_DT, CREATED_USER_ID, UPDATED_DT, UPDATED_USER_ID, DISPLAY_ORDER, LINE_CD)
+		VALUES
+		(#{eqpSeq}, '기본설비', #{procSeq}, 'Y', SYSDATE, 'admin', SYSDATE, 'admin', 1, #{lineCd})
+	</insert>
+
+	<!--
+	QueryID     : selectEquipmentOneRunYn
+	Description : 공정등록 시 설비 신규등록
+	-->
+	<select id="selectEquipmentOneRunYn" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			RUN_YN
+		FROM COM_EQP_STATE
+		WHERE EQP_CD = (SELECT EQP_CD FROM COM_EQUIPMENT WHERE PROC_CD = #{procCd})
+	</select>
+
+	<!--
+	QueryID     : selectProcInfoMap
+	Description : 공정별 가동정보, 생산제품, 생산량, 불량량, 양품률, TT을 조회한다.
+	-->
+	<select id="selectProcInfoMap" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+        *
+        FROM (
+        SELECT
+            A.PROC_CD,
+             A.PROD_ID,
+             B.PROD_NM,
+             A.PROD_CNT,
+             A.BAD_CNT,
+             A.TT,
+             A.GOODS_RATE,
+             TO_CHAR(A.START_TIME, 'YYYY-MM-DD HH24:MI;SS') AS START_TIME_STR
+        FROM COM_PROC_INPUT_RESULT A, COM_PRODUCT B
+        WHERE A.PROD_ID = B.PROD_ID
+        AND A.PROC_CD = #{procCd}
+        AND A.LAST_YN = 'Y'
+        ORDER BY A.START_TIME DESC
+        )
+        WHERE ROWNUM = 1
+	</select>
+
+	<!--
+	QueryID     : deleteEquipmentByProc
+	Description : 공정에 연결된 설비 미사용처리
+	-->
+	<update id="deleteEquipmentByProc" parameterType="HashMap">
+		UPDATE COM_EQUIPMENT
+		<set>
+			USE_YN = 'N'
+			, UPDATED_DT = SYSDATE
+			, UPDATED_USER_ID = #{ssCustomerId}
+		</set>
+		WHERE PROC_CD = #{procCd}
+	</update>
+
+	<!--
+	QueryID     : deleteEquipmentByLine
+	Description : 라인에 연결된 설비 미사용처리
+	-->
+	<update id="deleteEquipmentByLine" parameterType="HashMap">
+		UPDATE COM_EQUIPMENT
+		<set>
+			USE_YN = 'N'
+			, UPDATED_DT = SYSDATE
+			, UPDATED_USER_ID = #{ssCustomerId}
+		</set>
+		WHERE PROC_CD IN (
+						SELECT
+							PROC_CD
+						FROM COM_PROCESS
+						WHERE LINE_CD = #{lineCd}
+		)
+	</update>
+
+	<!--
+	QueryID     : selectEqpStateCodeList
+	Description : 설비상태코드리스트 조회
+	-->
+	<select id="selectEqpStateCodeList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			EQP_CD
+			, STATE_CD
+			, STATE_NM
+			, USE_YN
+			, CREATED_DT
+			, CREATED_USER_ID
+			, UPDATED_DT
+			, UPDATED_USER_ID
+			, RUN_YN
+		FROM COM_STATE_CODE
+		WHERE STATE_CD != 0
+	</select>
+
+	<!--
+	QueryID     : selectEquipmentOneByProc
+	Description : 공정코드로 설비하나 조회
+	-->
+	<select id="selectEquipmentOneByProc" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			EQP_CD
+			, EQP_NM
+			, LINE_CD
+			, USE_YN
+			, CREATED_DT
+			, CREATED_USER_ID
+			, UPDATED_DT
+			, UPDATED_USER_ID
+			, PROC_CD
+		FROM COM_EQUIPMENT
+		WHERE PROC_CD = #{procCd}
+	</select>
+</mapper>

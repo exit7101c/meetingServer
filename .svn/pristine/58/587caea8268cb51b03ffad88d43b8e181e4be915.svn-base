@@ -1,0 +1,966 @@
+package cronies.meeting.user.service.impl;
+
+import com.google.code.geocoder.Geocoder;
+import com.google.code.geocoder.GeocoderRequestBuilder;
+import com.google.code.geocoder.model.*;
+import cronies.meeting.user.service.CommonService;
+import cronies.meeting.user.service.JoinService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+import select.spring.exquery.service.ExqueryService;
+
+import java.util.*;
+
+
+@Service("JoinService")
+@Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
+public class JoinServiceImpl implements JoinService {
+
+    Logger log = LoggerFactory.getLogger(this.getClass());
+
+    @Autowired
+    private ExqueryService exqueryService;
+
+    @Autowired
+    private CommonService commonService;
+
+    // 본인인증(임시)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> getCerti(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        String resultCd = "";
+        String message = "";
+        String step = null;
+        String userKey = "";
+
+        // param 체크
+        if (param.containsKey("phone") && param.containsKey("name") && param.containsKey("sex") && param.containsKey("birth")) {
+
+            // 사용자가 있는지 조회한다.
+            HashMap<String, Object> checkUser = exqueryService.selectOne("cronies.app.join.selectGetCerti", param);
+            // 사용자 상태를 확인한다.
+            if (checkUser.get("result").equals("exist")) {
+                resultCd = "exist";
+                message = "이미 가입한 사용자";
+                userKey = commonService.getEncoding(checkUser.get("userId").toString());
+                if (checkUser.get("joinFinishYn").equals("N")) {
+                    resultCd = "ing";
+                    message = "가입 진행중";
+                    step = checkUser.get("signStep").toString();
+                }
+                if (checkUser.get("connectYn").equals("N")) {
+                    resultCd = "denied";
+                    message = "차단된 사용자";
+                }
+            } else if (checkUser.get("result").equals("possible")) {
+                // 만 19세 이상만 가입 가능
+                if (Integer.parseInt(String.valueOf(checkUser.get("minorCheck"))) >= 19) {
+                    resultCd = "possible";
+                    message = "가입 가능";
+                } else {
+                    resultCd = "denied";
+                    message = "미성년자";
+                }
+            }
+        }
+        resultMap.put("resultCd", resultCd);
+        resultMap.put("message", message);
+        resultMap.put("step", step);
+        resultMap.put("userKey", userKey);
+        return resultMap;
+    }
+
+    // 이메일 중복체크
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> getCheckEmail(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        String successYn = "N";
+
+        // param 체크
+        if (param.containsKey("email")) {
+            HashMap<String, Object> certi = exqueryService.selectOne("cronies.app.join.selectCheckEmail", param);
+            // 입력받은 메일주소가 있다면 result = N
+            successYn = certi.get("result").toString();
+        }
+
+        resultMap.put("successYn", successYn);
+        return resultMap;
+    }
+
+    // 유저 중복체크
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> getCheckUser(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        String successYn = "N";
+
+        // param 체크
+        if (param.containsKey("phone")) {
+            HashMap<String, Object> certi = exqueryService.selectOne("cronies.app.join.selectCheckUser", param);
+            // 입력받은 유저가 있다면 result = N
+            if (certi.get("result").toString().equals("N")) {
+                resultMap.put("message", "이미 가입 된 유저입니다. 아이디가 기억나지 않는경우 아이디 찾기를 진행해주세요.");
+            }
+            successYn = certi.get("result").toString();
+        }
+
+        resultMap.put("successYn", successYn);
+        return resultMap;
+    }
+
+    // 닉네임 중복체크
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> getCheckNick(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        String successYn = "N";
+
+        // param 체크
+        if (param.containsKey("nick")) {
+            HashMap<String, Object> chkNick = exqueryService.selectOne("cronies.app.join.selectCheckNick", param);
+
+            // 입력받은 닉네임이 있다면 result = N
+            successYn = chkNick.get("result").toString();
+        }
+        resultMap.put("successYn", successYn);
+
+        return resultMap;
+    }
+
+    /**
+     * @param param : email, pw, phone, name, sex, birth
+     * @return successYn, userKey
+     */
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> setUserStep1(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        String successYn = "N";
+        String userKey = "";
+
+        // param 체크
+        if (param.containsKey("email") && param.containsKey("pw") && param.containsKey("phone") && param.containsKey("name") && param.containsKey("sex") && param.containsKey("birth")) {
+            // 비밀번호 암호화
+            String pwEn = commonService.getEncoding(param.get("pw").toString());
+            param.put("pwEn", pwEn);
+            int res = exqueryService.insert("cronies.app.join.insertSetUserStep1", param);
+
+            // INSERT 후 RESULT 데이터를 받아 저장 완료되면 계속 진행
+            if (res == 1) {
+                HashMap<String, Object> userKeyMap = exqueryService.selectOne("cronies.app.join.selectCheckUserKey", param);
+
+                // userId 암호화
+                userKey = commonService.getEncoding(userKeyMap.get("userId").toString());
+                successYn = "Y";
+            }
+        }
+        resultMap.put("successYn", successYn);
+        resultMap.put("userKey", userKey);
+
+        return resultMap;
+
+    }
+
+    /**
+     * @param param : userKey, termService, termUserInfo, termMarketing, termPush
+     * @return successYn, signStep
+     */
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> setUserStep2(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        HashMap<String, Object> signStepMap = new HashMap<String, Object>();
+        String successYn = "N";
+        String userKeyDec = "";
+        String signStep = "";
+
+        // param 체크
+        if (param.containsKey("userKey") && param.containsKey("termService") && param.containsKey("termUserInfo") && param.containsKey("termMarketing") && param.containsKey("termPush")) {
+            // userKey 디코딩
+            userKeyDec = commonService.getDecoding(param.get("userKey").toString());
+
+            // 디코딩 결과 error가 아니면 진행
+            if (!userKeyDec.equals("error")) {
+                param.put("userKeyDec", userKeyDec);
+                signStepMap = exqueryService.selectOne("cronies.app.join.selectCheckSignStep", param);
+
+                if (signStepMap.get("result").equals("Y")) {
+//                    if(signStepMap.get("signStep").equals("1")) {
+                    exqueryService.update("cronies.app.join.insertSetUserStep2", param);
+                    successYn = "Y";
+//                        // SIGN_STEP 업데이트
+//                        exqueryService.update("cronies.app.join.updateSetUserStep2", param);
+
+                    // SIGN_STEP이 1이 아니라면 진행중인 SIGN_STEP을 반환
+//                    } else {
+//                        signStep = signStepMap.get("signStep").toString();
+//                        resultMap.put("successYn", successYn);
+//                        resultMap.put("signStep", signStep);
+//
+//                        return resultMap;
+//                    }
+                }
+            }
+        }
+        resultMap.put("successYn", successYn);
+
+        return resultMap;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public List<HashMap<String, Object>> getIconList(HashMap<String, Object> param) throws Exception {
+        List<HashMap<String, Object>> resultList = new ArrayList<HashMap<String, Object>>();
+
+        resultList = exqueryService.selectList("cronies.app.join.selectGetIconList", param);
+
+        return resultList;
+    }
+
+    /**
+     * @param param : userKey, nick, iconCd
+     * @return successYn, signStep
+     */
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> setUserStep3(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        HashMap<String, Object> signStepMap = new HashMap<String, Object>();
+        String successYn = "N";
+        String signStep = "";
+        String userKeyDec = "";
+
+        // param 체크
+        if (param.containsKey("userKey") && param.containsKey("nick") && param.containsKey("iconCd")) {
+            // userKey 디코딩
+            userKeyDec = commonService.getDecoding(param.get("userKey").toString());
+
+            // 디코딩 결과 error가 아니면 계속
+            if (!userKeyDec.equals("error")) {
+                param.put("userKeyDec", userKeyDec);
+                signStepMap = exqueryService.selectOne("cronies.app.join.selectCheckSignStep", param);
+
+                if (signStepMap.get("result").equals("Y")) {
+
+                    // SIGN_STEP이 2라면 계속
+                    if (signStepMap.get("signStep").equals("2")) {
+                        exqueryService.update("cronies.app.join.updateSetUserStep3", param);
+                        successYn = "Y";
+
+                        // SIGN_STEP이 2가 아니면 SIGN_STEP을 반환하고 리턴
+                    } else {
+                        signStep = signStepMap.get("signStep").toString();
+                        resultMap.put("successYn", successYn);
+                        resultMap.put("signStep", signStep);
+
+                        return resultMap;
+                    }
+                }
+            }
+        }
+        resultMap.put("successYn", successYn);
+
+        return resultMap;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public List<HashMap<String, Object>> getJobList(HashMap<String, Object> param) throws Exception {
+        List<HashMap<String, Object>> resultList = new ArrayList<HashMap<String, Object>>();
+
+        resultList = exqueryService.selectList("cronies.app.join.selectGetJobList", param);
+
+        return resultList;
+    }
+
+    /**
+     * @param param : userId, jobCd
+     * @return successYn, signStep
+     */
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> setUserStep4(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        HashMap<String, Object> signStepMap = new HashMap<String, Object>();
+        String successYn = "N";
+        String signStep = "";
+
+        // param 체크
+        if (param.containsKey("userId") && param.containsKey("tall") && param.containsKey("smoke") && param.containsKey("drink") && param.containsKey("form")) {
+            param.put("userKeyDec", param.get("userId"));
+            signStepMap = exqueryService.selectOne("cronies.app.join.selectCheckSignStep", param);
+
+            if (signStepMap.get("result").equals("Y")) {
+
+                // SIGN_STEP이 3이면 계속
+                if (signStepMap.get("signStep").equals("3")) {
+                    exqueryService.update("cronies.app.join.updateSetUserStep4", param);
+                    successYn = "Y";
+
+                } else {
+                    signStep = signStepMap.get("signStep").toString();
+                    resultMap.put("successYn", successYn);
+                    resultMap.put("signStep", signStep);
+
+                    return resultMap;
+                }
+            }
+        }
+        resultMap.put("successYn", successYn);
+
+        return resultMap;
+    }
+
+    /**
+     * @param param : userId, addr1, addr2
+     * @return successYn, signStep
+     */
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> setUserStep5(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        HashMap<String, Object> signStepMap = new HashMap<String, Object>();
+        String successYn = "N";
+        String signStep = "";
+
+        // param 체크
+        if (param.containsKey("userId")) {
+            param.put("userKeyDec", param.get("userId"));
+            signStepMap = exqueryService.selectOne("cronies.app.join.selectCheckSignStep", param);
+
+            if (signStepMap.get("result").equals("Y")) {
+
+                // SIGN_STEP이 3이면 계속 (주소 -> 위도,경도 계산)
+                if (signStepMap.get("signStep").equals("4")) {
+                    // 주소 -> 위도, 경도
+//                    HashMap<String, Object> geocodeMap = commonService.Geocode(param.get("addr1").toString());
+//                    param.put("lat", geocodeMap.get("lat"));
+//                    param.put("lon", geocodeMap.get("lon"));
+//                    param.put("lat", '0');
+//                    param.put("lon", '0');
+
+                    exqueryService.insert("cronies.app.join.insertSetUserStep5", param);
+                    exqueryService.update("cronies.app.join.updateSetUserStep5", param);
+                    successYn = "Y";
+
+                } else {
+                    signStep = signStepMap.get("signStep").toString();
+                    resultMap.put("successYn", successYn);
+                    resultMap.put("signStep", signStep);
+
+                    return resultMap;
+                }
+            }
+        }
+        resultMap.put("successYn", successYn);
+
+        return resultMap;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public List<HashMap<String, Object>> getSchoolList(HashMap<String, Object> param) throws Exception {
+        List<HashMap<String, Object>> resultList = new ArrayList<HashMap<String, Object>>();
+
+        resultList = exqueryService.selectList("cronies.app.join.selectGetSchoolList", param);
+
+        return resultList;
+    }
+
+    /**
+     * @param param : userId, schoolCd
+     * @return successYn, signStep
+     */
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> setUserStep6(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        HashMap<String, Object> signStepMap = new HashMap<String, Object>();
+        String successYn = "N";
+        String signStep = "";
+
+        // param 체크
+//        if(param.containsKey("userId") && param.containsKey("schoolCd")) {
+//            param.put("userKeyDec", param.get("userId"));
+        // userKey 디코딩
+        param.put("userKeyDec", commonService.getDecoding(param.get("userKey").toString()));
+
+        signStepMap = exqueryService.selectOne("cronies.app.join.selectCheckSignStep", param);
+
+        if (signStepMap.get("result").equals("Y")) {
+
+            if (signStepMap.get("signStep").equals("5")) {
+//                    exqueryService.update("cronies.app.join.updateSetUserStep6", param);
+
+                if (exqueryService.update("cronies.app.join.getUserDetailUpdate", param) > 0) {
+
+                    successYn = "Y";
+                } else {
+                    successYn = "N";
+                }
+                resultMap.put("successYn", successYn);
+
+            } else {
+                signStep = signStepMap.get("signStep").toString();
+                resultMap.put("successYn", successYn);
+                resultMap.put("signStep", signStep);
+
+                return resultMap;
+            }
+        }
+//        }
+//        resultMap.put("successYn", successYn);
+
+        return resultMap;
+    }
+
+    /**
+     * @param param : userId, msg
+     * @return successYn, signStep
+     */
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> setUserStep8(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        HashMap<String, Object> signStepMap = new HashMap<String, Object>();
+        String successYn = "N";
+        String signStep = "";
+
+        // param 체크
+        if (param.containsKey("userId") && param.containsKey("msg")) {
+            param.put("userKeyDec", param.get("userId"));
+            signStepMap = exqueryService.selectOne("cronies.app.join.selectCheckSignStep", param);
+
+            if (signStepMap.get("result").equals("Y")) {
+
+                if (signStepMap.get("signStep").equals("7")) {
+                    exqueryService.update("cronies.app.join.updateSetUserStep8", param);
+                    exqueryService.insert("cronies.app.join.insertSetUserStep8", param);
+                    successYn = "Y";
+
+                } else {
+                    signStep = signStepMap.get("signStep").toString();
+                    resultMap.put("successYn", successYn);
+                    resultMap.put("signStep", signStep);
+
+                    return resultMap;
+                }
+            }
+        }
+        resultMap.put("successYn", successYn);
+
+        return resultMap;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> findGeoPoint(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        String successYn = "N";
+        String coords1 = "";
+        String coords2 = "";
+
+        if (!param.get("addr").equals("")) {
+            GeocoderRequest geocoderRequest = new GeocoderRequestBuilder().setAddress(param.get("addr").toString()).setLanguage("ko").getGeocoderRequest();
+
+            Geocoder geocoder = new Geocoder();
+            GeocodeResponse geocodeResponse = geocoder.geocode(geocoderRequest);
+
+            if (geocodeResponse.getStatus() == GeocoderStatus.OK & !geocodeResponse.getResults().isEmpty()) {
+                GeocoderResult geocoderResult = geocodeResponse.getResults().iterator().next();
+                LatLng latitudeLongitude = geocoderResult.getGeometry().getLocation();
+                coords1 = latitudeLongitude.getLat().toString();
+                coords2 = latitudeLongitude.getLng().toString();
+                successYn = "Y";
+
+                resultMap.put("successYn", successYn);
+                resultMap.put("coords1", coords1);
+                resultMap.put("coords2", coords2);
+
+                return resultMap;
+            }
+        }
+
+        resultMap.put("successYn", successYn);
+        resultMap.put("coords1", coords1);
+        resultMap.put("coords2", coords2);
+
+        return resultMap;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> setUserPicJoin(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        HashMap<String, Object> signStepMap = new HashMap<String, Object>();
+        String successYn = "N";
+        String userKeyDec = "";
+        String signStep = "";
+        // param 체크
+        if (param.containsKey("userId")) {
+            param.put("userKeyDec", param.get("userId"));
+            signStepMap = exqueryService.selectOne("cronies.app.join.selectCheckSignStep", param);
+            if (signStepMap.get("result").equals("Y")) {
+                if (signStepMap.get("signStep").equals("6")) {
+                    exqueryService.update("cronies.app.join.updateSetUserStep7", param);
+                    exqueryService.insert("cronies.app.join.insertSetUserStep7", param);
+                    successYn = "Y";
+                } else {
+                    signStep = signStepMap.get("signStep").toString();
+                    resultMap.put("successYn", successYn);
+                    resultMap.put("signStep", signStep);
+
+                    return resultMap;
+                }
+            }
+        }
+
+        return resultMap;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> getKeywordList(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        List<HashMap<String, Object>> mbtiList = new ArrayList<>();
+        List<HashMap<String, Object>> faceList = new ArrayList<>();
+        List<HashMap<String, Object>> bodyList = new ArrayList<>();
+        List<HashMap<String, Object>> perList = new ArrayList<>();
+        List<HashMap<String, Object>> hobbyList = new ArrayList<>();
+        param.put("userId", param.get("ssUserId"));
+
+        mbtiList = exqueryService.selectList("cronies.app.join.getMbtiList", param);
+        faceList = exqueryService.selectList("cronies.app.join.getFaceList", param);
+        bodyList = exqueryService.selectList("cronies.app.join.getBodyList", param);
+        perList = exqueryService.selectList("cronies.app.join.getPersonalityList", param);
+        hobbyList = exqueryService.selectList("cronies.app.join.getHobbyList", param);
+
+        resultMap.put("mbtiList", mbtiList);
+        resultMap.put("faceList", faceList);
+        resultMap.put("bodyList", bodyList);
+        resultMap.put("perList", perList);
+        resultMap.put("hobbyList", hobbyList);
+
+        return resultMap;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> getInfoList(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        List<HashMap<String, Object>> bodyList = new ArrayList<>();
+        List<HashMap<String, Object>> smokeList = new ArrayList<>();
+        List<HashMap<String, Object>> drinkingList = new ArrayList<>();
+        param.put("userId", param.get("ssUserId"));
+
+        /** 기본정보 리스트 조회 **/
+        bodyList = exqueryService.selectList("cronies.app.join.getBodyList", param);
+        smokeList = exqueryService.selectList("cronies.app.join.getSmokeList", param);
+        drinkingList = exqueryService.selectList("cronies.app.join.getDrinkingList", param);
+
+
+        resultMap.put("bodyList", bodyList);
+        resultMap.put("smokeList", smokeList);
+        resultMap.put("drinkingList", drinkingList);
+
+        return resultMap;
+    }
+
+    public HashMap<String, Object> selectionsCheck(HashMap<String, Object> obj) {
+        if (!obj.containsKey("iconCd")) {
+            obj.put("iconCd", "A");
+        }
+        if (!obj.containsKey("tall")) {
+            obj.put("tall", null);
+        }
+        if (!obj.containsKey("smoke")) {
+            obj.put("smoke", null);
+        }
+        if (!obj.containsKey("drink")) {
+            obj.put("drink", null);
+        }
+        if (!obj.containsKey("mbti")) {
+            obj.put("mbti", null);
+        }
+        if (!obj.containsKey("weight")) {
+            obj.put("weight", null);
+        }
+        if (!obj.containsKey("idealLook")) {
+            obj.put("idealLook", null);
+        }
+        if (!obj.containsKey("idealForm")) {
+            obj.put("idealForm", null);
+        }
+        if (!obj.containsKey("likeSinger")) {
+            obj.put("likeSinger", null);
+        }
+        if (!obj.containsKey("likeMusic")) {
+            obj.put("likeMusic", null);
+        }
+        if (!obj.containsKey("idealCharacter")) {
+            obj.put("idealCharacter", null);
+        }
+        if (!obj.containsKey("hobby")) {
+            obj.put("hobby", null);
+        }
+        if (!obj.containsKey("photo1")) {
+            obj.put("photo1", null);
+        }
+        if (!obj.containsKey("photo2")) {
+            obj.put("photo2", null);
+        }
+        if (!obj.containsKey("photo3")) {
+            obj.put("photo3", null);
+        }
+        if (!obj.containsKey("photo4")) {
+            obj.put("photo4", null);
+        }
+        if (!obj.containsKey("photo5")) {
+            obj.put("photo5", null);
+        }
+        if (!obj.containsKey("photo6")) {
+            obj.put("photo6", null);
+        }
+        if (!obj.containsKey("addr1")) {
+            obj.put("addr1", "서울");
+        }
+        if (!obj.containsKey("shotaddr1")) {
+            obj.put("shotaddr1", "서울");
+        }
+        if (!obj.containsKey("lat")) {
+            obj.put("lat", "37.5436526");
+        }
+        if (!obj.containsKey("lon")) {
+            obj.put("lon", "126.9511176");
+        }
+
+        return obj;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> getInsertUser(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        HashMap<String, Object> resultOne = new HashMap<String, Object>();
+//        try {
+            // 비밀번호 암호화
+            String pwEn = commonService.getEncoding(param.get("pw").toString());
+            param.put("pwEn", pwEn);
+            // 이름 암호화
+            String nameEn = commonService.getEncoding(param.get("name").toString());
+            param.put("nameEn", nameEn);
+            // 번호 암호화
+            String phoneEn = commonService.getEncoding(param.get("mobileNo").toString());
+            param.put("phoneEn", phoneEn);
+
+            // 초이스에 필요한 데이터 안들어 왔을 때
+            if (param.containsKey("photo1") && param.containsKey("photo2") &&
+                param.containsKey("addr1") && param.containsKey("shotaddr1") && param.containsKey("lat") && param.containsKey("lon")) {
+                param.put("choiceYn", "Y");
+                param.put("choiceOpenYn", "Y");
+            } else {
+                param.put("choiceYn", "N");
+                param.put("choiceOpenYn", "Y");
+            }
+
+            if (!param.containsKey("iconCd")) {
+                param.put("iconCd", "A");
+            }
+            if (!param.containsKey("tall")) {
+                param.put("tall", null);
+            }
+            if (!param.containsKey("smoke")) {
+                param.put("smoke", null);
+            }
+            if (!param.containsKey("drink")) {
+                param.put("drink", null);
+            }
+            if (!param.containsKey("mbti")) {
+                param.put("mbti", null);
+            }
+            if (!param.containsKey("weight")) {
+                param.put("weight", null);
+            }
+            if (!param.containsKey("idealLook")) {
+                param.put("idealLook", null);
+            }
+            if (!param.containsKey("idealForm")) {
+                param.put("idealForm", null);
+            }
+            if (!param.containsKey("likeSinger")) {
+                param.put("likeSinger", null);
+            }
+            if (!param.containsKey("likeMusic")) {
+                param.put("likeMusic", null);
+            }
+            if (!param.containsKey("idealCharacter")) {
+                param.put("idealCharacter", null);
+            }
+            if (!param.containsKey("hobby")) {
+                param.put("hobby", null);
+            }
+            if (!param.containsKey("photo1")) {
+                param.put("photo1", null);
+            } else {
+                if(param.get("photo1").toString().equals("")){
+                    param.put("photo1", null);
+                }
+            }
+            if (!param.containsKey("photo2")) {
+                param.put("photo2", null);
+            } else {
+                if(param.get("photo2").toString().equals("")){
+                    param.put("photo2", null);
+                }
+            }
+            if (!param.containsKey("photo3")) {
+                param.put("photo3", null);
+            } else {
+                if(param.get("photo3").toString().equals("")){
+                    param.put("photo3", null);
+                }
+            }
+            if (!param.containsKey("photo4")) {
+                param.put("photo4", null);
+            } else {
+                if(param.get("photo4").toString().equals("")){
+                    param.put("photo4", null);
+                }
+            }
+            if (!param.containsKey("photo5")) {
+                param.put("photo5", null);
+            } else {
+                if(param.get("photo5").toString().equals("")){
+                    param.put("photo5", null);
+                }
+            }
+            if (!param.containsKey("photo6")) {
+                param.put("photo6", null);
+            } else {
+                if(param.get("photo6").toString().equals("")){
+                    param.put("photo6", null);
+                }
+            }
+            if (!param.containsKey("addr1")) {
+                param.put("addr1", "서울");
+            }
+            if (!param.containsKey("shotaddr1")) {
+                param.put("shotaddr1", "서울");
+            }
+            if (!param.containsKey("lat")) {
+                param.put("lat", "37.5436526");
+            }
+            if (!param.containsKey("lon")) {
+                param.put("lon", "126.9511176");
+            }
+
+//            param = selectionsCheck(param);
+            exqueryService.insert("cronies.app.join.getInsertUser", param);
+
+            resultOne = exqueryService.selectOne("cronies.app.join.joinSelectOne", param);
+            param.put("userId", resultOne.get("userKey"));
+
+            exqueryService.insert("cronies.app.join.getInsertUserTerm", param);
+
+            // 필수사진 등록이 되지 않으면 넘어가기
+            if (param.get("photo1") != null && param.get("photo2") != null) {
+//            if (!param.get("photo1").toString().isEmpty() && !param.get("photo2").toString().isEmpty()) {
+                exqueryService.insert("cronies.app.join.getInsertUserPhoto", param);
+            }
+            // 주소정보가 하나라도 없으면 넘어가기
+            if (param.get("addr1") != null && param.get("shotaddr1") != null
+                && param.get("lat") != null && param.get("lon") != null) {
+//            if (!param.get("lat").toString().isEmpty() && !param.get("").toString().isEmpty()) {
+                exqueryService.insert("cronies.app.join.getInsertUserAddress", param);
+            }
+
+            exqueryService.insert("cronies.app.join.getInsertUserDetail", param);
+
+            resultMap.put("successYn", "Y");
+            resultMap.put("message", "회원가입이 완료되었습니다!");
+
+//        } catch (Exception e) {
+//            System.out.println(e);
+//            resultMap.put("successYn", "N");
+//            resultMap.put("message", "회원가입에 실패했습니다. 해당현상이 반복될 시 문의 부탁드립니다.");
+//        }
+        return resultMap;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> getUpdateUser(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        HashMap<String, Object> resultOne = new HashMap<String, Object>();
+//        try {
+            // 비밀번호 암호화
+            String pwEn = commonService.getEncoding(param.get("pw").toString());
+            param.put("pwEn", pwEn);
+            // 이름 암호화
+            String nameEn = commonService.getEncoding(param.get("name").toString());
+            param.put("nameEn", nameEn);
+            // 번호 암호화
+            String phoneEn = commonService.getEncoding(param.get("mobileNo").toString());
+            param.put("phoneEn", phoneEn);
+
+            // 초이스에 필요한 데이터 안들어 왔을 때
+            if (param.containsKey("photo1") && param.containsKey("photo2") &&
+                param.containsKey("addr1") && param.containsKey("shotaddr1") && param.containsKey("lat") && param.containsKey("lon")) {
+                param.put("choiceYn", "Y");
+                param.put("choiceOpenYn", "Y");
+            } else {
+                param.put("choiceYn", "N");
+                param.put("choiceOpenYn", "Y");
+            }
+
+
+            if (!param.containsKey("iconCd")) {
+                param.put("iconCd", "A");
+            }
+            if (!param.containsKey("tall")) {
+                param.put("tall", null);
+            }
+            if (!param.containsKey("smoke")) {
+                param.put("smoke", null);
+            }
+            if (!param.containsKey("drink")) {
+                param.put("drink", null);
+            }
+            if (!param.containsKey("mbti")) {
+                param.put("mbti", null);
+            }
+            if (!param.containsKey("weight")) {
+                param.put("weight", null);
+            }
+            if (!param.containsKey("idealLook")) {
+                param.put("idealLook", null);
+            }
+            if (!param.containsKey("idealForm")) {
+                param.put("idealForm", null);
+            }
+            if (!param.containsKey("likeSinger")) {
+                param.put("likeSinger", null);
+            }
+            if (!param.containsKey("likeMusic")) {
+                param.put("likeMusic", null);
+            }
+            if (!param.containsKey("idealCharacter")) {
+                param.put("idealCharacter", null);
+            }
+            if (!param.containsKey("hobby")) {
+                param.put("hobby", null);
+            }
+            if (!param.containsKey("photo1")) {
+                param.put("photo1", null);
+            } else {
+                if(param.get("photo1").toString().equals("")){
+                    param.put("photo1", null);
+                }
+            }
+            if (!param.containsKey("photo2")) {
+                param.put("photo2", null);
+            } else {
+                if(param.get("photo2").toString().equals("")){
+                    param.put("photo2", null);
+                }
+            }
+            if (!param.containsKey("photo3")) {
+                param.put("photo3", null);
+            } else {
+                if(param.get("photo3").toString().equals("")){
+                    param.put("photo3", null);
+                }
+            }
+            if (!param.containsKey("photo4")) {
+                param.put("photo4", null);
+            } else {
+                if(param.get("photo4").toString().equals("")){
+                    param.put("photo4", null);
+                }
+            }
+            if (!param.containsKey("photo5")) {
+                param.put("photo5", null);
+            } else {
+                if(param.get("photo5").toString().equals("")){
+                    param.put("photo5", null);
+                }
+            }
+            if (!param.containsKey("photo6")) {
+                param.put("photo6", null);
+            } else {
+                if(param.get("photo6").toString().equals("")){
+                    param.put("photo6", null);
+                }
+            }
+            if (!param.containsKey("addr1")) {
+                param.put("addr1", "서울");
+            }
+            if (!param.containsKey("shotaddr1")) {
+                param.put("shotaddr1", "서울");
+            }
+            if (!param.containsKey("lat")) {
+                param.put("lat", "37.5436526");
+            }
+            if (!param.containsKey("lon")) {
+                param.put("lon", "126.9511176");
+            }
+
+//            param = selectionsCheck(param);
+            exqueryService.update("cronies.app.join.getUpdateUser", param);
+
+            resultOne = exqueryService.selectOne("cronies.app.join.joinSelectOne", param);
+            param.put("userId", resultOne.get("userKey"));
+
+            exqueryService.insert("cronies.app.join.getInsertUserTerm", param);
+
+            // 필수사진 등록이 되지 않으면 넘어가기
+            if (param.get("photo1") != null && param.get("photo2") != null) {
+                exqueryService.insert("cronies.app.join.getInsertUserPhoto", param);
+            }
+            // 주소정보가 하나라도 없으면 넘어가기
+            if (param.get("addr1") != null && param.get("shotaddr1") != null
+                && param.get("lat") != null && param.get("lon") != null) {
+                exqueryService.insert("cronies.app.join.getInsertUserAddress", param);
+            }
+
+            exqueryService.insert("cronies.app.join.getInsertUserDetail", param);
+
+            resultMap.put("successYn", "Y");
+            resultMap.put("message", "회원가입이 완료되었습니다!");
+
+//        } catch (Exception e) {
+//            System.out.println(e);
+//            resultMap.put("successYn", "N");
+//            resultMap.put("message", "회원가입에 실패했습니다. 해당현상이 반복될 시 문의 부탁드립니다.");
+//        }
+        return resultMap;
+    }
+
+
+//    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+//    public HashMap<String, Object> findGeoPoint(HashMap<String, Object> param) throws Exception {
+//        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+//        String successYn = "N";
+//        String coords1 = "";
+
+//        String coords2 = "";
+//        if(!param.get("addr").equals("")){
+//            GeocoderRequest geocoderRequest = new GeocoderRequestBuilder().setAddress(param.get("addr").toString()).setLanguage("ko").getGeocoderRequest();
+//            System.out.println("\n\ngeocoderRequest ::: " + geocoderRequest + "\n\n");
+//
+//                Geocoder geocoder = new Geocoder();
+//                GeocodeResponse geocodeResponse = geocoder.geocode(geocoderRequest);
+//                System.out.println("\n\ngeocodeResponse ::: " + geocodeResponse + "\n\n");
+//
+//                if(geocodeResponse.getStatus() == GeocoderStatus.OK & !geocodeResponse.getResults().isEmpty()){
+//                    GeocoderResult geocoderResult = geocodeResponse.getResults().iterator().next();
+//                    LatLng latitudeLongitude = geocoderResult.getGeometry().getLocation();
+//                    coords1 = latitudeLongitude.getLat().toString();
+//                    coords2 = latitudeLongitude.getLng().toString();
+//                    successYn = "Y";
+//
+//                    resultMap.put("successYn", successYn);
+//                    resultMap.put("coords1", coords1);
+//                    resultMap.put("coords2", coords2);
+//
+//                    return resultMap;
+//                }
+
+//        }
+//        resultMap.put("successYn", successYn);
+//        resultMap.put("coords1", coords1);
+//        resultMap.put("coords2", coords2);
+//
+//        return resultMap;
+//    }
+
+
+}

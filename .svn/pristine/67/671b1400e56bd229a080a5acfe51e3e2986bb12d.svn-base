@@ -1,0 +1,532 @@
+package cronies.meeting.user.controller;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import cronies.meeting.user.config.NiceApiEncTokenRequestData;
+import cronies.meeting.user.service.CommonService;
+import cronies.meeting.user.service.JoinService;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.ModelAndView;
+import select.spring.exquery.service.ExqueryService;
+
+import javax.crypto.Cipher;
+import javax.crypto.Mac;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.text.SimpleDateFormat;
+import java.util.*;
+
+
+@Controller
+@RequestMapping(value = "join")
+public class JoinController {
+
+    Logger log = LoggerFactory.getLogger(this.getClass());
+
+    @Autowired
+    private JoinService joinService;
+
+    @Autowired
+    private ExqueryService exqueryService;
+
+    @Autowired
+    private CommonService commonService;
+
+    @RequestMapping(value = "getCerti", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getCerti(@RequestParam HashMap<String, Object> param) throws Exception {
+
+        return joinService.getCerti(param);
+    }
+
+    @RequestMapping(value = "getCheckEmail", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getCheckEmail(@RequestParam HashMap<String, Object> param) throws Exception {
+
+        return joinService.getCheckEmail(param);
+    }
+
+    @RequestMapping(value = "getCheckUser", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getCheckUser(@RequestParam HashMap<String, Object> param) throws Exception {
+
+        return joinService.getCheckUser(param);
+    }
+
+    @RequestMapping(value = "getCheckNick", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getCheckNick(@RequestParam HashMap<String, Object> param) throws Exception {
+        return joinService.getCheckNick(param);
+    }
+
+    @RequestMapping(value = "setUserStep1", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setUserStep1(@RequestParam HashMap<String, Object> param) throws Exception {
+        return joinService.setUserStep1(param);
+    }
+
+    @RequestMapping(value = "setUserStep2", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setUserStep2(@RequestParam HashMap<String, Object> param) throws Exception {
+        return joinService.setUserStep2(param);
+    }
+
+    @RequestMapping(value = "setUserStep3", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setUserStep3(@RequestParam HashMap<String, Object> param) throws Exception {
+
+        return joinService.setUserStep3(param);
+    }
+
+    @RequestMapping(value = "setUserStep4", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setUserStep4(@RequestParam HashMap<String, Object> param) throws Exception {
+
+        return joinService.setUserStep4(param);
+    }
+
+    @RequestMapping(value = "setUserStep5", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setUserStep5(@RequestParam HashMap<String, Object> param) throws Exception {
+
+        return joinService.setUserStep5(param);
+    }
+
+    @RequestMapping(value = "setUserStep6", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setUserStep6(@RequestParam HashMap<String, Object> param) throws Exception {
+
+        return joinService.setUserStep6(param);
+    }
+
+    @RequestMapping(value = "setUserStep8", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setUserStep8(@RequestParam HashMap<String, Object> param) throws Exception {
+
+        return joinService.setUserStep8(param);
+    }
+
+    @RequestMapping(value = "getIconList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getIconList(@RequestParam HashMap<String, Object> param) throws Exception {
+        return joinService.getIconList(param);
+    }
+
+    @RequestMapping(value = "getJobList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getJobList(@RequestParam HashMap<String, Object> param) throws Exception {
+
+        return joinService.getJobList(param);
+    }
+
+    @RequestMapping(value = "getSchoolList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getSchoolList(@RequestParam HashMap<String, Object> param) throws Exception {
+
+        return joinService.getSchoolList(param);
+    }
+
+
+    @RequestMapping(value = "setUserPicJoin", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setUserPicJoin(@RequestParam HashMap<String, Object> param) throws Exception {
+        return joinService.setUserPicJoin(param);
+    }
+
+    @RequestMapping(value = "getKeywordList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getKeywordList(@RequestParam HashMap<String, Object> param) throws Exception {
+        return joinService.getKeywordList(param);
+    }
+    @RequestMapping(value = "getInfoList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getInfoList(@RequestParam HashMap<String, Object> param) throws Exception {
+        return joinService.getInfoList(param);
+    }
+
+    @RequestMapping(value = "getInsertUser", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getInsertUser(@RequestParam HashMap<String, Object> param) throws Exception {
+        return joinService.getInsertUser(param);
+    }
+
+    @ResponseBody
+    @RequestMapping(value = "getUpdateUser", method = { RequestMethod.GET, RequestMethod.POST })
+    public HashMap<String, Object> getUpdateUser(@RequestParam HashMap<String, Object> param) throws Exception {
+        return joinService.getUpdateUser(param);
+    }
+
+    @ResponseBody
+    @RequestMapping(value = "reservationCheck", method = { RequestMethod.GET, RequestMethod.POST })
+    public HashMap<String, Object> reservationCheck(@RequestParam HashMap<String, Object> param) throws Exception {
+        // 번호 암호화
+        String phoneEn = commonService.getEncoding(param.get("mobileNo").toString());
+        param.put("phoneEn", phoneEn);
+        return exqueryService.selectOne("cronies.app.join.reservationCheck", param);
+    }
+
+    @RequestMapping(value = "getNiceAPI", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getNiceAPI() throws Exception {
+        final String niceClientID = "e044e5a0-7ac7-42af-88ef-c13d94f81c59";
+        final String niceClientSecret = "a0151e4d95f42e53f8b7243b87d55d32";
+        final String niceAppProductID = "2101979031";
+
+        String token = "";
+        String tokenType = "";
+        String expiresIn = "";
+
+        // 토큰 발급 및 토큰 유효성 검사
+        HashMap<String, Object> getTokenMap = getToken(niceClientID, niceClientSecret);
+        token = String.valueOf(getTokenMap.get("token"));
+        expiresIn = getTokenMap.get("expiresIn").toString();
+        tokenType = getTokenMap.get("tokenType").toString();
+
+        // 발급된 토큰으로 암호화 토큰 발급
+        HashMap<String, Object> getEncTokenMap = getEncToken(niceClientID, token, tokenType, niceAppProductID);
+        String req_dtim = getEncTokenMap.get("req_dtim").toString();
+        String req_no = "1";
+        String token_val = ((HashMap<String, Object>)getEncTokenMap.get("dataBody")).get("token_val").toString();
+        String token_version_id = ((HashMap<String, Object>)getEncTokenMap.get("dataBody")).get("token_version_id").toString();
+        String site_code = ((HashMap<String, Object>)getEncTokenMap.get("dataBody")).get("site_code").toString();
+
+        String value = req_dtim.trim() + req_no.trim() + token_val.trim();
+
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        md.update(value.getBytes());
+        byte[] arrHashValue = md.digest();
+
+        String resultVal = Base64.getEncoder().encodeToString(arrHashValue);
+
+        String key = resultVal.substring(0, 16); //데이터암호화할 대칭키
+        String iv = resultVal.substring(resultVal.length()-16); //데이터암호화할 Initail Vector
+        String hmac_key = resultVal.substring(0, 32);
+
+        HashMap<String, Object> receiveDataMap = new HashMap<>();
+        receiveDataMap.put("key", key);
+        receiveDataMap.put("iv", iv);
+
+        ObjectMapper recMapper = new ObjectMapper();
+        String receivedata = recMapper.writeValueAsString(receiveDataMap);
+
+        HashMap<String, Object> reqDataMap = new HashMap<>();
+        reqDataMap.put("requestno", "0000000001");      // 채번 필요?
+//        reqDataMap.put("methodtype", "get"); // + & = 등 특수문자가 url queryString 방식으로 받을 때 공백처리되서 get -> post로 변경
+        reqDataMap.put("methodtype", "post");
+        reqDataMap.put("returnurl", "http://139.150.69.51:8034/join/getUserAuthenticationData.do");
+        reqDataMap.put("sitecode", site_code);
+        reqDataMap.put("popupyn", "N");
+        reqDataMap.put("receivedata", receivedata);
+
+        ObjectMapper reqMapper = new ObjectMapper();
+        String reqData = reqMapper.writeValueAsString(reqDataMap);
+
+        // 암호화
+        SecretKey secureKey = new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "AES");
+        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+        cipher.init(Cipher.ENCRYPT_MODE, secureKey, new IvParameterSpec(iv.getBytes(StandardCharsets.UTF_8)));
+
+        byte[] encrypted = cipher.doFinal(reqData.trim().getBytes(StandardCharsets.UTF_8));
+        String enc_data = Base64.getEncoder().encodeToString(encrypted);
+
+        byte[] hmacSha256 = hmac256(hmac_key.getBytes(), enc_data.getBytes());
+        String integrity_value = Base64.getEncoder().encodeToString(hmacSha256);
+
+        HashMap<String, Object> db_map = new HashMap<>();
+        db_map.put("token_version_id", token_version_id);
+        db_map.put("enc_key", key);
+        db_map.put("enc_iv", iv);
+
+        exqueryService.insert("cronies.app.join.niceapiEncInsert", db_map);
+
+        HashMap<String, Object> resultMap = new HashMap<>();
+        resultMap.put("token_version_id", token_version_id);
+        resultMap.put("integrity_value", integrity_value);
+        resultMap.put("enc_data", enc_data);
+        return resultMap;
+    }
+
+    public static byte[] hmac256(byte[] secretKey,byte[] message) throws Exception {
+        byte[] hmac256 = null;
+        Mac mac = Mac.getInstance("HmacSHA256");
+        SecretKeySpec sks = new SecretKeySpec(secretKey, "HmacSHA256");
+        mac.init(sks);
+        hmac256 = mac.doFinal(message);
+        return hmac256;
+    }
+
+    public HashMap<String, Object> getToken(String niceClientID, String niceClientSecret) throws Exception {
+        /*
+        * NICE TOKEN 발급
+        * "POST /digital/niceid/oauth/oauth/token HTTP/1.1
+            Content-Type: application/x-www-form-urlencoded
+            Authorization: Basic ABCDE12345QWERTY=
+
+            POST data:
+            grant_type=client_credentials&scope=default"
+            *
+            * "HTTP/1.1 200 OK
+            Content-type: application/json;charset=utf-8
+            {
+                  ""dataHeader"":{""GW_RSLT_CD"":""1200"",
+                                      ""TRAN_ID"":""20201119140000"",
+                                      ""GW_RSLT_MSG"":""오류없음""},
+                  ""dataBody"":{""access_token"":""ff5e27fe-8b5d-49db-ab1e-0ccf07de6ac1"",
+                                  ""token_type"":""bearer"",
+                                  ""expires_in"":1.57698305E9,
+                                  ""scope"":""default""}
+            }"
+        * */
+        String niceApiTokenURL = "https://svc.niceapi.co.kr:22001/digital/niceid/oauth/oauth/token";
+        String strParams = "grant_type=client_credentials&scope=default";
+
+        String _authorization = niceClientID + ":" + niceClientSecret;
+        String authorization = "Basic " + Base64.getEncoder().encodeToString(_authorization.getBytes());
+
+        OkHttpClient client = new OkHttpClient();
+        okhttp3.RequestBody requestBody = okhttp3.RequestBody.create(MediaType.get("application/x-www-form-urlencoded; charset=utf-8"), strParams);
+        Request request = new Request.Builder()
+                .url(niceApiTokenURL)
+                .post(requestBody)
+                .addHeader(org.springframework.http.HttpHeaders.AUTHORIZATION, authorization)
+                .addHeader(org.springframework.http.HttpHeaders.CONTENT_TYPE, "application/x-www-form-urlencoded")
+                .build();
+
+        Response response = client.newCall(request).execute();
+
+        ObjectMapper mapper = new ObjectMapper();
+        HashMap<String, Object> responseJSON = mapper.readValue(response.body().string(), new TypeReference<HashMap<String, Object>>() {});
+        HashMap<String, Object> responseDataHeader = (HashMap<String, Object>) responseJSON.get("dataHeader");
+        HashMap<String, Object> responseDataBody = (HashMap<String, Object>) responseJSON.get("dataBody");
+
+        HashMap<String, Object> resultMap = new HashMap<>();
+        if (responseDataHeader.get("GW_RSLT_CD").toString().equals("1200")) {
+            // 1200 : 정상신호
+            resultMap.put("GW_RSLT_CD", responseDataHeader.get("GW_RSLT_CD"));
+            resultMap.put("token", responseDataBody.get("access_token"));
+            resultMap.put("tokenType", responseDataBody.get("token_type"));
+            resultMap.put("expiresIn", responseDataBody.get("expires_in"));
+        } else if (responseDataHeader.get("GW_RSLT_CD").toString().equals("1800")) {
+            // 1800 : 기존 토큰 폐기 혹은 사용불가 상태 -> 토큰 재발급
+            getToken(niceClientID, niceClientSecret);
+        } else {
+            log.info("========== error code :: " + responseDataHeader.get("GW_RSLT_CD").toString());
+            new Exception("서버와의 통신이 원활하지 않습니다. 잠시 후 다시 시도해주세요.");
+        }
+        return resultMap;
+    }
+
+    private String makeJson(String req_dtim) throws JsonProcessingException {
+        NiceApiEncTokenRequestData encReqData = NiceApiEncTokenRequestData.builder()
+                .dataHeader(NiceApiEncTokenRequestData.dataHeader.builder()
+                        .CNTY_CD("ko")
+                        .build()
+                )
+                .dataBody(NiceApiEncTokenRequestData.dataBody.builder()
+                        .req_dtim(req_dtim)
+                        .req_no("1")
+                        .enc_mode("1")
+                        .build()
+                )
+                .build();
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        return objectMapper.writeValueAsString(encReqData);
+    }
+
+    public HashMap<String, Object> getEncToken(String niceClientID, String token, String tokenType, String productID) throws Exception {
+        // 암호화 TOKEN 요청
+        /*
+        * "POST https://svc.niceapi.co.kr:22001/digital/niceid/api/v1.0/common/crypto/token
+            Content-Type: application/json
+            Authorization: "bearer " +  Base64Encoding(access_token + ":" + current_timestamp + ":" + client_id)
+            ProductID: 상품코드
+            {
+                  ""dataHeader"":{""CNTY_CD"":""ko""},
+                  ""dataBody"":{""req_dtim"": ""20210622162600"",   // yyyyMMddHHmmss length 14
+                                   ""req_no"":""111111111122222222223333333333"", //사용자 임의 지정
+                                   ""enc_mode"":""1""}
+            }
+            "
+            """bearer "" +  Base64Encoding(access_token:current_timestamp:client_id"")
+            *current_timestamp
+            Date currentDate = new Date();
+            long current_timestamp = currentDate.getTime()/1000;"
+            *
+            *
+            * "HTTP/1.1 200 OK
+            Content-type: application/json;charset=utf-8
+            {
+                  ""dataHeader"":{""GW_RSLT_CD"": ""1200"",
+                                      ""GW_RSLT_MSG"": ""오류 없음""},
+                  ""dataBody"":{""rsp_cd"":""P000"",
+                                   ""site_code"":""AAAA=="",
+                                   ""result_cd"":""0000"",
+                                   ""token_version_id"":""xxxxxxx...."",
+                                   ""token_val"": ""aaaaaaa..."",
+                                   ""period"": 3540}
+            }"
+        * */
+        Date currentDate = new Date();
+        long current_timestamp = currentDate.getTime()/1000;
+
+        String niceApiEncTokenURL = "https://svc.niceapi.co.kr:22001/digital/niceid/api/v1.0/common/crypto/token";
+
+        String _authorization = token + ":" + current_timestamp + ":" + niceClientID;
+        String authorization = tokenType + " " + Base64.getEncoder().encodeToString(_authorization.getBytes());
+
+        SimpleDateFormat format = new SimpleDateFormat("yyyyMMddHHmmss");
+        String req_dtim = format.format(currentDate);
+
+        OkHttpClient client = new OkHttpClient();
+        okhttp3.RequestBody requestBody = okhttp3.RequestBody.create(MediaType.get("application/json; charset=utf-8"), makeJson(req_dtim));
+        Request request = new Request.Builder()
+                .url(niceApiEncTokenURL)
+                .post(requestBody)
+                .addHeader(org.springframework.http.HttpHeaders.AUTHORIZATION, authorization)
+                .addHeader(org.springframework.http.HttpHeaders.CONTENT_TYPE, "application/json; UTF-8")
+                .addHeader("ProductID", productID)
+                .build();
+
+        Response response = client.newCall(request).execute();
+
+        ObjectMapper mapper = new ObjectMapper();
+        HashMap<String, Object> responseJSON = mapper.readValue(response.body().string(), new TypeReference<HashMap<String, Object>>() {});
+
+        responseJSON.put("req_dtim", req_dtim);
+
+        return responseJSON;
+    }
+
+    public void revokeToken(String token, String cliendID, String clientSecret) throws Exception {
+
+    }
+
+    @RequestMapping(value = "getUserAuthenticationData.do", method = { RequestMethod.GET, RequestMethod.POST })
+    public String getUserAuthenticationData(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+        String encData = param.get("enc_data").toString();  //암호화된 인증결과
+        String token_version_id = param.get("token_version_id").toString();
+
+        HashMap<String, Object> db_map = new HashMap<>();
+        db_map.put("token_version_id", token_version_id);
+
+        HashMap<String, Object> niceapiEncDataMap = exqueryService.selectOne("cronies.app.join.niceapiGetData", db_map);
+
+        String key = niceapiEncDataMap.get("encKey").toString(); //요청 시 암호화한 key와 동일
+        String iv = niceapiEncDataMap.get("encIv").toString(); //요청 시 암호화한 iv와 동일
+
+        // 복호화
+        SecretKey secureKey = new SecretKeySpec(key.getBytes(), "AES");
+        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+        cipher.init(Cipher.DECRYPT_MODE, secureKey, new IvParameterSpec(iv.getBytes()));
+        byte[] cipherEnc = Base64.getDecoder().decode(encData);
+        String resData = new String(cipher.doFinal(cipherEnc), "euc-kr");  //NiceAPI에서 반환해준 유저 정보
+
+        ObjectMapper mapper = new ObjectMapper();
+        HashMap<String, Object> niceResult = mapper.readValue(resData, new TypeReference<HashMap<String, Object>>() {});
+
+        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
+        SimpleDateFormat parse = new SimpleDateFormat("yyyyMMdd");
+//        format.setTimeZone(TimeZone.getTimeZone("GMT"));
+
+        for(String mapKey : niceResult.keySet()) {
+            if (mapKey.equals("gender") && (Integer.parseInt(niceResult.get(mapKey).toString()) == 1)) {
+                niceResult.put(mapKey, "M");
+            }
+            if (mapKey.equals("birthdate")) {
+                niceResult.put(mapKey, format.format(parse.parse(niceResult.get(mapKey).toString())));
+            }
+        }
+        niceResult.put("token_version_id", token_version_id);
+        model.put("data", niceResult);
+
+        //DB Insert
+        exqueryService.update("cronies.app.join.niceapiResultUpdate", niceResult);
+
+        return "n:getUserAuthenticationData";
+    }
+
+    @RequestMapping(value = "selfClose.do", method = { RequestMethod.GET, RequestMethod.POST })
+    public String selfClose(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+
+        return "n:selfClose";
+    }
+
+    @ResponseBody
+    @RequestMapping(value = "selectGetCerti", method = { RequestMethod.GET, RequestMethod.POST })
+    public HashMap<String, Object> selectGetCerti(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<>();
+        HashMap<String, Object> certiData = exqueryService.selectOne("cronies.app.join.selectGetCerti", param);
+        if (certiData.get("result").toString().equals("drop")) {
+            SimpleDateFormat parse = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            Calendar cal = Calendar.getInstance();
+            Date today = new Date();
+            Date dropTime = parse.parse(certiData.get("dropTime").toString());
+
+            cal.setTime(dropTime);
+            cal.add(Calendar.DATE, 30);
+
+            Date afterMonth = cal.getTime();
+
+            if (today.after(afterMonth)) {
+                resultMap.put("result", "possible");
+            } else {
+                resultMap.put("result", "drop");
+            }
+            return resultMap;
+        }
+        return certiData;
+    }
+
+    @RequestMapping(value = "startCerti.do", method = { RequestMethod.GET, RequestMethod.POST })
+    public String startCerti(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+        model.put("data", param);
+
+        return "n:startCerti";
+    }
+
+    @ResponseBody
+    @RequestMapping(value = "getUserAuthData", method = { RequestMethod.GET, RequestMethod.POST })
+    public HashMap<String, Object> getUserAuthData(@RequestParam HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = exqueryService.selectOne("cronies.app.join.getUserAuthData", param);
+        return resultMap;
+    }
+
+    /*****************아이디 비밀번호 찾기(변경)******************/
+    @RequestMapping(value = "findUserInfoUpdate", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> findUserInfoUpdate(@RequestParam HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<>();
+
+        String successYn = "N";
+        String message = "";
+
+        // 비밀번호 암호화
+        String pwEn = commonService.getEncoding(param.get("password").toString());
+        param.put("password", pwEn);
+
+        if (exqueryService.update("cronies.app.join.findUserInfoUpdate", param) == 1) {
+            successYn = "Y";
+            message = "변경되었습니다.";
+        }
+
+        resultMap.put("successYn", successYn);
+        resultMap.put("message", message);
+        return resultMap;
+    }
+
+}

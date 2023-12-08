@@ -1,0 +1,175 @@
+package cronies.meeting.user.service.impl;
+
+import cronies.meeting.user.service.CommonService;
+import cronies.meeting.user.service.StoreCommonService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import select.spring.exquery.service.ExqueryService;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+
+@Service("StoreCommonService")
+@Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
+public class StoreCommonServiceImpl implements StoreCommonService {
+
+    Logger log = LoggerFactory.getLogger(this.getClass());
+
+    @Autowired
+    private ExqueryService exqueryService;
+
+    @Autowired
+    private CommonService commonService;
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public List<HashMap<String, Object>> getStoreCategoryList(HashMap<String, Object> param) throws Exception {
+        List<HashMap<String, Object>> resultList = new ArrayList<>();
+        param.put("userId", param.get("ssUserId"));
+        resultList = exqueryService.selectList("cronies.app.storeCommon.getStoreCategoryList", param);
+        return resultList;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public List<HashMap<String, Object>> getStoreItemList(HashMap<String, Object> param) throws Exception {
+        List<HashMap<String, Object>> resultList = new ArrayList<>();
+        param.put("userId", param.get("ssUserId"));
+        if(param.get("categoryCd").toString().equals("SUBSCRIBE")){
+            resultList = exqueryService.selectList("cronies.app.storeCommon.getStoreItemListSubscribe", param);
+        } else {
+            HashMap<String, Object> returnMap = exqueryService.selectOne("cronies.app.storeCommon.getContestStartInfo", param);
+            if(returnMap != null){
+                param.put("contestStartYn", "Y");
+                param.put("contestType", returnMap.get("contestType"));
+            } else {
+                param.put("contestStartYn", "N");
+                param.put("contestType", 0);
+            }
+            resultList = exqueryService.selectList("cronies.app.storeCommon.getStoreItemList", param);
+        }
+        return resultList;
+    }
+
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public List<HashMap<String, Object>> getStoreInitList(HashMap<String, Object> param) throws Exception {
+        List<HashMap<String, Object>> resultList = new ArrayList<>();
+
+        resultList = exqueryService.selectList("cronies.app.storeCommon.getStoreListForProductId", param);
+
+        return resultList;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> getUserCouponDataOne(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        param.put("userId", param.get("ssUserId"));
+        resultMap = exqueryService.selectOne("cronies.app.storeCommon.getUserCouponDataOne", param);
+        return resultMap;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public List<HashMap<String, Object>> getProfileAdList(HashMap<String, Object> param) throws Exception {
+        List<HashMap<String, Object>> resultList = new ArrayList<>();
+        param.put("userId", param.get("ssUserId"));
+        resultList = exqueryService.selectList("cronies.app.storeCommon.getProfileAdList", param);
+        // userKey로 변환
+        for(int i = 0; i < resultList.size(); i++){
+            resultList.get(i).put("userKey", commonService.getEncoding(resultList.get(i).get("userKey").toString()));
+        }
+        return resultList;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> getUserSwiperInfo(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        param.put("userId", param.get("ssUserId"));
+
+        // 스와이프 남은 수량(아이템사용으로 인한 추가) 조회
+        resultMap = exqueryService.selectOne("cronies.app.storeCommon.selectSwiperCnt", param);
+        if(resultMap != null){
+            resultMap.put("successYn", "Y");
+        }
+
+        try {
+            if(resultMap == null){
+                param.put("totalCnt", 0);
+                exqueryService.update("cronies.app.storeProcess.mergeSwiperPlusCnt", param);
+                resultMap = new HashMap<String, Object>();
+                resultMap.put("freeCnt", 30);
+                resultMap.put("plusCnt", 0);
+                resultMap.put("sumCnt", 30);
+                resultMap.put("backYn", "N");
+                resultMap.put("successYn", "Y");
+            }
+        } catch (Exception ex) {
+            resultMap.put("successYn", "N");
+            resultMap.put("message", "스와이프 처리 중 오류가 발생하였습니다. 문의 부탁드립니다.");
+        }
+
+        return resultMap;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> getUserSubscribeInfo(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        resultMap = exqueryService.selectOne("cronies.app.storeCommon.getUserSubscribeInfo", param);
+        resultMap.put("userKey", commonService.getEncoding(resultMap.get("userKey").toString()));
+        return resultMap;
+    }
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> getTargetUserSubscribeInfo(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        resultMap = exqueryService.selectOne("cronies.app.storeCommon.getTargetUserSubscribeInfo", param);
+        resultMap.put("userKey", commonService.getEncoding(resultMap.get("userKey").toString()));
+        return resultMap;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public List<HashMap<String, Object>> getSubscribeList(HashMap<String, Object> param) throws Exception {
+        List<HashMap<String, Object>> resultList = new ArrayList<>();
+        resultList = exqueryService.selectList("cronies.app.storeCommon.getSubscribeList", param);
+        return resultList;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> buySubscribeCheck(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        HashMap<String, Object> returnMap = new HashMap<String, Object>();
+        HashMap<String, Object> delYnMap = new HashMap<String, Object>();
+        try {
+            resultMap.put("successYn", "Y");
+            resultMap.put("message", "구독가능상태");
+
+            // 구독 DEL_YN 체크
+            delYnMap = exqueryService.selectOne("cronies.app.storeCommon.getSubscribeCodeDelCheck", param);
+            if(delYnMap.get("delYn").toString().equals("N")){
+
+                // 구독상태 체크
+                returnMap = exqueryService.selectOne("cronies.app.storeCommon.getSubscribeCheck", param);
+                if(returnMap == null){
+                    resultMap.put("subscribeYn", "N");
+                } else {
+                    resultMap.put("successYn", "N");
+                    resultMap.put("subscribeYn", "Y");
+                    resultMap.put("message", "이미 " + returnMap.get("subscribeNm") + "를 구독중입니다.");
+                }
+
+            } else {
+                resultMap.put("successYn", "N");
+                resultMap.put("message", "구매가 불가능한 구독입니다. 뒤로가기 후 재진입 부탁드립니다.");
+            }
+
+        } catch (Exception e) {
+            resultMap.put("successYn", "N");
+            resultMap.put("message", "구독 상태를 확인하는 중 오류가 발생하였습니다. 문의 부탁드립니다.");
+        }
+        return resultMap;
+    }
+
+}

@@ -1,0 +1,390 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.system.sqlBoard">
+	
+	<!-- 공지사항/게시판 -->
+	<select id="selectNoticeList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT NOTICE_ID
+		     , NOTICE_TYPE
+		     , TITLE
+		     , CONTENT
+		     , NOTICE_LEVEL
+		     , NOTICE_ST
+		     , NOTICE_CNT
+		     , START_DT
+		     , END_DT
+		     , REFERENCE_FILE_ID
+		     , CREATED_DT
+		     , CREATED_USER_ID
+		     , CREATED_USER_NM
+		     , UPDATED_DT
+		     , UPDATED_USER_ID
+		     , UPDATED_USER_NM
+		     , ATTACH_FILE_CNT
+		FROM 
+		(
+			SELECT NOTICE_ID
+			     , NOTICE_TYPE
+			     , TITLE
+			     , CONTENT
+			     , NOTICE_LEVEL
+			     , NOTICE_ST
+			     , NOTICE_CNT
+			     , TO_CHAR(START_DT,'YYYY-MM-DD') 				AS START_DT
+			     , TO_CHAR(END_DT,'YYYY-MM-DD') 	 			AS END_DT
+			     , REFERENCE_FILE_ID
+			     , TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') 	AS CREATED_DT
+			     , CREATED_USER_ID
+			     , (SELECT USER_NM FROM COM_USER WHERE USER_ID = CN.CREATED_USER_ID) 						  	 		AS CREATED_USER_NM
+			     , TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') 	AS UPDATED_DT 
+			     , UPDATED_USER_ID
+			     , (SELECT USER_NM FROM COM_USER WHERE USER_ID = CN.UPDATED_USER_ID) 						   			AS UPDATED_USER_NM 
+			     , (SELECT COUNT(*) FROM COM_ATTACH_FILE WHERE REFERENCD_FILE_ID = CN.NOTICE_ID AND USE_YN = 'Y') 	    AS ATTACH_FILE_CNT
+			FROM COM_NOTICE CN
+			<where>
+				<if test='noticeType !=null and noticeType !=""'>
+					AND NOTICE_TYPE = #{noticeType}
+				</if>
+				<if test='fromDate != null and fromDate !="" and toDate != null and toDate !=""' >
+			        <![CDATA[
+				        AND ( START_DT BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+				               OR END_DT BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+				             )
+			        ]]>
+				</if>
+				<if test='useYn !=null and useYn !=""'>
+					AND USE_YN = #{useYn}
+				</if>
+			</where>
+		) COM_NOTICE
+		<where>
+			<if test='searchStr2 != null and searchStr2 !=""'>
+				<if test='searchStr1 ==""'>
+					AND ( TITLE LIKE '%${searchStr2}%' OR CONTENT LIKE '%${searchStr2}%' OR CREATED_USER_ID LIKE '%${searchStr2}%' OR CREATED_USER_NM LIKE '%${searchStr2}%')
+				</if>
+				<if test='searchStr1 =="T"'>
+					AND TITLE LIKE '%${searchStr2}%'
+				</if>
+				<if test='searchStr1 =="C"'>
+					AND CONTENT LIKE '%${searchStr2}%'
+				</if>
+				<if test='searchStr1 =="TC"'>
+					AND ( TITLE LIKE '%${searchStr2}%' OR CONTENT LIKE '%${searchStr2}%' )
+				</if>				
+				<if test='searchStr1 =="U"'>
+					AND (CREATED_USER_ID LIKE '%${searchStr2}%' OR CREATED_USER_NM LIKE '%${searchStr2}%')
+				</if>
+			</if>
+		</where>
+	</select>
+	
+	<insert id="insertNotice" parameterType="HashMap" keyProperty="noticeId" useGeneratedKeys="true">
+		<selectKey resultType="int" keyProperty="noticeId" order="BEFORE">
+			SELECT  SEQ_NOTICE_ID.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO COM_NOTICE
+		(NOTICE_ID, NOTICE_TYPE, TITLE, CONTENT, NOTICE_LEVEL, NOTICE_ST, START_DT, END_DT, REFERENCE_FILE_ID, CREATED_DT, CREATED_USER_ID)
+		VALUES
+		(#{noticeId},#{noticeType},#{title},#{content},#{noticeLevel},#{noticeSt},TO_DATE(#{fromDate},'YYYYMMDD'),TO_DATE(#{toDate},'YYYYMMDD'),#{referenceFileId},SYSDATE,#{ssUserId})
+	</insert>
+	
+	<select id="selectNoticeOne" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT NOTICE_ID
+		     , NOTICE_TYPE
+		     , TITLE
+		     , CONTENT
+		     , NOTICE_LEVEL
+		     , NOTICE_ST
+		     , NOTICE_CNT
+		     , TO_CHAR(START_DT,'YYYY-MM-DD') 				AS START_DT
+		     , TO_CHAR(END_DT,'YYYY-MM-DD') 	 			AS END_DT
+		     , REFERENCE_FILE_ID
+		     , CREATED_DT
+		     , CREATED_USER_ID
+		     , (SELECT USER_NM FROM COM_USER WHERE USER_ID = CN.CREATED_USER_ID) 						   AS CREATED_USER_NM
+		     , TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') 	AS UPDATED_DT 
+		     , UPDATED_USER_ID
+		     , (SELECT USER_NM FROM COM_USER WHERE USER_ID = CN.UPDATED_USER_ID) 						   AS UPDATED_USER_NM 
+		     , USE_YN
+		FROM COM_NOTICE CN
+        WHERE NOTICE_ID = #{noticeId}
+	</select>
+	
+	<select id="selectNoticeMainPopup" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT NOTICE_ID
+		     , NOTICE_TYPE
+		     , TITLE
+		     , CONTENT
+		     , NOTICE_LEVEL
+		     , NOTICE_ST
+		     , NOTICE_CNT
+		     , TO_CHAR(START_DT,'YYYY-MM-DD') 				AS START_DT
+		     , TO_CHAR(END_DT,'YYYY-MM-DD') 	 			AS END_DT
+		     , REFERENCE_FILE_ID
+		     , CREATED_DT
+		     , CREATED_USER_ID
+		     , (SELECT USER_NM FROM COM_USER WHERE USER_ID = CN.CREATED_USER_ID) 						   AS CREATED_USER_NM
+		     , TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') 	AS UPDATED_DT 
+		     , UPDATED_USER_ID
+		     , (SELECT USER_NM FROM COM_USER WHERE USER_ID = CN.UPDATED_USER_ID) 						   AS UPDATED_USER_NM 
+		     , USE_YN
+		FROM COM_NOTICE CN
+        WHERE USE_YN = 'Y'
+        <![CDATA[
+	        AND START_DT <= FN_START_DATE(TO_CHAR(SYSDATE,'YYYYMMDD'))
+	        AND END_DT >= FN_START_DATE(TO_CHAR(SYSDATE,'YYYYMMDD'))
+        ]]>
+        AND ROWNUM = 1
+        ORDER BY CREATED_DT DESC
+	</select>
+	
+	<update id="updateNotice" parameterType="HashMap" >
+		UPDATE COM_NOTICE
+		<set>
+			  NOTICE_TYPE = #{noticeType}
+			, TITLE = #{title}
+			, CONTENT = #{content}
+			, START_DT = TO_DATE(#{fromDate},'YYYYMMDD')
+			, END_DT = TO_DATE(#{toDate},'YYYYMMDD')
+			, USE_YN = #{useYn}
+			, UPDATED_DT = SYSDATE
+			, UPDATED_USER_ID = #{ssUserId}
+		</set>
+		WHERE NOTICE_ID = #{noticeId}
+	</update>
+	
+	<update id="deleteNotice" parameterType="HashMap">
+		UPDATE COM_NOTICE
+		<set>
+			  USE_YN = 'N'
+  			, UPDATED_USER_ID = #{ssUserId}
+			, UPDATED_DT = SYSDATE
+		</set>
+		WHERE NOTICE_ID = #{noticeId}
+	</update>
+	
+	<update id="updateNoticeCnt" parameterType="HashMap">
+		UPDATE COM_NOTICE
+		<set>
+			  NOTICE_CNT =  NVL(NOTICE_CNT,0) + 1 
+		</set>
+		WHERE NOTICE_ID = #{noticeId}
+	</update>
+
+
+	<select id="selectBoardList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			ARTICLE_ID
+			, BOARD_ID
+			, TITLE
+			, CONTENT
+			, DEL_YN
+			, VIEW_CNT
+			, TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+			, CREATED_USER_ID
+			, (SELECT USER_NM FROM COM_USER WHERE USER_ID = A.CREATED_USER_ID) AS CREATED_USER_NM
+			, TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+			, UPDATED_USER_ID
+			, (SELECT USER_NM FROM COM_USER WHERE USER_ID = A.UPDATED_USER_ID) AS UPDATED_USER_NM
+			, ATTR1
+			, ATTR2
+			, ATTR3
+			, ATTR4
+			, ATTR5
+		FROM COM_ARTICLE A
+		WHERE BOARD_ID = #{boardId} --배포 이력 관리
+        AND A.CREATED_DT BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+		<if test='delYn !=null and delYn !=""'>
+			AND DEL_YN = #{delYn}
+		</if>
+		ORDER BY A.CREATED_DT DESC
+	</select>
+
+	<update id="updateBoardViewCnt" parameterType="HashMap">
+		UPDATE COM_ARTICLE
+		<set>
+			VIEW_CNT =  NVL(VIEW_CNT,0) + 1
+		</set>
+		WHERE ARTICLE_ID = #{articleId}
+	</update>
+
+	<select id="selectBoardOne" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			ARTICLE_ID
+			, BOARD_ID
+			, TITLE
+			, CONTENT
+			, DEL_YN
+			, VIEW_CNT
+			, TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+			, CREATED_USER_ID
+			, (SELECT USER_NM FROM COM_USER WHERE USER_ID = A.CREATED_USER_ID) AS CREATED_USER_NM
+			, TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+			, UPDATED_USER_ID
+			, (SELECT USER_NM FROM COM_USER WHERE USER_ID = A.UPDATED_USER_ID) AS UPDATED_USER_NM
+			, ATTR1
+			, ATTR2
+			, ATTR3
+			, ATTR4
+			, ATTR5
+		FROM COM_ARTICLE A
+		WHERE ARTICLE_ID = #{articleId}
+	</select>
+
+	<insert id="insertDistributionHis" parameterType="HashMap">
+		<selectKey resultType="int" keyProperty="newId" order="BEFORE">
+			SELECT  SEQ_ARTICLE_ID.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO COM_ARTICLE
+		(ARTICLE_ID, BOARD_ID, TITLE, CONTENT, DEL_YN, ATTR1, ATTR2, CREATED_DT, CREATED_USER_ID)
+		VALUES
+		(#{newId},#{boardId},#{title},#{content},#{delYn},#{attr1},#{attr2},SYSDATE,#{ssUserId})
+	</insert>
+
+	<update id="updateDistributionHis" parameterType="HashMap" >
+		UPDATE COM_ARTICLE
+		<set>
+			TITLE = #{title}
+			, CONTENT = #{content}
+			, ATTR1 = #{attr1}
+			, ATTR2 = #{attr2}
+			, DEL_YN = #{delYn}
+			, UPDATED_DT = SYSDATE
+			, UPDATED_USER_ID = #{ssUserId}
+		</set>
+		WHERE ARTICLE_ID = #{articleId}
+	</update>
+
+	<update id="deleteDistributionHis" parameterType="HashMap">
+		UPDATE COM_ARTICLE
+		<set>
+			DEL_YN = 'Y'
+			, UPDATED_USER_ID = #{ssUserId}
+			, UPDATED_DT = SYSDATE
+		</set>
+		WHERE ARTICLE_ID = #{articleId}
+	</update>
+
+
+	<select id="selectFreeBoardList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+		ARTICLE_ID
+		, BOARD_ID
+		, TITLE
+		, CONTENT
+		, DEL_YN
+		, VIEW_CNT
+		, TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+		, CREATED_USER_ID
+		, (SELECT USER_NM FROM COM_USER WHERE USER_ID = A.CREATED_USER_ID) AS CREATED_USER_NM
+		, TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+		, UPDATED_USER_ID
+		, (SELECT USER_NM FROM COM_USER WHERE USER_ID = A.UPDATED_USER_ID) AS UPDATED_USER_NM
+		, ATTR1
+		, ATTR2
+		, ATTR3
+		, ATTR4
+		, ATTR5
+		, (
+		SELECT COUNT(*)
+		FROM COM_ATTACH_FILE
+		WHERE ATTACH_FILE_ID IN
+		(
+		SELECT
+		ATTACH_FILE_ID
+		FROM COM_ARTICLE_FILE
+		WHERE ARTICLE_ID = A.ARTICLE_ID
+		) AND USE_YN = 'Y'
+		) AS ATTACH_FILE_CNT
+		FROM COM_ARTICLE A
+		WHERE BOARD_ID = #{boardId} --배포 이력 관리
+		AND A.CREATED_DT BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+		<if test='searchStr2 != null and searchStr2 !=""'>
+			<if test='searchStr1 ==""'>
+				AND ( TITLE LIKE '%${searchStr2}%' OR CONTENT LIKE '%${searchStr2}%' OR CREATED_USER_ID LIKE '%${searchStr2}%' OR CREATED_USER_NM LIKE '%${searchStr2}%')
+			</if>
+			<if test='searchStr1 =="T"'>
+				AND TITLE LIKE '%${searchStr2}%'
+			</if>
+			<if test='searchStr1 =="C"'>
+				AND CONTENT LIKE '%${searchStr2}%'
+			</if>
+			<if test='searchStr1 =="TC"'>
+				AND ( TITLE LIKE '%${searchStr2}%' OR CONTENT LIKE '%${searchStr2}%' )
+			</if>
+			<if test='searchStr1 =="U"'>
+				AND (CREATED_USER_ID LIKE '%${searchStr2}%' OR CREATED_USER_NM LIKE '%${searchStr2}%')
+			</if>
+		</if>
+		<if test='delYn !=null and delYn !=""'>
+			AND DEL_YN = #{delYn}
+		</if>
+		ORDER BY A.CREATED_DT DESC
+	</select>
+
+	<select id="selectFreeBoardOne" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			ARTICLE_ID
+			, BOARD_ID
+			, TITLE
+			, CONTENT
+			, DEL_YN
+			, VIEW_CNT
+			, TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+			, CREATED_USER_ID
+			, (SELECT USER_NM FROM COM_USER WHERE USER_ID = A.CREATED_USER_ID) AS CREATED_USER_NM
+			, TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+			, UPDATED_USER_ID
+			, (SELECT USER_NM FROM COM_USER WHERE USER_ID = A.UPDATED_USER_ID) AS UPDATED_USER_NM
+			, ATTR1
+			, ATTR2
+			, ATTR3
+			, ATTR4
+			, ATTR5
+		FROM COM_ARTICLE A
+		WHERE ARTICLE_ID = #{articleId}
+	</select>
+
+	<insert id="insertFreeBoard" parameterType="HashMap">
+		<selectKey resultType="int" keyProperty="newId" order="BEFORE">
+			SELECT  SEQ_ARTICLE_ID.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO COM_ARTICLE
+		(ARTICLE_ID, BOARD_ID, TITLE, CONTENT, DEL_YN, CREATED_DT, CREATED_USER_ID)
+		VALUES
+		(#{newId},'2',#{title},#{content},#{delYn},SYSDATE,#{ssUserId})
+	</insert>
+
+	<!-- FileAttach  -->
+	<insert id="insertArticleFile" parameterType="HashMap" keyProperty="attachFileId" useGeneratedKeys="true">
+        INSERT INTO COM_ARTICLE_FILE
+        (ARTICLE_ID, ATTACH_FILE_ID)
+        VALUES
+        (#{articleId}, #{attachFileId})
+    </insert>
+
+	<update id="updateFreeBoard" parameterType="HashMap" >
+		UPDATE COM_ARTICLE
+		<set>
+			TITLE = #{title}
+			, CONTENT = #{content}
+			, DEL_YN = #{delYn}
+			, UPDATED_DT = SYSDATE
+			, UPDATED_USER_ID = #{ssUserId}
+		</set>
+		WHERE ARTICLE_ID = #{articleId}
+	</update>
+
+
+	<update id="deleteFreeBoard" parameterType="HashMap">
+		UPDATE COM_ARTICLE
+		<set>
+			DEL_YN = 'Y'
+			, UPDATED_USER_ID = #{ssUserId}
+			, UPDATED_DT = SYSDATE
+		</set>
+		WHERE ARTICLE_ID = #{articleId}
+	</update>
+	
+</mapper>

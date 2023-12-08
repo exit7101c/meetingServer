@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cronies.app.message">
+
+
+    <!--
+    Description : 채팅 리스트 조회
+    -->
+    <select id="getMessageList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT A.*,
+               B.USER_NAME,
+               (SELECT
+                    FILE_ID
+                FROM COM_USER_PHOTO
+                WHERE USER_SEQ = A.YOU AND MAIN_YN = 'Y') ATTACH_FILE_ID
+        FROM (SELECT
+                  CHANNEL_ID,
+                  CASE WHEN USER1 = #{userId} THEN USER1 ELSE USER2 END ME,
+                  CASE WHEN USER1 = #{userId} THEN USER2 ELSE USER1 END YOU,
+                  TO_CHAR(LAST_CHAT_TIME,'YYYY-MM-DD HH24:MI') AS LAST_CHAT_TIME,
+                  LAST_CONTENTS,
+                  CREATED_DT
+              FROM COM_MESSAGE_CHANNEL
+              WHERE (USER1=#{userId} OR USER2=#{userId}) AND LAST_CHAT_TIME IS NOT NULL) A
+                 JOIN COM_USER B
+                      ON A.YOU = B.USER_SEQ
+        ORDER BY LAST_CHAT_TIME DESC
+    </select>
+    <!--
+    Description : 1:1 채팅 조회
+    -->
+    <select id="getChatList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            A.CONTENTS,
+            A.SEND_USER_SEQ,
+            TO_CHAR(A.SEND_TIME,'YYYY-MM-DD HH24:MI') AS SEND_TIME,
+            A.GET_USER_ID,
+            A.GET_TIME,
+            A.MSG_ID,
+            A.FILE_ID,
+            A.PUSH_SEND_TIME,
+            A.CHANNEL_ID,
+            B.USER_NAME,
+            (SELECT
+                FILE_ID
+            FROM COM_USER_PHOTO
+            WHERE USER_SEQ = A.SEND_USER_SEQ AND MAIN_YN = 'Y') ATTACH_FILE_ID
+        FROM COM_MESSAGE  A
+        JOIN COM_USER  B
+            ON  A.SEND_USER_SEQ = B.USER_SEQ
+        <if test="channelId != null">
+        WHERE CHANNEL_ID = #{channelId}
+        </if>
+        <if test="contentSeq != null">
+        WHERE MSG_ID > #{contentSeq}
+        </if>
+        ORDER BY MSG_ID ASC
+    </select>
+
+
+    <!--
+    Description : 전송메세지 저장
+    -->
+    <insert id="sendMsg" parameterType="HashMap">
+        INSERT INTO COM_MESSAGE (
+        CONTENTS,
+        SEND_USER_SEQ,
+        SEND_TIME,
+        GET_USER_ID,
+        MSG_ID,
+        CHANNEL_ID
+        )
+        VALUES(
+        #{contents},
+        #{loginSeq},
+        SYSDATE,
+        #{userSeq},
+        MSG_SEQ.NEXTVAL,
+        #{channelId}
+        )
+    </insert>
+
+    <!--
+    Description : 마지막 대화내용, 대화시간 업데이트
+    -->
+    <select id="channelUpdate">
+        UPDATE
+            COM_MESSAGE_CHANNEL
+        SET
+            LAST_CONTENTS = #{contents},
+            LAST_CHAT_TIME = SYSDATE
+        WHERE CHANNEL_ID = #{channelId}
+    </select>
+
+    <!--
+    Description : Get New Channel Id
+    -->
+    <select id="getChannelId" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT MAX(CHANNEL_ID) + 1 AS NEW_CHANNEL_ID FROM COM_MESSAGE_CHANNEL
+    </select>
+
+    <!--
+    Description : Open New Message Channel
+    -->
+    <insert id="openChannel" parameterType="HashMap">
+        INSERT INTO COM_MESSAGE_CHANNEL (
+            CHANNEL_ID,
+            USER1,
+            USER2,
+            CREATED_DT
+        )
+        VALUES (
+            #{channelId},
+            #{loginSeq},
+            #{userSeq},
+            SYSDATE
+        )
+    </insert>
+
+    <!--
+    Description : 웹소켓으로 전송된 마지막 메세지 seq 조회
+    -->
+    <select id="getSockLastNo" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT CONTENT_SEQ FROM COM_BATCH WHERE BATCH_CD = #{batchCd}
+    </select>
+
+    <!--
+    Description : 처리한 Batch 업데이트
+    -->
+    <select id="updateBatch">
+        UPDATE
+            COM_BATCH
+        SET
+            BATCH_DT = SYSDATE,
+            CONTENT_SEQ = #{lastNo}
+        WHERE BATCH_CD = #{batchCd}
+    </select>
+
+</mapper>

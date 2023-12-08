@@ -1,0 +1,629 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cronies.app.join">
+	<!--
+	NiceAPI 관련 데이터 저장 및 조회
+	-->
+	<insert id="niceapiEncInsert" parameterType="HashMap">
+		INSERT INTO SC_NICE_API_VALUE(TOKEN_VERSION_ID, ENC_KEY, ENC_IV, CREATED_TIME)
+		VALUES(#{token_version_id}, #{enc_key}, #{enc_iv}, CONVERT(VARCHAR(23), GETDATE(), 121))
+	</insert>
+
+	<select id="niceapiGetData" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			ENC_KEY, ENC_IV
+		FROM SC_NICE_API_VALUE
+		WHERE TOKEN_VERSION_ID = #{token_version_id}
+	</select>
+
+	<update id="niceapiResultUpdate" parameterType="HashMap">
+		UPDATE SC_NICE_API_VALUE
+		SET
+			RESULT_CODE = #{resultcode},
+			REQUEST_NO = #{requestno},
+			ENCTIME = #{enctime},
+			SITE_CODE = #{sitecode},
+			RESPONSE_NO = #{responseno},
+			AUTH_TYPE = #{authtype},
+			NAME = #{name},
+			UTF8_NAME = #{utf8_name},
+			BIRTH_DATE = #{birthdate},
+			GENDER = #{gender},
+			NATIONAL_INFO= #{nationalinfo},
+			MOBILE_NO = #{mobileno},
+			CI = #{ci},
+			DI = #{di},
+			UPD_TIME = CONVERT(VARCHAR(23), GETDATE(), 121)
+		WHERE 1=1
+		  AND TOKEN_VERSION_ID = #{token_version_id}
+	</update>
+
+	<select id="getUserAuthData" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			CI, NAME, MOBILE_NO, BIRTH_DATE, GENDER
+		FROM SC_NICE_API_VALUE
+		WHERE TOKEN_VERSION_ID = #{token_version_id}
+	</select>
+	<!--
+        Description : 유저 중복체크
+        -->
+	<select id="selectGetCerti" parameterType="HashMap" resultType="ExqueryMap">
+		IF EXISTS (
+			SELECT
+				USER_ID
+			FROM SC_USER
+			WHERE CI = #{ci}
+		)
+		BEGIN
+			SELECT
+				CASE DROP_YN WHEN 'N' THEN 'exist' ELSE 'drop' END AS RESULT,
+				EMAIL,
+				CONVERT(VARCHAR(19), DROP_TIME, 120) AS DROP_TIME
+			FROM SC_USER
+			WHERE CI = #{ci}
+		END
+			ELSE
+			BEGIN
+				SELECT 'possible' AS RESULT
+			END
+	</select>
+	<!--
+	Description : 이메일 중복체크
+	-->
+	<select id="selectCheckEmail" parameterType="HashMap" resultType="ExqueryMap">
+		IF EXISTS (
+			SELECT
+			   	USER_ID
+			FROM SC_USER
+			WHERE EMAIL = #{email}
+		)
+		BEGIN
+			SELECT 'N' AS RESULT
+		END
+		ELSE
+		BEGIN
+			SELECT 'Y' AS RESULT
+		END
+	</select>
+
+	<!--
+	Description : 유저 중복체크
+	-->
+	<select id="selectCheckUser" parameterType="HashMap" resultType="ExqueryMap">
+		IF EXISTS (
+			SELECT
+			   	USER_ID
+			FROM SC_USER
+			WHERE PHON = REPLACE(#{phone}, '-', '')
+		)
+		BEGIN
+			SELECT 'N' AS RESULT
+		END
+		ELSE
+		BEGIN
+			SELECT 'Y' AS RESULT
+		END
+	</select>
+
+	<!--
+    Description : 이메일 체크후 userId 체크
+    -->
+	<select id="selectUserId" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			USER_ID
+		FROM SC_USER
+		WHERE EMAIL = #{email}
+	</select>
+
+	<!--
+	Description : SIGN_STEP 체크
+	-->
+	<select id="selectCheckSignStep" parameterType="HashMap" resultType="ExqueryMap">
+		IF EXISTS (
+			SELECT
+			   	USER_ID
+			FROM SC_USER
+			WHERE USER_ID = #{userKeyDec}
+			AND JOIN_FINISH_YN = 'N'
+		)
+		BEGIN
+			SELECT
+				SIGN_STEP
+				, 'Y' AS RESULT
+			FROM SC_USER
+			WHERE USER_ID = #{userKeyDec}
+			AND JOIN_FINISH_YN = 'N'
+		END
+		ELSE
+		BEGIN
+			SELECT 'N' AS RESULT
+		END
+	</select>
+
+	<!--
+	Description : 가입된 USER KEY 조회
+	-->
+	<select id="selectCheckUserKey" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			   USER_ID
+		FROM SC_USER
+		WHERE PHON = #{phone}
+	</select>
+
+	<!--
+	Description : 가입된 USER KEY 조회
+	-->
+	<select id="selectCheckNick" parameterType="HashMap" resultType="ExqueryMap">
+		IF EXISTS (
+			SELECT
+			   USER_ID
+			FROM SC_USER
+			WHERE NICK = #{nick}
+		)
+		BEGIN
+			SELECT 'N' AS RESULT
+		END
+		ELSE
+		BEGIN
+			SELECT 'Y' AS RESULT
+		END
+	</select>
+
+	<!--
+	Description : 약관 조회
+	-->
+	<select id="selectGetTerm" parameterType="HashMap" resultType="ExqueryMap">
+		IF EXISTS (
+			SELECT
+				CONTENTS
+			FROM SC_TERM
+			WHERE TERM_CD = #{termCd}
+		)
+		BEGIN
+			SELECT
+				CONTENTS
+			FROM SC_TERM
+			WHERE TERM_CD = #{termCd}
+		END
+		ELSE
+		BEGIN
+			SELECT 'NULL' AS CONTENTS
+		END
+	</select>
+
+	<!--
+        Description : 저장 STEP 1
+        -->
+	<insert id="insertSetUserStep1" parameterType="HashMap">
+		INSERT INTO SC_USER (EMAIL, PW, PHON, NAME, SEX, BIRTH, SIGN_DATE, AGE, DROP_YN, CONNECT_YN, PRIVATE_YN, JOIN_FINISH_YN, SIGN_STEP, CI)
+		VALUES (#{email}, #{pwEn}, #{mobileNo}, #{name}, #{gender}, #{birthDate}, GETDATE(), #{age}, 'N', 'Y', 'N', 'N', '1', #{ci})
+	</insert>
+
+	<!--
+        Description : 저장 STEP 2
+        -->
+	<update id="insertSetUserStep2" parameterType="HashMap">
+		MERGE INTO SC_USER_TERM AS A
+			USING (SELECT 1 AS DUAL) AS B
+			ON (A.USER_ID = #{userKeyDec})
+			WHEN MATCHED THEN
+				UPDATE SET
+					TERM_SERVICE = #{termService}
+					, UPDATE_DT = GETDATE()
+			WHEN NOT MATCHED THEN
+				INSERT
+					(USER_ID
+					, TERM_SERVICE
+					, TERM_USER_INFO
+					, TERM_MARKETING
+					, TERM_PUSH
+					, TERM_SERVICE_DATE
+					, TERM_USER_INFO_DATE
+					, TERM_MARKETING_DATE
+					, TERM_PUSH_DATE
+					, SIGN_STEP
+					)
+				VALUES
+					(#{userKeyDec}
+					, #{termService}
+					, #{termUserInfo}
+					, #{termMarketing}
+					, #{termPush}
+					, GETDATE()
+					, GETDATE()
+					, GETDATE()
+					, GETDATE()
+					, '2');
+	</update>
+
+	<!--
+        Description : 저장 STEP 2 스텝 업데이트
+        -->
+	<update id="updateSetUserStep2" parameterType="HashMap">
+		UPDATE SC_USER SET
+			SIGN_STEP = '2'
+		WHERE USER_ID = #{userKeyDec}
+	</update>
+
+	<!--
+        Description : 저장 STEP 3
+        -->
+	<update id="updateSetUserStep3" parameterType="HashMap">
+		UPDATE SC_USER SET
+			SIGN_STEP = '3'
+			, NICK = #{nick}
+			, ICON_CD = #{iconCd}
+		WHERE USER_ID = #{userKeyDec}
+	</update>
+
+	<!--
+        Description : 저장 STEP 4
+        -->
+	<update id="updateSetUserStep4" parameterType="HashMap">
+		UPDATE SC_USER SET
+			SIGN_STEP = '4'
+			, TALL = #{tall}
+		    , SMOKE_CD = #{smoke}
+		    , DRINK_CD = #{drink}
+		    , FORM_CD = #{form}
+		WHERE USER_ID = #{userId}
+	</update>
+
+	<!--
+        Description : 저장 STEP 5
+        수정 필요
+        -->
+	<insert id="insertSetUserStep5" parameterType="HashMap">
+		INSERT INTO SC_USER_ADDR (USER_ID, ADDR_LIVE, ADDR_ACTIVE, ADDR_LIVE_SUM, ADDR_ACTIVE_SUM, LAT, LON, UPD_DATE)
+		VALUES (#{userId}, '비밀', '비밀', '비밀', '비밀', 37.4866, 126.9819, GETDATE())
+	</insert>
+
+	<!--
+        Description : 저장 STEP 5 스텝 업데이트
+        -->
+	<update id="updateSetUserStep5" parameterType="HashMap">
+		UPDATE SC_USER SET
+			SIGN_STEP = '5'
+		WHERE USER_ID = #{userId}
+	</update>
+
+	<!--
+    Description : 프로필 업데이트
+    -->
+	<update id="getUserDetailUpdate" parameterType="HashMap">
+		UPDATE SC_USER
+		<trim prefix="SET" suffixOverrides=",">
+			SIGN_STEP = '6'
+			<if test="mbti != null and mbti != ''">
+				, MBTI_CD = #{mbti}
+			</if>
+			<if test="idealLook != null and idealLook != ''">
+				, IDEAL_LOOK_CD = #{idealLook}
+			</if>
+			<if test="idealForm != null and idealForm != ''">
+				, IDEAL_FORM_CD = #{idealForm}
+			</if>
+			<if test="idealCharacter != null and idealCharacter != ''">
+				, IDEAL_CHARACTER_CD = #{idealCharacter}
+			</if>
+			<if test="hobby != null and hobby != ''">
+				, HOBBY_CD = #{hobby}
+			</if>
+			<if test="likeSinger != null and likeSinger != ''">
+				, LIKE_SINGER = #{likeSinger}
+			</if>
+			<if test="likeMusic != null and likeMusic != ''">
+				, LIKE_MUSIC = #{likeMusic}
+			</if>
+		</trim>
+		WHERE USER_ID = #{userId}
+	</update>
+
+	<!--
+        Description : 저장 STEP 6 스텝 업데이트
+        -->
+	<update id="updateSetUserStep6" parameterType="HashMap">
+		UPDATE SC_USER SET
+			SIGN_STEP = '6'
+			, SCHOOL_CD = #{schoolCd}
+		WHERE USER_ID = #{userId}
+	</update>
+	<!--
+        Description : 저장 STEP 7 스텝 업데이트
+        -->
+	<update id="updateSetUserStep7" parameterType="HashMap">
+		UPDATE SC_USER SET
+			SIGN_STEP = '7'
+		WHERE USER_ID = #{userId}
+	</update>
+	<!--
+            Description : 저장 STEP 7
+            -->
+	<insert id="insertSetUserStep7" parameterType="HashMap">
+		INSERT INTO SC_USER_PIC ( USER_ID, PHOTO1, PHOTO2, PHOTO3, PHOTO4, PHOTO5, PHOTO6 )
+		VALUES (
+		    #{userId}, #{photo1}, #{photo2}, #{photo3}
+			<if test="photo4 != ''">, #{photo4}</if><if test="photo4 == ''">, NULL</if>
+			<if test="photo5 != ''">, #{photo5}</if><if test="photo5 == ''">, NULL</if>
+			<if test="photo6 != ''">, #{photo6}</if><if test="photo6 == ''">, NULL</if>
+			)
+	</insert>
+	<!--
+        Description : 저장 STEP 8 스텝 업데이트
+        -->
+	<update id="updateSetUserStep8" parameterType="HashMap">
+		UPDATE SC_USER SET
+			SIGN_STEP = '8'
+		    , JOIN_FINISH_YN = 'Y'
+			, COMMUNITY_LASTNICK = '익명'
+		WHERE USER_ID = #{userId}
+	</update>
+
+	<!--
+        Description : 저장 STEP 8
+        -->
+	<insert id="insertSetUserStep8" parameterType="HashMap">
+		INSERT INTO SC_USER_DETAIL (USER_ID, SHORT_WORD, PROFILE)
+		VALUES (#{userId}, #{msg}
+		<if test='profile != ""'>, #{profile}</if><if test='profile == ""'>, NULL</if>
+		)
+	</insert>
+
+	<!--
+	Description : 아이콘목록조회
+	-->
+	<select id="selectGetIconList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			A.ICON_CD
+			 , A.ICON_NM
+			 , A.ICON_DETAIL
+			 , A.SHOW_ORDER
+			 , (B.SERVER_IP + '/' + B.FILE_PATH + B.THUMB_FILE_NM) AS CDN_THUMB_NM
+		FROM SC_ICON_CODE A
+		LEFT OUTER JOIN SC_ATTACH_FILE B
+		ON A.FILE_ID = B.ATTACH_FILE_ID
+		ORDER BY A.SHOW_ORDER ASC
+	</select>
+
+	<!--
+	Description : 직업목록조회
+	-->
+	<select id="selectGetJobList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			JOB_CD
+			, JOB_NM
+			, JOB_DETAIL
+			, SHOW_ORDER
+		FROM SC_JOB_CODE
+		ORDER BY SHOW_ORDER ASC
+	</select>
+
+	<!--
+	Description : 학력목록조회
+	-->
+	<select id="selectGetSchoolList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			SCHOOL_CD
+			, SCHOOL_NM
+		FROM SC_SCHOOL_CODE
+		ORDER BY SHOW_ORDER ASC
+	</select>
+
+
+	<!--
+    Description : MBTI
+    -->
+	<select id="getMbtiList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+			MBTI_CD
+			, MBTI_NM
+			, MBTI_DETAIL
+			, BACKGROUND_COLOR
+        FROM SC_MBTI_CODE
+		ORDER BY SHOW_ORDER
+    </select>
+	<!--
+    Description : 이상형 얼굴
+    -->
+	<select id="getFaceList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT LOOK_CD
+        , LOOK_NM
+        , LOOK_DETAIL
+        FROM SC_LOOK_CODE
+    </select>
+	<!--
+    Description : 이상형 몸
+    -->
+	<select id="getBodyList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT FORM_CD
+        , FORM_NM
+        , FORM_DETAIL
+        FROM SC_FORM_CODE
+    </select>
+	<!--
+    Description : 이상형 성격
+    -->
+	<select id="getPersonalityList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT CHARACTER_CD
+        , CHARACTER_NM
+        , CHARACTER_DETAIL
+        FROM SC_CHARACTER_CODE
+    </select>
+	<!--
+    Description : 취미
+    -->
+	<select id="getHobbyList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT HOBBY_CD
+        , HOBBY_NM
+        , HOBBY_DETAIL
+        FROM SC_HOBBY_CODE
+    </select>
+
+
+	<!--
+    Description : 담배
+    -->
+	<select id="getSmokeList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT SMOKE_CD
+        , SMOKE_NM
+        , SMOKE_DETAIL
+        FROM SC_SMOKE_CODE
+    </select>
+	<!--
+    Description : 음주
+    -->
+	<select id="getDrinkingList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT DRINK_CD
+        , DRINK_NM
+        , DRINK_DETAIL
+        FROM SC_DRINK_CODE
+    </select>
+
+	<!--
+    Description : 키워드 업데이트
+    -->
+	<update id="getUserKeywordUpdate" parameterType="HashMap">
+		UPDATE SC_USER
+		<trim prefix="SET" suffixOverrides=",">
+			<if test="mbtiCd != null and mbtiCd != ''">
+				MBTI_CD = #{mbtiCd},
+			</if>
+			<if test="lookCd != null and lookCd != ''">
+				IDEAL_LOOK_CD = #{lookCd},
+			</if>
+			<if test="formCd != null and formCd != ''">
+				IDEAL_FORM_CD = #{formCd},
+			</if>
+			<if test="characterCd != null and characterCd != ''">
+				IDEAL_CHARACTER_CD =#{characterCd},
+			</if>
+			<if test="hobbyCd != null and hobbyCd != ''">
+				HOBBY_CD = #{hobbyCd},
+			</if>
+			<if test="likeSinger != null and likeSinger != ''">
+				LIKE_SINGER = #{likeSinger},
+			</if>
+			<if test="likeMusic != null and likeMusic != ''">
+				LIKE_MUSIC = #{likeMusic}
+			</if>
+		</trim>
+		WHERE USER_ID = #{userId}
+	</update>
+
+	<update id="getUserInfoUpdate" parameterType="HashMap">
+		UPDATE SC_USER
+		<trim prefix="SET" suffixOverrides=",">
+			<if test="iconCd != null and iconCd != ''">
+				ICON_CD = #{iconCd},
+			</if>
+			<if test="tall != null and tall != ''">
+				TALL = #{tall},
+			</if>
+			<if test="formCd != null and formCd != ''">
+				FORM_CD = #{formCd},
+			</if>
+			<if test="smokeCd != null and smokeCd != ''">
+				SMOKE_CD =#{smokeCd},
+			</if>
+			<if test="drinkCd != null and drinkCd != ''">
+				DRINK_CD = #{drinkCd}
+			</if>
+		</trim>
+		WHERE USER_ID = #{userId}
+	</update>
+
+	<select id="reservationCheck" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT COUNT(PHON) AS CNT FROM SC_USER WHERE PHON = #{phoneEn}
+	</select>
+
+	<insert id="getInsertUser" parameterType="HashMap">
+		INSERT INTO SC_USER
+			(
+				EMAIL, PW, PHON, NAME, SEX, BIRTH, SIGN_DATE, AGE, ICON_CD, NICK, CHOICE_YN, PRE_JOIN_YN, CHOICE_OPEN_YN, CHOICE_AD_YN,
+				TALL, SMOKE_CD, DRINK_CD, MBTI_CD, WEIGHT, IDEAL_LOOK_CD, IDEAL_FORM_CD, LIKE_SINGER,  LIKE_MUSIC,
+				IDEAL_CHARACTER_CD, HOBBY_CD, DROP_YN, CONNECT_YN, PRIVATE_YN, JOIN_FINISH_YN, LOCATION_YN, COMMUNITY_LASTNICK, COMMUNITY_LASTICON, CI
+				<if test="form != null and form != ''">
+					, FORM_CD
+				</if>
+			)
+		VALUES
+			(
+				#{email}, #{pwEn}, #{phoneEn}, #{nameEn}, #{gender}, #{birthDate}, GETDATE(), #{age}, #{iconCd}, #{nick}, 'Y', 'Y', 'Y', 'Y',
+				#{tall}, #{smoke}, #{drink}, #{mbti}, #{weight}, #{idealLook}, #{idealForm}, #{likeSinger}, #{likeMusic},
+				#{idealCharacter}, #{hobby}, 'N', 'Y', 'N', 'Y', 'N', '익명', #{iconCd}, #{ci}
+				<if test="form != null and form != ''">
+					, #{form}
+				</if>
+			)
+	</insert>
+
+	<update id="getUpdateUser" parameterType="HashMap">
+		UPDATE SC_USER
+		SET
+			EMAIL = #{email}, PW = #{pwEn}, NAME = #{nameEn}, SEX = #{gender}, BIRTH = #{birthDate}, SIGN_DATE = GETDATE(), AGE = #{age},
+			ICON_CD = #{iconCd}, NICK = #{nick}, TALL = #{tall}, SMOKE_CD = #{smoke}, DRINK_CD = #{drink}, MBTI_CD = #{mbti},
+			WEIGHT = #{weight}, IDEAL_LOOK_CD = #{idealLook}, IDEAL_FORM_CD = #{idealForm}, LIKE_SINGER = #{likeSinger}, LIKE_MUSIC = #{likeMusic},
+			IDEAL_CHARACTER_CD = #{idealCharacter}, HOBBY_CD = #{hobby}, DROP_YN = 'N', CONNECT_YN = 'Y', PRIVATE_YN = 'N', JOIN_FINISH_YN = 'Y',
+			LOCATION_YN = 'N', COMMUNITY_LASTNICK = '익명', COMMUNITY_LASTICON = #{iconCd}, CI = #{ci}, CHOICE_YN = 'Y', PRE_JOIN_YN = 'Y', CHOICE_OPEN_YN = 'Y',
+			CHOICE_AD_YN = 'Y'
+			<if test="form != null and form != ''">
+				, FORM_CD = #{form}
+			</if>
+		WHERE PHON = #{phoneEn}
+
+	</update>
+
+	<select id="joinSelectOne" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT TOP 1 USER_ID AS USER_KEY FROM SC_USER WHERE ci = #{ci}
+    </select>
+
+	<insert id="getInsertUserTerm" parameterType="HashMap">
+		INSERT INTO SC_USER_TERM
+			(
+				USER_ID, TERM_SERVICE, TERM_USER_INFO, TERM_MARKETING, TERM_PUSH,
+				TERM_SERVICE_DATE, TERM_USER_INFO_DATE, TERM_MARKETING_DATE, TERM_PUSH_DATE
+			)
+		VALUES
+			(
+				#{userId}, #{termService}, #{termUserInfo}, #{termMarketing}, #{termPush},
+				GETDATE(), GETDATE(), GETDATE(), GETDATE()
+			);
+	</insert>
+
+	<insert id="getInsertUserPhoto" parameterType="HashMap">
+		INSERT INTO SC_USER_PIC ( USER_ID, PHOTO1, PHOTO2, PHOTO3, PHOTO4, PHOTO5, PHOTO6, UPD_TIME )
+		VALUES (
+		#{userId}, #{photo1}, #{photo2}
+		<if test="photo3 != ''">, #{photo3}</if><if test="photo3 == ''">, NULL</if>
+		<if test="photo4 != ''">, #{photo4}</if><if test="photo4 == ''">, NULL</if>
+		<if test="photo5 != ''">, #{photo5}</if><if test="photo5 == ''">, NULL</if>
+		<if test="photo6 != ''">, #{photo6}</if><if test="photo6 == ''">, NULL</if>
+		, GETDATE()
+		)
+	</insert>
+
+	<insert id="getInsertUserAddress" parameterType="HashMap">
+		INSERT INTO SC_USER_ADDR (USER_ID, ADDR_LIVE, ADDR_LIVE_SUM, LAT, LON, UPD_DATE)
+		VALUES (#{userId}, #{addr1}, #{shotaddr1}, #{lat}, #{lon}, GETDATE())
+	</insert>
+
+	<insert id="getInsertUserDetail" parameterType="HashMap">
+		INSERT INTO SC_USER_DETAIL (USER_ID, SHORT_WORD, PROFILE)
+		VALUES (#{userId}, #{msg}
+		<if test='profile != ""'>, #{profile}</if><if test='profile == ""'>, NULL</if>
+		)
+	</insert>
+
+	<!--
+    아이디/비밀번호 찾기(수정)
+    -->
+	<update id="findUserInfoUpdate" parameterType="HashMap">
+		UPDATE SC_USER
+		SET
+			PW = #{password}
+		  , LAST_PW_CHANGE = GETDATE()
+		WHERE CI = #{ci}
+	</update>
+
+</mapper>

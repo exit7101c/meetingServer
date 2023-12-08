@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.report.sqlReport">
+
+    <!-- Ctq Tree List -->
+    <select id="selectDocTreeList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            DOC_CD,
+            VER_ID,
+            FN_GET_MSG(DOC_NM,#{ssUserLang}) AS DOC_NM,
+            FILE_NM,
+            SELF_CD,
+            PARENT_CD,
+            DISPLAY_ORDER,
+            DECODE(CONNECT_BY_ISLEAF, 1, 'Y', 'N')  AS LEAF,
+            SYS_CONNECT_BY_PATH(LPAD(DISPLAY_ORDER, 2, 0), '/') AS PATH
+        FROM (
+            SELECT
+                DOC_CD,
+                VER_ID,
+                DOC_NM,
+                FILE_NM,
+                DOC_CD AS SELF_CD,
+                EQP_CD AS PARENT_CD,
+                DISPLAY_ORDER
+            FROM PTS_DOC_INFO
+            WHERE LAST_YN = 'Y'
+            AND USE_YN = 'Y'
+            UNION ALL
+            SELECT
+                '' AS DOC_CD,
+                0 AS VER_ID,
+                EQP_NM AS DOC_NM,
+                '' AS FILE_NM,
+                EQP_CD AS SELF_CD,
+                'ROOT' AS PARENT_CD,
+                ROWNUM AS DISPLAY_ORDER
+            FROM COM_EQUIPMENT
+            WHERE EQP_CD IN (
+                SELECT EQP_CD FROM PTS_DOC_INFO
+                WHERE USE_YN = 'Y'
+            )
+        )
+        START WITH PARENT_CD = 'ROOT'
+        CONNECT BY PRIOR SELF_CD = PARENT_CD
+        ORDER BY PATH
+	</select>
+
+
+    <!--일지 리스트 PTS_DOCUMENT-->
+    <select id="selectPtsDocumentList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            DOC_ID
+            , STD_DATE
+            , TO_CHAR(TO_DATE(STD_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS STD_DATE_STR
+            , DOC_CD
+            , DOC_NUM
+            , DEL_YN
+            , FINISH_YN
+            , GOOD_YN
+            , PROD_CD
+            , WORK_TEAM
+            , SHIFT
+            , '' AS AUTHOR_NM
+            , CREATED_DT
+            , TO_CHAR(CREATED_DT, 'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT_STR
+            , CREATED_USER_ID
+            , UPDATED_DT
+            , NVL(TO_CHAR(UPDATED_DT, 'YYYY-MM-DD HH24:MI:SS'),' ') AS UPDATED_DT_STR
+            , NVL(UPDATED_USER_ID, ' ') AS UPDATED_USER_ID
+            , (SELECT S_VAL FROM PTS_ETC_DATA WHERE DOC_ID = A.DOC_ID AND ETC_CD = 'WORKER') AS WORKER
+       FROM PTS_DOCUMENT A
+       WHERE DEL_YN = 'N'
+        AND STD_DATE BETWEEN #{fromDate} AND #{toDate}
+        AND DOC_CD = #{docCd}
+        <if test='searchShift != null and searchShift != "" and searchShift != "all"'>
+            AND SHIFT = #{searchShift}
+        </if>
+        <if test='searchWorkTeam != null and searchWorkTeam != "" and searchWorkTeam != "all"'>
+            AND WORK_TEAM = #{searchWorkTeam}
+        </if>
+        <if test='searchWorker != null and searchWorker != ""'>
+            AND DOC_ID IN (
+            SELECT DOC_ID FROM PTS_ETC_DATA
+            WHERE ETC_CD = 'WORKER'
+            AND S_VAL LIKE '%${searchWorker}%'
+            GROUP BY DOC_ID
+            )
+        </if>
+        ORDER BY STD_DATE DESC, SHIFT DESC, WORK_TEAM DESC
+	</select>
+
+    <select id="selectVerId" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT VER_ID FROM PTS_DOC_INFO WHERE DOC_CD = #{docCd}
+	</select>
+
+    <insert id="insertPtsDoc" parameterType="HashMap">
+        <selectKey resultType="int" keyProperty="newId" order="BEFORE">
+            SELECT  SEQ_DOC_ID.NEXTVAL FROM DUAL
+        </selectKey>
+		INSERT INTO PTS_DOCUMENT
+		(DOC_ID, STD_DATE, DOC_CD, VER_ID, WORK_TEAM, SHIFT, CREATED_DT, CREATED_USER_ID, DEL_YN, DOC_NUM)
+		VALUES
+		(#{newId}, #{stdDate}, #{docCd}, #{verId}, #{workTeam}, #{shift}, sysdate, #{ssUserId}, 'N', #{docNum})
+	</insert>
+
+    <insert id="insertPtsDocData" parameterType="HashMap">
+        INSERT INTO PTS_DOC_DATA
+        (DOC_ID, PTS_TAG_CD, S_VAL, CREATED_DT, CREATED_USER_ID)
+        VALUES
+        (#{docId}, #{tagCd}, #{sVal}, sysdate, #{ssUserId})
+    </insert>
+
+    <insert id="insertPtsEtcData" parameterType="HashMap">
+        INSERT INTO PTS_ETC_DATA
+        (DOC_ID, ETC_CD, S_VAL, CREATED_DT, CREATED_USER_ID)
+        VALUES
+        (#{docId}, #{tagCd}, #{sVal}, sysdate, #{ssUserId})
+    </insert>
+
+    <insert id="insertPtsDocLog" parameterType="HashMap">
+        <selectKey resultType="int" keyProperty="logId" order="BEFORE">
+            SELECT SEQ_LOG_ID.NEXTVAL FROM DUAL
+        </selectKey>
+        INSERT INTO PTS_DOC_LOG
+        (DOC_ID, LOG_ID, LOG_TIME, LOG_DETAIL, LOG_IP, PROC_TYPE, USER_ID)
+        VALUES
+        (#{docId}, #{logId}, sysdate, #{logDetail}, #{ssUserIp}, #{procType}, #{ssUserId})
+    </insert>
+
+    <select id="selectPtsDocument" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT
+            DOC_ID
+            , STD_DATE
+            , TO_CHAR(TO_DATE(STD_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS STD_DATE_STR
+            , WORK_TEAM
+            , SHIFT
+            , CASE WHEN SHIFT = 'A' THEN '白班'
+                WHEN SHIFT = 'B' THEN '夜班'
+                ELSE '' END AS SHIFT_STR
+            , NVL(DOC_NUM,'') AS DOC_NUM
+        FROM PTS_DOCUMENT
+        WHERE DOC_ID = #{docId}
+    </select>
+
+    <select id="selectPtsDocData" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT DOC_ID
+             , S_VAL
+             , PTS_TAG_CD AS TAG_CD
+             , 'pts-tag'  AS TAG_TYPE
+        FROM PTS_DOC_DATA
+        WHERE DOC_ID = #{docId}
+    </select>
+
+    <select id="selectPtsEtcData" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT DOC_ID
+             , ETC_CD AS TAG_CD
+             , S_VAL
+             , 'pts-etc-tag'  AS TAG_TYPE
+        FROM PTS_ETC_DATA
+        WHERE DOC_ID = #{docId}
+    </select>
+
+    <select id="disablePtsDoc" parameterType="HashMap" resultType="ExqueryMap" >
+		UPDATE PTS_DOCUMENT
+		SET
+		DEL_YN              = 'Y',
+		UPDATED_USER_ID     = #{ssUserId},
+		UPDATED_DT          = sysdate
+		WHERE DOC_ID = #{docId}
+	</select>
+
+    <select id="updatePtsDocData" parameterType="HashMap" resultType="ExqueryMap" >
+		UPDATE PTS_DOC_DATA
+		SET
+		S_VAL       		= #{sVal},
+		UPDATED_USER_ID     = #{ssUserId},
+		UPDATED_DT          = sysdate
+		WHERE DOC_ID = #{docId}
+		AND PTS_TAG_CD = #{tagCd}
+	</select>
+
+    <select id="updateEtcData" parameterType="HashMap" resultType="ExqueryMap" >
+		UPDATE PTS_ETC_DATA
+		SET
+		S_VAL       		= #{sVal},
+		UPDATED_USER_ID     = #{ssUserId},
+		UPDATED_DT          = sysdate
+		WHERE DOC_ID = #{docId}
+		AND ETC_CD = #{tagCd}
+	</select>
+
+    <select id="updatePtsDocument" parameterType="HashMap" resultType="ExqueryMap" >
+		UPDATE PTS_DOCUMENT
+		SET
+		UPDATED_USER_ID     = #{ssUserId},
+		UPDATED_DT          = sysdate,
+        DOC_NUM             = #{docNum}
+		WHERE DOC_ID = #{docId}
+	</select>
+
+</mapper>
+
+
+
+
+
+
+
+
+

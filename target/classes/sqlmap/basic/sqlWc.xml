@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.basic.sqlWc">
+
+	<select id="selectWcList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT WORKCENTER_CD
+		     , FN_GET_MSG(WORKCENTER_NM,#{ssUserLang})  														   AS WORKCENTER_NM 	
+		     , WORKCENTER_DESC
+		     , FN_GET_COMMCODE_NAME(#{ssUserLang},'USE_YN',USE_YN)												   AS USE_YN
+		     , REMARKS
+		     , TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS')  													   AS CREATED_DT
+		     , CREATED_USER_ID
+   		     , (SELECT USER_NM FROM COM_USER WHERE USER_ID = CW.CREATED_USER_ID AND USE_YN = 'Y' AND ROWNUM = 1)   AS CREATED_USER_NM
+		     , TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS')  													   AS UPDATED_DT
+		     , UPDATED_USER_ID 
+		     , (SELECT USER_NM FROM COM_USER WHERE USER_ID = CW.UPDATED_USER_ID AND USE_YN = 'Y' AND ROWNUM = 1)   AS UPDATE_USER_NM
+		FROM COM_WORKCENTER CW
+		<where>
+			<if test='useYn != null and useYn != ""'>
+			AND USE_YN = #{useYn}
+			</if>
+			<if test='searchStr1 != null and  searchStr1 != ""'>
+			AND (WORKCENTER_NM LIKE '%${searchStr1}%' OR WORKCENTER_CD LIKE '%${searchStr1}%')
+			</if>
+		</where>
+		ORDER BY CW.CREATED_DT DESC
+	</select>
+	
+	<select id="selectWcOne" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT WORKCENTER_CD
+		     , FN_LANG_INP(WORKCENTER_NM,'en')  AS WORKCENTER_NM_EN 	-- 영어
+		     , FN_LANG_INP(WORKCENTER_NM,'ko')  AS WORKCENTER_NM_KO 	-- 한국어
+		     , FN_LANG_INP(WORKCENTER_NM,'cn')  AS WORKCENTER_NM_CN 	-- 중국어
+		     , WORKCENTER_DESC
+		     , USE_YN
+		     , REMARKS
+		     , TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS')  AS CREATED_DT
+		     , CREATED_USER_ID
+		     , TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS')  AS UPDATED_DT
+		     , UPDATED_USER_ID
+		FROM COM_WORKCENTER
+		WHERE WORKCENTER_CD = #{workcenterCd}
+	</select>
+	
+	
+	<insert id="insertWc" parameterType="HashMap" >
+		INSERT INTO COM_WORKCENTER (
+			  WORKCENTER_CD
+			, WORKCENTER_NM
+			, WORKCENTER_DESC
+			, USE_YN
+			, REMARKS
+			, CREATED_DT
+			, CREATED_USER_ID
+			, UPDATED_DT
+		    , UPDATED_USER_ID
+		) VALUES (
+			#{workcenterCd}
+		  , #{workcenterNm}
+		  , #{workcenterDesc}
+		  , #{useYn}
+		  , #{remarks}
+		  , SYSDATE
+		  , #{ssUserId}
+		  , NULL
+		  , NULL
+		)    
+	</insert>
+	
+	
+	<update id="updateWc" parameterType="HashMap" >
+		UPDATE COM_WORKCENTER
+		<set>
+		   WORKCENTER_NM = #{workcenterNm}
+		 , WORKCENTER_DESC = #{workcenterDesc}
+		 , USE_YN = #{useYn}
+		 , REMARKS = #{remarks}
+		 , UPDATED_DT = SYSDATE
+		 , UPDATED_USER_ID = #{ssUserId}
+		</set>
+		WHERE WORKCENTER_CD = #{workcenterCd}
+	</update>
+	
+	<update id="deleteWc" parameterType="HashMap">
+		UPDATE COM_WORKCENTER
+		<set>
+		   USE_YN = 'N'
+		 , UPDATED_DT = SYSDATE
+		 , UPDATED_USER_ID = #{ssUserId}
+		</set>
+		WHERE WORKCENTER_CD = #{workcenterCd}
+	</update>
+	
+</mapper>

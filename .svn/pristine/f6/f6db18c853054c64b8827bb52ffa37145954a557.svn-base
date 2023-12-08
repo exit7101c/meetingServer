@@ -1,0 +1,691 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.ctq.sqlCtq">
+
+	<!-- Ctq Tree List -->
+	<select id="selectCtqTreeList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT CTQ_CD
+			 , FN_GET_MSG(CTQ_NM, #{ssUserLang})			AS CTQ_NM	
+		     , CTQ_DESC
+		     , PARENT_CTQ_CD
+		     , CTQ_TYPE
+		     , AREA_CD
+		     , USE_YN
+		     , CREATED_DT
+		     , CREATED_USER_ID
+		     , UPDATED_DT
+		     , UPDATED_USER_ID
+		     , DECODE(CONNECT_BY_ISLEAF, 1, 'Y', 'N')  AS LEAF
+		     , SYS_CONNECT_BY_PATH(LPAD(DISPLAY_ORDER, 2, 0), '/') AS PATH
+		FROM COM_CTQ_CODE
+		<where>
+			<if test='useYn != null and useYn !="" '>
+				AND USE_YN = #{useYn}
+			</if>
+			<if test='ctqType !=null and ctqType !="" '>
+				AND CTQ_TYPE = #{ctqType}
+			</if>
+		</where>
+		START WITH PARENT_CTQ_CD = 'ROOT'
+		CONNECT BY PRIOR CTQ_CD = PARENT_CTQ_CD
+		ORDER BY PATH
+	</select>
+
+	<!-- Ctq Tree List -->
+	<select id="selectCtqTreeListUseCtrl" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+                A.CTQ_CD
+             , FN_GET_MSG(CTQ_NM, #{ssUserLang})            AS CTQ_NM
+             , CTQ_DESC
+             , PARENT_CTQ_CD
+             , B.TAG_CD
+             , CTQ_TYPE
+             , A.AREA_CD
+             , DECODE(CONNECT_BY_ISLEAF, 1, 'Y', 'N')  AS LEAF
+             , SYS_CONNECT_BY_PATH(LPAD(DISPLAY_ORDER, 2, 0), '/') AS PATH
+             , (SELECT UNIT FROM COM_TAG C WHERE C.TAG_CD = B.TAG_CD) AS UNIT
+             , C.CHART_TYPE
+             , C.FILL_YN
+        FROM COM_CTQ_CODE A
+        LEFT OUTER JOIN COM_CTQ_TAG B ON A.CTQ_CD = B.CTQ_CD
+        LEFT OUTER JOIN COM_TAG C ON B.TAG_CD = C.TAG_CD
+        WHERE A.USE_YN = 'Y'
+        AND CTQ_TYPE = 'CTQ'
+        START WITH PARENT_CTQ_CD = 'ROOT'
+        CONNECT BY PRIOR A.CTQ_CD = PARENT_CTQ_CD
+        ORDER BY PATH
+	</select>
+
+	<!-- I-CHART 측정별 데이터 -->
+	<select id="selectIchartListMeasure" parameterType="HashMap" resultType="ExqueryMap">
+	   SELECT TAG_VAL.TAG_CD 
+			, TO_CHAR(TAG_VAL.EVENT_TIME,'YYYY-MM-DD HH24:MI:SS') AS NAME
+			, TAG_VAL.EVENT_TIME                                  AS X
+			, ROUND(TAG_VAL.TAG_VALUE,1)                          AS Y
+			, FN_GET_MSG(TAG.TAG_NM, #{ssUserLang})               AS TAG_NM
+	        , TAG_VAL.TAG_VALUE
+	        , TAG.UNIT
+	    FROM COM_TAG_VALUE TAG_VAL
+	    INNER JOIN COM_TAG TAG
+	    ON TAG_VAL.TAG_CD = TAG.TAG_CD
+	    WHERE TAG_VAL.EVENT_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+	    AND TAG_VAL.TAG_CD = #{tagCd}
+	</select>
+
+	<!-- I-CHART CL, USL, LSL 측정별 데이터 -->
+	<select id="selectIChartClMeasure" parameterType="HashMap" resultType="ExqueryMap">
+	   SELECT ROUND(CL, 1)                    	AS CL  --측정치평균
+	         , ROUND(CL + ( 3 * STD_AVG ), 1) 	AS UCL --상한
+			 , ROUND(CL - ( 3 * STD_AVG ), 1) 	AS LCL --하한
+	    FROM 
+	    (
+	        SELECT (SUM(TAG_VALUE)/COUNT(*)) 	AS CL      -- 평균 
+	             , STDDEV(TAG_VALUE)         	AS STD_AVG -- 표준편차
+	        FROM COM_TAG_VALUE TAG_VAL
+	        INNER JOIN COM_TAG TAG
+	        ON TAG_VAL.TAG_CD = TAG.TAG_CD
+		    WHERE TAG_VAL.EVENT_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+		    AND TAG_VAL.TAG_CD = #{tagCd}
+	    )
+	</select>
+
+	<!-- I-CHART 시간/월/일 별 데이터 -->
+	<select id="selectIChartList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TAG_VAL.TAG_CD 
+		     , TAG_VAL.EVENT_TIME                         AS X
+		     , ROUND(TAG_VAL.AVG,1)                       AS Y
+		     , CASE WHEN #{searchType} = 'I' THEN  TO_CHAR( TAG_VAL.EVENT_TIME, 'YYYY-MM-DD HH24:MI:SS')
+		           WHEN #{searchType} = 'H' THEN  TO_CHAR( TAG_VAL.EVENT_TIME, 'YYYY-MM-DD HH24')
+		           WHEN #{searchType} = 'D' THEN  TO_CHAR( TAG_VAL.EVENT_TIME, 'YYYY-MM-DD')
+		           WHEN #{searchType} = 'M' THEN  TO_CHAR( TAG_VAL.EVENT_TIME, 'YYYY-MM')
+		           WHEN #{searchType} = 'Y' THEN  TO_CHAR( TAG_VAL.EVENT_TIME, 'YYYY')
+		           WHEN #{searchType} = 'W' THEN FN_GET_WEEK(TO_CHAR( TAG_VAL.EVENT_TIME, 'YYYYMM'),TO_CHAR( TAG_VAL.EVENT_TIME, 'YYYY-MM-DD'))
+		       END NAME
+    		 , FN_GET_MSG(TAG.TAG_NM, #{ssUserLang})     AS TAG_NM
+    		 , TAG.UNIT
+    		 , ROUND(SUM,1) AS SUM
+    		 , ROUND(AVG,1) AS AVG
+		FROM COM_TAG_VALUE_SUM TAG_VAL
+		INNER JOIN COM_TAG TAG
+		ON TAG_VAL.TAG_CD = TAG.TAG_CD
+		AND TAG.USE_YN = 'Y'
+		WHERE TAG_VAL.EVENT_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+		AND TAG_VAL.TAG_CD = #{tagCd}
+		AND TAG_VAL.MEASURE_TYPE = #{searchType}
+	</select>
+
+	<!-- I-CHART 시간/월/일 별 ucl,lcl,cl 데이터 -->
+	<select id="selectIChartCl" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT ROUND(CL, 1)                    	AS CL  --측정치평균
+	         , ROUND(CL + ( 3 * STD_AVG ), 1) 	AS UCL --상한
+			 , ROUND(CL - ( 3 * STD_AVG ), 1) 	AS LCL --하한
+	    FROM 
+	    (
+	        SELECT (SUM(AVG)/COUNT(*)) 			AS CL      -- 평균 
+                 , STDDEV(AVG)         			AS STD_AVG -- 표준편차
+	        FROM COM_TAG_VALUE_SUM 
+		    WHERE EVENT_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+		    AND TAG_CD = #{tagCd}
+		    AND MEASURE_TYPE = #{searchType}
+	    )
+	</select>
+
+
+	<!-- TODO : 실행계획 돌려보기-->
+	<!-- MR-CHART 측정별 데이터 -->
+	<select id="selectMrChartClMeasure" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT 0 AS LCL
+            , ROUND(AVG(RS),1) AS CL
+            , ROUND(AVG(RS) + (3 * STDDEV(RS)), 1) AS UCL
+        FROM 
+        (
+            SELECT TAG_VAL.TAG_CD
+                 , TAG_VAL.EVENT_TIME      
+                 , ROUND(ABS( LAG(TAG_VALUE,1,TAG_VALUE) OVER (ORDER BY EVENT_TIME) - TAG_VALUE ), 1) AS RS       -- (이전값-이후값)
+            FROM COM_TAG_VALUE TAG_VAL
+            INNER JOIN COM_TAG TAG
+            ON TAG_VAL.TAG_CD = TAG.TAG_CD
+            WHERE TAG_VAL.EVENT_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+            AND TAG_VAL.TAG_CD = #{tagCd}
+        )
+	</select>
+
+	<select id="selectMrChartListMeasure" parameterType="HashMap" resultType="ExqueryMap">
+	   SELECT CASE WHEN #{searchType} = 'I' THEN  TO_CHAR( EVENT_TIME, 'YYYY-MM-DD HH24:MI:SS')
+                    WHEN #{searchType} = 'H' THEN  TO_CHAR( EVENT_TIME, 'YYYY-MM-DD HH24')
+	                WHEN #{searchType} = 'D' THEN  TO_CHAR( EVENT_TIME, 'YYYY-MM-DD')
+	                WHEN #{searchType} = 'M' THEN  TO_CHAR( EVENT_TIME, 'YYYY-MM')
+	                WHEN #{searchType} = 'Y' THEN  TO_CHAR( EVENT_TIME, 'YYYY')
+	       		END NAME
+		    , EVENT_TIME 													   AS X
+		    , ROUND(ABS( LAG(VAL,1,VAL) OVER (ORDER BY EVENT_TIME) - VAL ), 1) AS Y -- (전-후)
+            , TAG_CD
+            , FN_GET_MSG(TAG_NM, #{ssUserLang}) 							   AS TAG_NM
+        FROM 
+        (
+            SELECT TAG_VAL.TAG_CD 
+                , TAG_VAL.EVENT_TIME                                  
+                , TAG_VAL.TAG_VALUE AS VAL
+                , TAG.TAG_NM
+            FROM COM_TAG_VALUE TAG_VAL
+            INNER JOIN COM_TAG TAG
+            ON TAG_VAL.TAG_CD = TAG.TAG_CD
+            WHERE TAG_VAL.EVENT_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+            AND TAG_VAL.TAG_CD = #{tagCd}
+        )
+	</select>
+
+	<!-- [ MR ] chart  시간/월/일 별 데이터 -->
+	<select id="selectMrChartList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT CASE WHEN #{searchType} = 'I' THEN  TO_CHAR( EVENT_TIME, 'YYYY-MM-DD HH24:MI:SS')
+                    WHEN #{searchType} = 'H' THEN  TO_CHAR( EVENT_TIME, 'YYYY-MM-DD HH24')
+	                WHEN #{searchType} = 'D' THEN  TO_CHAR( EVENT_TIME, 'YYYY-MM-DD')
+	                WHEN #{searchType} = 'M' THEN  TO_CHAR( EVENT_TIME, 'YYYY-MM')
+	                WHEN #{searchType} = 'Y' THEN  TO_CHAR( EVENT_TIME, 'YYYY')
+	       		END NAME
+		    , EVENT_TIME 													   AS X
+		    , ROUND(ABS( LAG(VAL,1,VAL) OVER (ORDER BY EVENT_TIME) - VAL ), 1) AS Y -- (전-후)
+            , TAG_CD
+        FROM 
+        (
+            SELECT TAG_CD 
+                , EVENT_TIME                                    
+                , AVG AS VAL
+            FROM COM_TAG_VALUE_SUM 
+            WHERE EVENT_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+            AND TAG_CD = #{tagCd}
+            AND MEASURE_TYPE = #{searchType}
+        )
+	</select>
+
+	<!-- [ MR ] 시간/월/일 별 ucl,lcl,cl 데이터 -->
+	<select id="selectMrChartCl" parameterType="HashMap" resultType="ExqueryMap">
+ 	    SELECT 0					 				AS LCL
+            , ROUND(AVG(RS),1) 						AS CL
+            , ROUND(AVG(RS) + (3 * STDDEV(RS)), 1) 	AS UCL
+        FROM 
+        (
+            SELECT TAG_CD
+                 , EVENT_TIME      
+                 , ROUND(ABS( LAG(AVG,1,AVG) OVER (ORDER BY EVENT_TIME) - AVG ), 1) AS RS       -- (이전값-이후값)
+            FROM COM_TAG_VALUE_SUM 
+            WHERE EVENT_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+            AND TAG_CD = #{tagCd}
+            AND MEASURE_TYPE = #{searchType}
+        )
+	</select>
+
+	<!-- CTQ Trend Chart -->
+	<select id="selectTrendChartListMeasure" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT TAG_VAL.TAG_CD
+			, TO_CHAR(TAG_VAL.EVENT_TIME,'YYYY-MM-DD HH24:MI:SS') AS NAME
+			, TAG_VAL.EVENT_TIME                                  AS X
+			, ROUND(TAG_VAL.TAG_VALUE,1)                          AS Y
+			, FN_GET_MSG(TAG.TAG_NM, #{ssUserLang})               AS TAG_NM
+            , CASE WHEN TN.VALUE_NM IS NULL THEN  FN_THREECOMMA(RTRIM(TO_CHAR(ROUND(NVL(TAG_VAL.TAG_VALUE,''),1), 'FM9999999990.9'),'.'))
+                   ELSE FN_GET_MSG(TN.VALUE_NM, #{ssUserLang}) END TAG_VALUE
+			, TAG_VAL.UCL
+			, TAG_VAL.LCL
+			, TAG_VAL.SV
+            , TAG.UNIT
+            , ROWNUM AS NO
+        FROM COM_TAG_VALUE TAG_VAL
+        INNER JOIN COM_TAG TAG
+        ON TAG_VAL.TAG_CD = TAG.TAG_CD
+        LEFT OUTER JOIN COM_TAG_VALUE_CODE TN
+        ON TAG_VAL.TAG_CD = TN.TAG_CD AND TAG_VAL.TAG_VALUE = TN.VALUE_CD
+        WHERE TAG_VAL.EVENT_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+        AND TAG_VAL.TAG_CD = #{tagCd}
+	</select>
+
+
+	<!-- CTQ Trend Chart -->
+	<select id="selectCtqChartListMeasure" parameterType="HashMap" resultType="ExqueryMap">
+		WITH CTQ AS (
+		SELECT A.CTQ_CD, A.CTQ_NM, B.TAG_CD
+		FROM COM_CTQ_CODE A, COM_CTQ_TAG B
+		WHERE A.CTQ_CD = B.CTQ_CD
+		AND A.CTQ_CD = #{ctqCd}
+		)
+		SELECT TAG_VAL.TAG_CD
+		, TO_CHAR(TAG_VAL.EVENT_TIME,'YYYY-MM-DD HH24:MI:SS') AS NAME
+		, TAG_VAL.EVENT_TIME                                  AS X
+		, ROUND(TAG_VAL.TAG_VALUE,1)                          AS Y
+		, CASE WHEN TN.VALUE_NM IS NULL THEN  FN_THREECOMMA(RTRIM(TO_CHAR(ROUND(NVL(TAG_VAL.TAG_VALUE,''),1), 'FM9999999990.9'),'.'))
+			   ELSE FN_GET_MSG(TN.VALUE_NM, #{ssUserLang}) END TAG_VALUE
+		, FN_GET_MSG(TAG.TAG_NM, #{ssUserLang})               AS TAG_NM
+		, TAG_VAL.TAG_VALUE
+		, TAG_VAL.UCL
+		, TAG_VAL.LCL
+		, TAG_VAL.SV
+		, TAG.UNIT
+		, ROWNUM AS NO
+		, FN_GET_MSG(C.CTQ_NM, #{ssUserLang}) AS CTQ_NM
+		FROM COM_TAG_VALUE TAG_VAL
+		LEFT OUTER JOIN CTQ C
+		ON TAG_VAL.TAG_CD = C.TAG_CD
+		INNER JOIN COM_TAG TAG
+		ON TAG_VAL.TAG_CD = TAG.TAG_CD
+        LEFT OUTER JOIN COM_TAG_VALUE_CODE TN
+        ON TAG_VAL.TAG_CD = TN.TAG_CD AND TAG_VAL.TAG_VALUE = TN.VALUE_CD
+		WHERE TAG_VAL.EVENT_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+		AND TAG_VAL.TAG_CD = #{tagCd}
+	</select>
+
+
+	<!-- CTQ 이력조회 시간별  -->
+	<select id="selectCtqChartList" parameterType="HashMap" resultType="ExqueryMap">
+		WITH CTQ AS (
+            SELECT A.CTQ_CD, A.CTQ_NM, B.TAG_CD
+            FROM COM_CTQ_CODE A, COM_CTQ_TAG B
+            WHERE A.CTQ_CD = B.CTQ_CD
+            AND A.CTQ_CD = #{ctqCd}
+        )
+		SELECT TAG_VAL.TAG_CD
+			, TAG_VAL.EVENT_TIME                         AS X
+			, ROUND(TAG_VAL.AVG,1)                       AS Y
+			, FN_THREECOMMA(ROUND(TAG_VAL.AVG,1))        AS TAG_VALUE
+			, CASE WHEN #{searchType} = 'I' THEN  TO_CHAR( TAG_VAL.EVENT_TIME, 'YYYY-MM-DD HH24:MI:SS')
+			WHEN #{searchType} = 'H' THEN  TO_CHAR( TAG_VAL.EVENT_TIME, 'YYYY-MM-DD HH24')
+			WHEN #{searchType} = 'D' THEN  TO_CHAR( TAG_VAL.EVENT_TIME, 'YYYY-MM-DD')
+			WHEN #{searchType} = 'M' THEN  TO_CHAR( TAG_VAL.EVENT_TIME, 'YYYY-MM')
+			WHEN #{searchType} = 'Y' THEN  TO_CHAR( TAG_VAL.EVENT_TIME, 'YYYY')
+			WHEN #{searchType} = 'W' THEN FN_GET_WEEK(TO_CHAR( TAG_VAL.EVENT_TIME, 'YYYYMM'),TO_CHAR( TAG_VAL.EVENT_TIME, 'YYYY-MM-DD'))
+			END NAME
+			, FN_GET_MSG(TAG.TAG_NM, #{ssUserLang})     AS TAG_NM
+			, TAG.UNIT
+			, FN_GET_MSG(C.CTQ_NM, #{ssUserLang}) AS CTQ_NM
+			, FN_THREECOMMA(ROUND(SUM,1)) AS SUM
+			, FN_THREECOMMA(ROUND(AVG,1)) AS AVG
+		FROM COM_TAG_VALUE_SUM TAG_VAL
+        LEFT OUTER JOIN CTQ C
+        ON TAG_VAL.TAG_CD = C.TAG_CD
+		INNER JOIN COM_TAG TAG
+		ON TAG_VAL.TAG_CD = TAG.TAG_CD
+		AND TAG.USE_YN = 'Y'
+		WHERE TAG_VAL.EVENT_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+		AND TAG_VAL.TAG_CD = #{tagCd}
+		AND TAG_VAL.MEASURE_TYPE = #{searchType}
+	</select>
+
+	<!-- CTQ Trend Chart <sum> -->
+	<select id="selectTrendChartListSum" parameterType="HashMap" resultType="ExqueryMap">
+	   	SELECT
+			CASE  WHEN #{searchType} = 'H'     THEN  TO_CHAR( A.EVENT_TIME, 'YYYY-MM-DD HH24:MI:SS')
+				  WHEN #{searchType} = 'D'    THEN  TO_CHAR( A.EVENT_TIME, 'YYYY-MM-DD')
+				  WHEN #{searchType} = 'M'   THEN  TO_CHAR( A.EVENT_TIME, 'YYYY-MM')
+				  WHEN #{searchType} = 'Y'   THEN  TO_CHAR( A.EVENT_TIME, 'YYYY')
+				  WHEN #{searchType} = 'W' THEN FN_GET_WEEK(TO_CHAR( A.EVENT_TIME, 'YYYYMM'),TO_CHAR( A.EVENT_TIME, 'YYYY-MM-DD'))
+		   	END NAME
+			, A.EVENT_TIME X
+			, ROUND(A.SUM, 1) AS Y
+			, ROUND(A.SUM, 1) AS TAG_VALUE
+			, A.TAG_CD
+			, ROUND(A.AVG,1) AS AVG
+			, FN_GET_MSG(B.TAG_NM, #{ssUserLang}) AS TAG_NM
+			, B.UNIT AS UNIT
+		FROM
+			COM_TAG_VALUE_SUM A
+			, COM_TAG B
+		WHERE
+			A.TAG_CD = B.TAG_CD
+			AND A.MEASURE_TYPE = #{searchType}
+			AND A.TAG_CD = #{tagCd}
+			AND A.EVENT_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+		ORDER BY A.EVENT_TIME
+	</select>
+
+	<select id="selectSearchRangeStr" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+		TO_CHAR(FN_START_DATE(#{fromDate}), 'YYYY-MM-DD HH24:MI:SS') AS START_TIME_STR ,
+		TO_CHAR(FN_END_DATE(#{toDate}), 'YYYY-MM-DD HH24:MI:SS') AS END_TIME_STR
+		FROM DUAL
+	</select>
+	
+	
+	<!-- 각공정의 시간별 CTQ 비교 리스트 -->
+	<select id="selectCtqComparisonList" parameterType="HashMap" resultType="ExqueryMap">
+	   SELECT TAG_VAL.TAG_CD 
+			, TO_CHAR(TAG_VAL.EVENT_TIME,'YYYY-MM-DD HH24:MI:SS') AS NAME
+			, TAG_VAL.EVENT_TIME                                  AS X
+			, ROUND(TAG_VAL.TAG_VALUE,1)                          AS Y
+			, FN_GET_MSG(TAG.TAG_NM, #{ssUserLang})               AS TAG_NM
+	        , TAG_VAL.TAG_VALUE
+			, TAG_VAL.UCL
+			, TAG_VAL.LCL
+	    FROM COM_TAG_VALUE TAG_VAL
+	    INNER JOIN COM_TAG TAG
+	    ON TAG_VAL.TAG_CD = TAG.TAG_CD
+	    WHERE TAG_VAL.EVENT_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+	    AND TAG_VAL.TAG_CD = #{tagCd}
+	</select>
+
+
+	<!-- [CTQ 즐겨찾기] Delete -->
+	<delete id="deleteCtqFavorite" parameterType="Hashmap">
+		DELETE
+		FROM COM_USER_CTQ_FAVORIT
+		WHERE USER_ID = #{ssUserId}
+	</delete>
+
+	<!-- [CTQ 즐겨찾기] Insert -->
+	<insert id="insertCtqFavorite" parameterType="Hashmap">
+		INSERT INTO COM_USER_CTQ_FAVORIT
+		(USER_ID, CTQ_CD, CREATED_DT, CREATED_USER_ID)
+		VALUES
+		(#{ssUserId}, #{ctqCd}, SYSDATE, #{ssUserId})
+	</insert>
+
+	<!-- [CTQ 즐겨찾기] 조회 -->
+	<select id="selectCtqFavorite" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT
+             A.CTQ_CD
+             , FN_GET_MSG(CTQ_NM, #{ssUserLang}) AS CTQ_NM
+             , CTQ_DESC
+             , PARENT_CTQ_CD
+             , B.TAG_CD
+             , CTQ_TYPE
+             , AREA_CD
+             , DECODE(CONNECT_BY_ISLEAF, 1, 'Y', 'N')  AS LEAF
+             , SYS_CONNECT_BY_PATH(LPAD(DISPLAY_ORDER, 2, 0), '/') AS PATH
+             , (SELECT UNIT FROM COM_TAG C WHERE C.TAG_CD = B.TAG_CD) AS UNIT
+             , CASE WHEN C.CTQ_CD IS NOT NULL THEN 'Y'
+             ELSE 'N' END AS IS_SELECTED
+        FROM COM_CTQ_CODE A
+        LEFT OUTER JOIN COM_CTQ_TAG B ON A.CTQ_CD = B.CTQ_CD
+        LEFT OUTER JOIN ( SELECT * FROM COM_USER_CTQ_FAVORIT WHERE USER_ID = #{ssUserId} ) C ON A.CTQ_CD = C.CTQ_CD
+        WHERE A.USE_YN = 'Y'
+        AND A.CTQ_TYPE = 'CTQ'
+        AND A.AREA_CD = #{ssUserAreaCd}
+        START WITH PARENT_CTQ_CD = 'ROOT'
+        CONNECT BY PRIOR A.CTQ_CD = PARENT_CTQ_CD
+        ORDER BY PATH
+	</select>
+
+	<!-- [CTQ 컨티션 모니터링] Delete -->
+	<delete id="deleteCtqMoniCond" parameterType="Hashmap">
+		DELETE
+		FROM COM_EQP_CONDITION
+		WHERE EQP_GROUP = #{type}
+	</delete>
+
+	<!-- [CTQ 컨티션 모니터링] Insert -->
+	<insert id="insertCtqMoniCond" parameterType="Hashmap">
+        INSERT INTO COM_EQP_CONDITION
+        (EQP_GROUP, TAG_CD, CREATED_DT, CREATED_USER_ID)
+        VALUES
+        (#{type}, #{tagCd}, SYSDATE, #{ssUserId})
+	</insert>
+
+	<!-- [CTQ 컨티션 모니터링] 조회 -->
+	<select id="selectCtqMoniCond" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT
+             A.CTQ_CD
+             , FN_GET_MSG(CTQ_NM, #{ssUserLang}) AS CTQ_NM
+             , (SELECT FN_GET_MSG(TAG_NM, #{ssUserLang}) FROM COM_TAG C WHERE C.TAG_CD = B.TAG_CD) AS TAG_NM
+             , CTQ_DESC
+             , PARENT_CTQ_CD
+             , B.TAG_CD
+             , CTQ_TYPE
+             , AREA_CD
+             , DECODE(CONNECT_BY_ISLEAF, 1, 'Y', 'N')  AS LEAF
+             , SYS_CONNECT_BY_PATH(LPAD(A.DISPLAY_ORDER, 2, 0), '/') AS PATH
+             , (SELECT UNIT FROM COM_TAG C WHERE C.TAG_CD = B.TAG_CD) AS UNIT
+             , CASE WHEN C.TAG_CD IS NOT NULL THEN 'Y'
+             ELSE 'N' END AS IS_SELECTED
+        FROM COM_CTQ_CODE A
+        LEFT OUTER JOIN COM_CTQ_TAG B ON A.CTQ_CD = B.CTQ_CD
+        LEFT OUTER JOIN ( SELECT * FROM COM_EQP_CONDITION WHERE EQP_GROUP = #{type} ) C ON B.TAG_CD = C.TAG_CD
+        WHERE A.USE_YN = 'Y'
+        AND A.CTQ_TYPE = 'CTQ'
+        AND A.AREA_CD = #{ssUserAreaCd}
+        START WITH PARENT_CTQ_CD = 'ROOT'
+        CONNECT BY PRIOR A.CTQ_CD = PARENT_CTQ_CD
+        ORDER BY PATH
+	</select>
+
+	<!-- CTQ 차이 조회 측정별 -->
+	<select id="selectCtqCompareValueList" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT sEVENT_TIME
+	         , sTAG_VALUE
+	         , sTAG_CD
+	         , cEVENT_TIME
+	         , cTAG_VALUE
+	         , DIFF_VALUE
+	         , RATIO
+	         , TAG_NM
+	         , UNIT
+	         , TO_CHAR(FN_START_DATE(#{fromDate}), 'YYYY-MM-DD HH24:MI:SS') || ' ~ ' || 	TO_CHAR(FN_END_DATE(#{toDate}), 'YYYY-MM-DD HH24:MI:SS')  AS START_TIME 
+			 , TO_CHAR(FN_END_DATE(#{comFromDate}), 'YYYY-MM-DD HH24:MI:SS') || ' ~ ' || TO_CHAR(FN_END_DATE(#{comToDate}), 'YYYY-MM-DD HH24:MI:SS') AS END_TIME
+			, ( SELECT CTQ_CD FROM COM_CTQ_TAG WHERE TAG_CD = CtqCompare.sTAG_CD ) AS CTQ_CD
+			, FN_GET_MSG(( SELECT CTQ_NM FROM COM_CTQ_CODE WHERE CTQ_CD = ( SELECT CTQ_CD FROM COM_CTQ_TAG WHERE TAG_CD = CtqCompare.sTAG_CD )), #{ssUserLang} ) AS CTQ_NM
+        FROM
+        (
+	        SELECT ''                      				    AS sEVENT_TIME
+	             , Standard.TAG_VALUE                       AS sTAG_VALUE
+	             , Standard.TAG_CD                          AS sTAG_CD
+	             , ''                      			 		AS cEVENT_TIME
+	             , Compare.TAG_VALUE                        AS cTAG_VALUE    
+	             , Standard.TAG_VALUE - Compare.TAG_VALUE   AS DIFF_VALUE
+					, ROUND(Compare.TAG_VALUE/DECODE(Standard.TAG_VALUE*100,0,1,Standard.TAG_VALUE*100),1) AS RATIO
+				, FN_GET_MSG(CT.TAG_NM, #{ssUserLang})     AS TAG_NM
+	             , CT.UNIT
+	        FROM 
+	        (
+	            SELECT
+		<if test='searchType2 !=null and searchType2 =="SUM"'>
+			SUM(TAG_VALUE) AS TAG_VALUE
+		</if>
+		<if test='searchType2 !=null and searchType2 =="AVG"'>
+			AVG(TAG_VALUE) AS TAG_VALUE
+		</if>
+		<if test='searchType2 !=null and searchType2 =="MAX"'>
+			MAX(TAG_VALUE) AS TAG_VALUE
+		</if>
+		<if test='searchType2 !=null and searchType2 =="MIN"'>
+			MIN(TAG_VALUE) AS TAG_VALUE
+		</if>
+	                 , TAG_CD
+	            FROM COM_TAG_VALUE
+	            WHERE EVENT_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+	            <if test="list.size !=0 ">
+	            AND TAG_CD IN (
+					SELECT TAG_CD FROM COM_CTQ_TAG WHERE CTQ_CD IN
+					<foreach collection="list" item="tag"  open="(" close=")" separator=",">
+			            '${tag.ctqCd}'
+			        </foreach>
+					)
+		        </if>
+	            GROUP BY TAG_CD
+	        ) Standard		       -- TABLE[1] 기준 대상 테이블  : 기간내 CTQ 합
+	        INNER JOIN 
+	        (
+	            SELECT
+			<if test='searchType2 !=null and searchType2 =="SUM"'>
+				SUM(TAG_VALUE) AS TAG_VALUE
+			</if>
+			<if test='searchType2 !=null and searchType2 =="AVG"'>
+				AVG(TAG_VALUE) AS TAG_VALUE
+			</if>
+			<if test='searchType2 !=null and searchType2 =="MAX"'>
+				MAX(TAG_VALUE) AS TAG_VALUE
+			</if>
+			<if test='searchType2 !=null and searchType2 =="MIN"'>
+				MIN(TAG_VALUE) AS TAG_VALUE
+			</if>
+	                 , TAG_CD
+	            FROM COM_TAG_VALUE
+	            WHERE EVENT_TIME BETWEEN FN_START_DATE(#{comFromDate}) AND FN_END_DATE(#{comToDate})
+	            <if test="list.size !=0 ">
+	            AND TAG_CD IN(
+					SELECT TAG_CD FROM COM_CTQ_TAG WHERE CTQ_CD IN
+					<foreach collection="list" item="tag"  open="(" close=")" separator=",">
+						'${tag.ctqCd}'
+					</foreach>
+					)
+		        </if>
+	            GROUP BY TAG_CD
+	        )  Compare             -- TABLE[2] 비교 대상 테이블   : 기간내 CTQ 합
+	       ON Standard.TAG_CD = Compare.TAG_CD
+	       INNER JOIN COM_TAG  CT  -- TABLE[3] CTQ 정보 테이블
+	       ON Standard.TAG_CD =  CT.TAG_CD 
+       ) CtqCompare
+       ORDER BY RATIO DESC
+	</select>	
+	
+	<!-- CTQ 차이 조회 시간별 -->
+	<select id="selectCtqCompareSumList" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT sEVENT_TIME
+	         , sTAG_VALUE
+	         , sTAG_CD
+	         , cEVENT_TIME
+	         , cTAG_VALUE
+	         , DIFF_VALUE
+	         , RATIO
+	         , TAG_NM
+	         , UNIT
+	         , TO_CHAR(FN_START_DATE(#{fromDate}), 'YYYY-MM-DD HH24:MI:SS') AS START_TIME 
+			 , TO_CHAR(FN_END_DATE(#{toDate}), 'YYYY-MM-DD HH24:MI:SS') 	AS END_TIME
+		, ( SELECT CTQ_CD FROM COM_CTQ_TAG WHERE TAG_CD = CtqCompare.sTAG_CD ) AS CTQ_CD
+		, FN_GET_MSG(( SELECT CTQ_NM FROM COM_CTQ_CODE WHERE CTQ_CD = ( SELECT CTQ_CD FROM COM_CTQ_TAG WHERE TAG_CD = CtqCompare.sTAG_CD )), #{ssUserLang} ) AS CTQ_NM
+		FROM
+        (
+	        SELECT ''                      				    AS sEVENT_TIME
+	             , Standard.SUM                             AS sTAG_VALUE
+	             , Standard.TAG_CD                          AS sTAG_CD
+	             , ''                      			 		AS cEVENT_TIME
+	             , Compare.SUM                        		AS cTAG_VALUE  
+	             , Standard.SUM - Compare.SUM               AS DIFF_VALUE
+	             , Compare.SUM/DECODE(Standard.SUM*100,0,1,Standard.SUM*100)             AS RATIO
+	             , FN_GET_MSG(CT.TAG_NM, #{ssUserLang})     AS TAG_NM
+	             , CT.UNIT
+	        FROM 
+	        (
+	            SELECT
+				<if test='searchType2 !=null and searchType2 =="SUM"'>
+					SUM
+				</if>
+				<if test='searchType2 !=null and searchType2 =="AVG"'>
+					AVG AS SUM
+				</if>
+				<if test='searchType2 !=null and searchType2 =="MAX"'>
+					MAX AS SUM
+				</if>
+				<if test='searchType2 !=null and searchType2 =="MIN"'>
+					MIN AS SUM
+				</if>
+	                 , TAG_CD
+	            FROM COM_TAG_VALUE_SUM
+	            WHERE EVENT_TIME = FN_START_DATE(#{fromDate})
+	            <if test="list.size !=0 ">
+	            AND TAG_CD IN(
+					SELECT TAG_CD FROM COM_CTQ_TAG WHERE CTQ_CD IN
+					<foreach collection="list" item="tag"  open="(" close=")" separator=",">
+						'${tag.ctqCd}'
+					</foreach>
+					)
+		        </if>
+		        AND MEASURE_TYPE = #{searchType}
+	        ) Standard		       -- TABLE[1] 기준 대상 테이블  : 기간내 CTQ 합
+	        INNER JOIN 
+	        (
+	            SELECT
+		<if test='searchType2 !=null and searchType2 =="SUM"'>
+			SUM
+		</if>
+		<if test='searchType2 !=null and searchType2 =="AVG"'>
+			AVG AS SUM
+		</if>
+		<if test='searchType2 !=null and searchType2 =="MAX"'>
+			MAX AS SUM
+		</if>
+		<if test='searchType2 !=null and searchType2 =="MIN"'>
+			MIN AS SUM
+		</if>
+	                 , TAG_CD
+	            FROM COM_TAG_VALUE_SUM
+	            WHERE EVENT_TIME = FN_START_DATE(#{toDate})
+	            <if test="list.size !=0 ">
+	            AND TAG_CD IN(
+					SELECT TAG_CD FROM COM_CTQ_TAG WHERE CTQ_CD IN
+					<foreach collection="list" item="tag"  open="(" close=")" separator=",">
+						'${tag.ctqCd}'
+					</foreach>
+					)
+		        </if>
+		        AND MEASURE_TYPE = #{searchType}
+	        )  Compare             -- TABLE[2] 비교 대상 테이블   : 기간내 CTQ 합
+	       ON Standard.TAG_CD = Compare.TAG_CD
+	       INNER JOIN COM_TAG  CT  -- TABLE[3] CTQ 정보 테이블
+	       ON Standard.TAG_CD =  CT.TAG_CD 
+       ) CtqCompare
+       ORDER BY RATIO DESC
+	</select>
+
+
+	<!-- 접점정보 조회 -->
+	<select id="selectTagInfo" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			TAG_CD
+            , FN_GET_MSG(TAG_NM, #{ssUserLang}) AS TAG_NM
+            , TAG_TYPE
+            , UNIT
+            , CHART_TYPE
+		FROM COM_TAG
+		WHERE TAG_CD = #{tagCd}
+	</select>
+
+	<delete id="deleteCtqMultipleCorrelate" parameterType="Hashmap">
+		DELETE
+		FROM TEEMO
+		WHERE KEY = #{key}
+	</delete>
+
+    <!-- 접점 한건 조회 -->
+    <select id="selectCorrelDataIdx" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT NVL(MAX(SEQ)+1,1) AS SEQ FROM COM_CORREL_DATA WHERE ROWNUM = 1  ORDER BY SEQ DESC
+	</select>
+
+	<select id="selectCorrelateChartList" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT
+            IDX,SUM(VAL1) AS X,SUM(VAL2) AS Y
+        FROM (
+            SELECT VAL AS VAL1, 0 AS VAL2, IDX FROM COM_CORREL_DATA
+            WHERE KEY = #{xKey}
+            UNION ALL
+            SELECT 0 AS VAL1, VAL AS VAL2, IDX FROM COM_CORREL_DATA
+            WHERE KEY = #{yKey}
+        )
+        GROUP BY IDX
+        ORDER BY IDX
+    </select>
+
+
+    <!-- 월별 주 리스트 (주 시작 : 월)-->
+	<select id="selectWeekList" parameterType="HashMap" resultType="ExqueryMap" >
+		WITH WEEK AS (
+			SELECT
+			  WEEK_START
+			, WEEK_END
+			, TO_CHAR(WEEK_START, 'YYYY-MM-DD') WEEK_START_DATE
+			, TO_CHAR(WEEK_END, 'YYYY-MM-DD') WEEK_END_DATE
+			FROM (
+				SELECT
+					 TRUNC(START_DT + LEVEL, 'IW')     WEEK_START
+					,TRUNC(START_DT + LEVEL, 'IW') + 6 WEEK_END
+				FROM (
+					SELECT
+						 TO_DATE(#{yearMonth}  || '01', 'YYYYMMDD') START_DT
+						,LAST_DAY(TO_DATE(#{yearMonth}  || '01', 'YYYYMMDD')) END_DT
+					FROM DUAL
+				)
+				CONNECT BY LEVEL  &lt;= END_DT - START_DT
+			)
+			GROUP BY  WEEK_START, WEEK_END
+			ORDER BY  WEEK_START
+		)
+		SELECT ROWNUM , TO_CHAR(W.WEEK_START, 'W')||'Week ('|| WEEK_START_DATE || '~' || WEEK_END_DATE || ')' AS WEEKTEXT ,W.* FROM WEEK W
+	</select>
+
+</mapper>

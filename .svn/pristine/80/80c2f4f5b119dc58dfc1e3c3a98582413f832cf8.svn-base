@@ -1,0 +1,416 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.system.sqlAuth">
+	
+	<!-- 리스트 조회 (메뉴등록) -->
+	<select id="selectMenuList" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT
+            A.MENU_CD
+            , FN_GET_MSG(A.MENU_NM, #{ssUserLang}) AS MENU_NM
+            , A.MENU_DESC
+            , A.PARENT_MENU_CD
+            , (SELECT FN_GET_MSG(MENU_NM,#{ssUserLang}) FROM COM_MENU WHERE MENU_CD = A.PARENT_MENU_CD) AS PARENT_MENU_NM
+            , A.MENU_URL
+            , A.MENU_LEVEL
+            , A.DISPLAY_ORDER
+            , FN_GET_COMMCODE_NAME(#{ssUserLang}, 'USE_YN', A.USE_YN) AS USE_YN
+            , A.REMARKS
+            , FN_GET_DATE_STR(A.CREATED_DT) AS CREATED_DT
+            , (SELECT USER_NM FROM COM_USER WHERE USER_ID = A.CREATED_USER_ID) AS CREATED_USER_ID
+            , FN_GET_DATE_STR(A.UPDATED_DT) AS UPDATED_DT
+            , (SELECT USER_NM FROM COM_USER WHERE USER_ID = A.UPDATED_USER_ID) AS UPDATED_USER_ID
+            , ROWNUM AS NO
+            , SYS_CONNECT_BY_PATH(LPAD(A.DISPLAY_ORDER, 2, 0), '/') AS PATH
+        FROM COM_MENU A
+        <where>
+            <if test='useYn != null and useYn !=""'>
+                AND A.USE_YN = #{useYn}
+            </if>
+            <if test='searchStr1 != null and searchStr1 !=""'>
+                AND (A.MENU_CD LIKE '%${searchStr1}%' OR A.MENU_NM LIKE '%${searchStr1}%')
+            </if>
+        </where>
+        START WITH A.PARENT_MENU_CD = 'ROOT'
+        CONNECT BY PRIOR A.MENU_CD = PARENT_MENU_CD
+        ORDER BY PATH
+	</select>
+
+    <!-- 리스트 조회 (메뉴등록) -->
+    <select id="selectMenuAuthList" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT
+              AUTH_CD
+            , MENU_CD
+            , AUTH_ROLE
+            FROM COM_AUTHORITY_MENU
+        <where>
+            <if test='authCd != null and authCd !=""'>
+                AND AUTH_CD = #{authCd}
+            </if>
+        </where>
+    </select>
+
+	<!-- 한건 조회 (메뉴등록) -->
+	<select id="selectMenuOne" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT
+            A.MENU_CD
+            , FN_GET_MSG(A.MENU_NM,'en') AS  MENU_NM_EN     -- 영어
+            , FN_GET_MSG(A.MENU_NM,'ko') AS  MENU_NM_KO     -- 한국어
+            , FN_GET_MSG(A.MENU_NM, 'cn') AS MENU_NM_CN     -- 중국어
+            , A.MENU_DESC
+            , A.PARENT_MENU_CD
+            , (SELECT FN_GET_MSG(MENU_NM,#{ssUserLang}) FROM COM_MENU WHERE MENU_CD = A.PARENT_MENU_CD) AS PARENT_MENU_NM
+            , A.MENU_URL
+            , A.MENU_LEVEL
+            , A.DISPLAY_ORDER
+            , A.USE_YN
+            , A.REMARKS
+            , FN_GET_DATE_STR(A.CREATED_DT) AS CREATED_DT
+            , A.CREATED_USER_ID
+            , FN_GET_DATE_STR(A.UPDATED_DT) AS UPDATED_DT
+            , A.UPDATED_USER_ID
+        FROM COM_MENU A
+        WHERE MENU_CD = #{selectKey}
+	</select>
+
+    <!-- 한건을 저장한다. (메뉴등록) -->
+	<select id="insertMenu" parameterType="HashMap" resultType="ExqueryMap" >
+        INSERT INTO COM_MENU 
+        (MENU_CD,MENU_NM,MENU_DESC,PARENT_MENU_CD,MENU_URL,MENU_LEVEL,DISPLAY_ORDER,USE_YN,REMARKS,CREATED_DT,CREATED_USER_ID,UPDATED_DT,UPDATED_USER_ID)
+        VALUES
+        (#{menuCd}, #{menuNm}, #{menuDesc}, #{parentMenuCd}, #{menuUrl}, #{menuLevel}, #{displayOrder}, #{useYn}, #{remarks}, sysdate, #{ssUserId}, sysdate, #{ssUserId})
+	</select>
+
+    <!-- 한건을 수정한다. (메뉴등록) -->
+    <select id="updateMenu" parameterType="HashMap" resultType="ExqueryMap" >
+        UPDATE COM_MENU
+        SET
+        MENU_NM             = #{menuNm},
+        MENU_DESC           = #{menuDesc},
+        PARENT_MENU_CD      = #{parentMenuCd},
+        MENU_URL            = #{menuUrl},
+        MENU_LEVEL          = #{menuLevel},
+        DISPLAY_ORDER       = #{displayOrder},
+        USE_YN              = #{useYn},
+        REMARKS             = #{remarks},
+        UPDATED_USER_ID     = #{ssUserId},
+        UPDATED_DT          = sysdate
+        WHERE MENU_CD = #{menuCd}
+    </select>
+
+    <!-- 한건을 사용하지 않는다. (메뉴등록) -->
+    <select id="disableMenu" parameterType="HashMap" resultType="ExqueryMap" >
+        UPDATE COM_MENU
+        SET
+        USE_YN              = 'N',
+        UPDATED_USER_ID     = #{ssUserId},
+        UPDATED_DT          = sysdate
+        WHERE MENU_CD       = #{menuCd}
+    </select>
+
+	<!--
+	QueryID     : selectUserAuthList
+	Description : 사용자 권한 정보 조회
+	-->
+	<select id="selectUserAuthList" parameterType="HashMap" resultType="ExqueryMap" >
+	 		 SELECT UA.USER_ID AS USER_ID
+			      , CA.AUTH_CD  AS AUTH_CD
+			      , FN_GET_MSG(CA.AUTH_NM, #{lang}) AS AUTH_NM
+			      , CA.AUTH_DESC  AS AUTH_DESC
+              FROM COM_AUTHORITY CA
+	          LEFT OUTER JOIN COM_USER_AUTH UA
+			     ON CA.AUTH_CD = UA.AUTH_CD
+			    AND UA.USER_ID = #{userId}
+                WHERE CA.USE_YN = 'Y'
+		      ORDER BY CA.AUTH_CD ASC
+	</select>
+	
+	<!--
+	QueryID     : deleteUserAuth
+	Description : 사용자 권한 삭제
+	-->
+	<delete id="deleteUserAuth" parameterType="HashMap">
+          DELETE FROM COM_USER_AUTH
+           WHERE USER_ID = #{userId}
+    </delete>
+    
+	<!--
+	QueryID     : insertUserAuth
+	Description : 사용자 권한 저장
+	-->    
+	<insert id="insertUserAuth" parameterType="HashMap">
+			INSERT ALL
+			<foreach collection="authList" item="item" index="index">
+			          INTO COM_USER_AUTH (
+				  				         USER_ID
+										, AUTH_CD 
+										, CREATED_DT
+										, CREATED_USER_ID 
+										, UPDATED_DT 
+										, UPDATED_USER_ID
+
+									   ) VALUES (
+										  #{userId}
+										, '${item.authCd}'
+										, SYSDATE
+										, #{ssUserId}
+										, SYSDATE
+										, #{ssUserId}
+									   )
+			</foreach>
+			SELECT * FROM DUAL					   
+	</insert>
+
+    <!--
+        권한별 메뉴 관리
+     -->
+
+    <!--
+	QueryID     : selectAuthList
+	Description : 리스트 조회 (권한별 메뉴 등록)
+	-->
+    <select id="selectAuthList" parameterType="HashMap" resultType="ExqueryMap" >
+	 		 SELECT
+	 		    AUTH_CD
+	 		  , FN_GET_MSG(AUTH_NM, #{ssUserLang}) AS AUTH_NM
+	 		  , AUTH_DESC
+	 		  FROM COM_AUTHORITY
+            <where>
+                <if test='useYn != null and useYn !=""'>
+                    AND USE_YN = #{useYn}
+                </if>
+                <if test='searchStr1 != null and searchStr1 !=""'>
+                    AND (AUTH_CD LIKE '%${searchStr1}%' OR AUTH_NM LIKE '%${searchStr1}%')
+                </if>
+            </where>
+	</select>
+
+    <!-- 리스트 조회 (권한별 메뉴 등록) -->
+    <select id="selectAuthOne" parameterType="HashMap" resultType="ExqueryMap" >
+	 		 SELECT
+	 		    AUTH_CD
+	 		  , AUTH_NM
+	 		  , AUTH_DESC
+	 		  FROM COM_AUTHORITY
+            <where>
+                <if test='selectKey != null and selectKey !=""'>
+                    AND AUTH_CD = #{selectKey}
+                </if>
+                <if test='useYn != null and useYn !=""'>
+                    AND USE_YN = #{useYn}
+                </if>
+            </where>
+	</select>
+
+    <!-- 수정된 권한들 업데이트 -->
+    <insert id="insertAuth" parameterType="HashMap">
+        INSERT ALL
+        <foreach collection="authList" item="item" index="index">
+            INTO COM_AUTHORITY_MENU (AUTH_CD, MENU_CD, AUTH_ROLE, CREATED_DT, CREATED_USER_ID, UPDATED_DT, UPDATED_USER_ID) VALUES
+            ('${item.authCd}', '${item.menuCd}', '${item.authRole}', sysdate, #{ssUserId}, sysdate, #{ssUserId})
+        </foreach>
+        SELECT * FROM dual
+    </insert>
+   <!-- <insert id="insertAuth" parameterType="HashMap">
+        INSERT INTO COM_AUTHORITY_MENU
+          (AUTH_CD, MENU_CD, AUTH_ROLE, CREATED_DT, CREATED_USER_ID, UPDATED_DT, UPDATED_USER_ID)
+          VALUES
+          (#{authCd}, #{menuCd}, #{authRole}, sysdate, #{ssUserId}, sysdate, #{ssUserId})
+    </insert>-->
+
+    <!-- 수정된 권한들 업데이트 -->
+    <!--<update id="updateAuth" parameterType="HashMap">
+        {call
+          DECLARE
+          BEGIN
+        <foreach collection="authList" item="item" index="index" separator=";" >
+            UPDATE COM_AUTHORITY_MENU SET
+            AUTH_ROLE = '${item.authRole}',
+            UPDATED_USER_ID     = #{ssUserId},
+            UPDATED_DT          = sysdate
+            WHERE AUTH_CD = '${item.authCd}' AND MENU_CD = '${item.menuCd}'
+        </foreach>;
+        END
+        }
+    </update>-->
+    <update id="updateAuth" parameterType="HashMap">
+          UPDATE COM_AUTHORITY_MENU SET
+          AUTH_ROLE = #{authRole},
+          UPDATED_USER_ID     = #{ssUserId},
+          UPDATED_DT          = sysdate
+          WHERE AUTH_CD = #{authCd} AND MENU_CD = #{menuCd}
+    </update>
+
+    <!-- 삭제 -->
+    <delete id="deleteAuthMenu" parameterType="HashMap">
+          DELETE FROM COM_AUTHORITY_MENU
+          WHERE AUTH_CD = #{authCd}
+          AND MENU_CD in (
+            <foreach collection="authList" item="item" index="index" separator=",">
+                '${item.menuCd}'
+            </foreach>
+            )
+    </delete>
+    
+	<!--
+	QueryID     : selectAuthorityList
+	Description : 권한 정보 결과 조회
+	-->
+	<select id="selectAuthorityList" parameterType="HashMap" resultType="ExqueryMap" >
+	SELECT AUTH_CD
+	     , AUTH_NM
+	     , AUTH_DESC
+	     , USE_YN
+	     , CREATED_DT
+	     , CREATED_USER_ID
+	     , UPDATED_DT
+	     , UPDATED_USER_ID
+	     , ROWNUM AS NO  
+     FROM ( SELECT AUTH_CD
+			     , FN_GET_MSG(AUTH_NM, #{lang}) AS AUTH_NM
+			     , AUTH_DESC		     
+				 , FN_GET_COMMCODE_NAME(#{lang}, 'USE_YN', USE_YN) AS USE_YN
+				 , TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+				 , FN_GET_USER_NAME(CREATED_USER_ID) AS CREATED_USER_ID
+				 , TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+				 , FN_GET_USER_NAME(UPDATED_USER_ID) AS UPDATED_USER_ID
+			  FROM COM_AUTHORITY		
+		   <where>
+				<if test='searchStr1 != null and  searchStr1 != ""'>
+					AND (AUTH_CD LIKE '%${searchStr1}%' OR FN_GET_MSG(AUTH_NM, #{lang}) LIKE '%${searchStr1}%')
+				</if>
+				<if test='useYn != null and  useYn != ""'>
+					AND USE_YN = #{useYn}
+				</if>
+			</where>
+			     ORDER BY AUTH_CD ASC)
+	</select>
+	
+	
+	<!--
+	QueryID     : selectAuthorityOne
+	Description : 권한 정보 상세 단건 조회
+	-->	
+	<select id="selectAuthorityOne" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT AUTH_CD
+		     , FN_LANG_INP(AUTH_NM,'en') AS AUTH_NM_EN 	-- 영어
+		  	 , FN_LANG_INP(AUTH_NM,'ko') AS AUTH_NM_KO 	-- 영어
+          	 , FN_LANG_INP(AUTH_NM,'cn') AS AUTH_NM_CN 	-- 중국어
+		     , AUTH_DESC		     
+			 , USE_YN
+			 , CREATED_DT
+			 , CREATED_USER_ID
+			 , UPDATED_DT
+			 , UPDATED_USER_ID			 
+		  FROM COM_AUTHORITY
+		 WHERE AUTH_CD =  #{selectKey}
+	</select>
+	
+	<!--
+	QueryID     : insertAuthority
+	Description : 궎ㄴ 정보 등록
+	-->	
+	<insert id="insertAuthority" parameterType="HashMap" >
+		INSERT INTO COM_AUTHORITY (
+								AUTH_CD
+							  , AUTH_NM
+							  , AUTH_DESC
+							  , USE_YN
+							  , CREATED_DT
+							  , CREATED_USER_ID
+							  , UPDATED_DT
+							  , UPDATED_USER_ID
+							) VALUES (
+								#{authCd}
+							  , #{authNm}
+							  , #{authDesc}
+							  , #{useYn}
+							  , SYSDATE
+							  , #{ssUserId}
+					          , SYSDATE
+					          , #{ssUserId}
+							)
+	</insert>
+	<!--
+	QueryID     : updateAuthority
+	Description : 권한 정보 수정
+	-->	
+	<update id="updateAuthority" parameterType="HashMap" >
+		UPDATE COM_AUTHORITY
+		<set>
+			  AUTH_NM = #{authNm} 
+			, AUTH_DESC = #{authDesc}
+			, USE_YN = #{useYn}
+			, UPDATED_DT = SYSDATE
+			, UPDATED_USER_ID = #{ssUserId}
+		</set>
+		WHERE AUTH_CD = #{authCd}
+	</update>
+	
+	
+	<!--
+	QueryID     : deleteAuthority
+	Description : 권한 정보 삭제
+	-->	
+	<update id="deleteAuthority" parameterType="HashMap" >
+		UPDATE COM_AUTHORITY
+		<set>
+			  USE_YN = 'N'
+			, UPDATED_DT = SYSDATE
+			, UPDATED_USER_ID = #{ssUserId}
+		</set>
+		WHERE AUTH_CD = #{authCd}
+	</update>		
+	
+	<!--
+	QueryID     : 
+	Description : 구역별 메뉴 Mapping 리스트 
+	-->
+	<select id="selectAreaMenuRelList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+              A.MENU_CD
+            , FN_GET_MSG(A.MENU_NM, #{ssUserLang}) AS MENU_NM
+            , A.MENU_DESC
+            , A.PARENT_MENU_CD
+            , (SELECT FN_GET_MSG(MENU_NM, #{ssUserLang}) FROM COM_MENU WHERE MENU_CD = A.PARENT_MENU_CD) AS PARENT_MENU_NM
+            , A.MENU_URL
+            , A.MENU_LEVEL
+            , A.DISPLAY_ORDER
+            , FN_GET_COMMCODE_NAME(#{ssUserLang}, 'USE_YN', A.USE_YN) AS USE_YN
+            , A.REMARKS
+            , FN_GET_DATE_STR(A.CREATED_DT) AS CREATED_DT
+            , (SELECT USER_NM FROM COM_USER WHERE USER_ID = A.CREATED_USER_ID) AS CREATED_USER_ID
+            , FN_GET_DATE_STR(A.UPDATED_DT) AS UPDATED_DT
+            , (SELECT USER_NM FROM COM_USER WHERE USER_ID = A.UPDATED_USER_ID) AS UPDATED_USER_ID
+            , ROWNUM AS NO
+            , SYS_CONNECT_BY_PATH(LPAD(A.DISPLAY_ORDER, 2, 0), '/') AS PATH
+            , B.AREA_CD
+        FROM COM_MENU A
+        LEFT OUTER JOIN COM_MENU_AREA B
+        ON A.MENU_CD = B.MENU_CD
+        <if test='areaCd != null and  areaCd != ""'>
+        	AND B.AREA_CD = #{areaCd}
+        </if>
+        WHERE A.USE_YN = 'Y'
+        START WITH A.PARENT_MENU_CD = 'ROOT'
+        CONNECT BY PRIOR A.MENU_CD = PARENT_MENU_CD
+        ORDER BY PATH
+	</select>
+	
+	<!--
+	QueryID     : 
+	Description : 구역별 메뉴 Mapping 삭제 
+	-->
+	<delete id="deleteAreaMenuMapping" parameterType="HashMap">
+          DELETE FROM COM_MENU_AREA
+          WHERE AREA_CD = #{areaCd}
+    </delete>
+    
+    <select id="InsertAreaMenuMapping" parameterType="HashMap" resultType="ExqueryMap" >
+        INSERT INTO COM_MENU_AREA 
+        (MENU_CD, AREA_CD, CREATED_DT,CREATED_USER_ID)
+        VALUES
+        (#{menuCd}, #{areaCd}, SYSDATE, #{ssUserId})
+	</select>
+    
+</mapper>

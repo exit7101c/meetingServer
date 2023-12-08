@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.equipment.sqlAlarm">
+
+	<!-- 예전 쿼리 -->
+	<!--<select id="selectEquipmentList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT ROWNUM
+               , CE.EQP_CD
+             , FN_GET_MSG(CE.EQP_NM, #{ssUserLang}) AS EQP_NM
+             , CE.PARENT_EQP_CD
+             , CE.EQP_LEVEL
+             , CE.EQP_TYPE
+             , CE.EQP_GROUP
+             , CE.DISPLAY_ORDER
+        FROM COM_EQUIPMENT   		CE
+        INNER JOIN COM_LINE  		CL
+        ON CE.LINE_CD = CL.LINE_CD
+        AND CL.USE_YN = 'Y'
+        INNER JOIN COM_AREA  		CA
+        ON CL.AREA_CD = CA.AREA_CD
+        AND CA.USE_YN = 'Y'
+        WHERE CA.AREA_CD = 'QD2U'
+        START WITH CE.PARENT_EQP_CD = 'root'
+        CONNECT BY PRIOR CE.EQP_CD = CE.PARENT_EQP_CD
+	</select>-->
+			    
+	<select id="selectEquipmentList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT ROWNUM
+				, CE.EQP_CD
+				, FN_GET_MSG(CE.EQP_NM, #{ssUserLang}) AS EQP_NM
+				, CE.PARENT_EQP_CD
+				, CE.EQP_LEVEL
+				, CE.EQP_TYPE
+				, CE.EQP_GROUP
+				, CE.DISPLAY_ORDER
+		FROM COM_EQUIPMENT           CE
+				 INNER JOIN COM_LINE          CL
+							ON CE.LINE_CD = CL.LINE_CD
+								AND CL.USE_YN = 'Y'
+				 INNER JOIN COM_AREA          CA
+							ON CL.AREA_CD = CA.AREA_CD
+								AND CA.USE_YN = 'Y'
+		WHERE CA.AREA_CD = 'QD2U'
+			START WITH CE.PARENT_EQP_CD = 'root'
+		CONNECT BY PRIOR CE.EQP_CD = CE.PARENT_EQP_CD
+	</select>
+	
+	<select id="selectEquipmentRunHis" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT ROWNUM
+        , CESH.EQP_CD
+        , TO_CHAR(CESH.EVENT_TIME,'YYYY-MM-DD HH24:MI:SS') AS EVENT_TIME
+        , CESH.STATE_CD
+        , FN_GET_MSG(CSC.STATE_NM, #{ssUserLang}) 			AS STATE_NM
+        , CESH.PREV_STATE_CD
+        , TO_CHAR(CESH.START_TIME,'YYYY-MM-DD HH24:MI:SS') AS START_TIME
+        , TO_CHAR(CESH.END_TIME,'YYYY-MM-DD HH24:MI:SS')   AS END_TIME
+        , CESH.STOP_CD
+        , CTR.STOP_NM
+        , TO_CHAR(CESH.CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+        , CESH.CREATED_USER_ID
+        , TO_CHAR(CESH.UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+        , CESH.UPDATED_USER_ID
+        , ROUND((END_TIME - START_TIME)*24,2)				AS RUNTIME
+        FROM COM_EQP_STATE_HIS               CESH
+        LEFT OUTER JOIN COM_STATE_CODE       CSC
+        ON (CESH.EQP_CD = CSC.EQP_CD AND CESH.STATE_CD = CSC.STATE_CD)
+        LEFT OUTER JOIN COM_STOP_CODE        CTR
+        ON CESH.STOP_CD = CTR.STOP_CD
+        <where>
+            CESH.EQP_CD = #{searchStr1}
+            <if test='toDate != null and  toDate != ""'>
+                AND START_TIME &lt; FN_END_DATE(#{toDate})
+            </if>
+            <if test='fromDate != null and  fromDate != ""'>
+                AND END_TIME &gt; FN_START_DATE(#{fromDate})
+            </if>
+        </where>
+	</select>
+	
+	<select id="selectEquipmentAlarmHis" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT A_HIS.EQP_CD
+		     , TO_CHAR(A_HIS.EVENT_TIME,'YYYY-MM-DD HH24:MI:SS')  AS EVENT_TIME
+		     , A_HIS.ALARM_CD
+		     , FN_GET_MSG(A_CODE.ALARM_NM, #{ssUserLang}) 		  AS ALARM_NM
+             , A_CODE.ALARM_LEVEL                                 AS ALARM_LEVEL
+		     , TO_CHAR(A_HIS.CREATED_DT,'YYYY-MM-DD HH24:MI:SS')  AS CREATED_DT
+		     , A_HIS.CREATED_USER_ID
+		     , FN_GET_MSG(CE.EQP_NM, #{ssUserLang}) 			  AS EQP_NM
+		FROM COM_EQP_ALARM_HIS          A_HIS 
+		LEFT OUTER JOIN COM_ALARM_CODE  A_CODE
+		ON A_HIS.ALARM_CD = A_CODE.ALARM_CD
+		LEFT OUTER JOIN COM_EQUIPMENT   CE
+        ON A_HIS.EQP_CD = CE.EQP_CD
+		WHERE A_HIS.EQP_CD = #{searchStr1}
+		<if test='fromDate != null and  fromDate != ""'>
+		AND A_HIS.EVENT_TIME &gt; FN_START_DATE(#{fromDate})
+		</if>
+		<if test='toDate != null and  toDate != ""'>
+		AND A_HIS.EVENT_TIME &lt; FN_END_DATE(#{toDate})
+		</if>
+		<if test='alarmLevel != null and  alarmLevel != "" and  alarmLevel != "all"'>
+			AND A_CODE.ALARM_LEVEL = #{alarmLevel}
+		</if>
+		<if test='alarmCode != null and  alarmCode != ""'>
+			AND ( A_CODE.ALARM_CD LIKE '%${alarmCode}%' OR A_CODE.ALARM_NM LIKE '%${alarmCode}%' )
+		</if>
+		ORDER BY EVENT_TIME DESC
+	</select>
+
+	<select id="selectEquipmentClHis" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			TO_CHAR(A.START_TIME, 'YYYY-MM-DD HH24:MI:SS') AS START_TIME,
+			TO_CHAR(A.END_TIME, 'YYYY-MM-DD HH24:MI:SS') AS END_TIME,
+			A.TAG_CD,
+			FN_GET_MSG(C.TAG_NM, #{ssUserLang}) AS TAG_NM,
+			FN_GET_MSG(B.PROD_NM, #{ssUserLang}) AS PROD_NM,
+			VALUE_COUNT,
+			VALUE_SUM,
+			VALUE_MAX,
+			VALUE_AVG,
+			VALUE_MIN,
+			VALUE_STDDEV,
+			UCL,
+			CL,
+			LCL,
+			RS_SUM,
+			RS_MAX,
+			RS_AVG,
+			RS_MIN,
+			RS_STDDEV,
+			RS_UCL,
+			RS_CL,
+			RS_LCL,
+			ST_UCL,
+			ST_LCL,
+			BAD_CNT,
+			BAD_RATE
+		FROM COM_CONTROL_LIMIT_SUM A
+		LEFT OUTER JOIN COM_PRODUCT B
+		ON A.PROD_CD = B.PROD_CD
+		LEFT OUTER JOIN COM_TAG C
+		ON A.TAG_CD = C.TAG_CD
+		WHERE A.START_TIME &lt; FN_END_DATE(#{toDate})
+		AND A.END_TIME > FN_START_DATE(#{fromDate})
+		AND A.TAG_CD IN (
+			SELECT
+				TAG_CD
+			FROM COM_EQP_TAG
+			WHERE EQP_CD = #{searchStr1}
+		)
+		AND A.VALUE_COUNT > 0
+		ORDER BY STD_DATE DESC
+	</select>
+
+    <select id="selectEquipmentAlarmsSats" parameterType="HashMap" resultType="ExqueryMap" >
+	   SELECT COUNT(EVENT_TIME) AS TOTAL_CNT
+            , EVENT_TIME            
+       FROM
+       ( 
+            SELECT CASE WHEN #{searchType} = 'I' THEN  TO_CHAR( A_HIS.EVENT_TIME, 'YYYY-MM-DD HH24:MI:SS')
+                        WHEN #{searchType} = 'H' THEN  TO_CHAR( A_HIS.EVENT_TIME, 'YYYY-MM-DD HH24') || ':00'
+		                WHEN #{searchType} = 'D' THEN  TO_CHAR( A_HIS.EVENT_TIME, 'YYYY-MM-DD')
+		                WHEN #{searchType} = 'M' THEN  TO_CHAR( A_HIS.EVENT_TIME, 'YYYY-MM')
+		                WHEN #{searchType} = 'Y' THEN  TO_CHAR( A_HIS.EVENT_TIME, 'YYYY')
+	       			END EVENT_TIME
+	       		  , A_HIS.ALARM_CD
+			FROM COM_EQP_ALARM_HIS          A_HIS 
+			LEFT OUTER JOIN COM_ALARM_CODE  A_CODE
+			ON A_HIS.ALARM_CD = A_CODE.ALARM_CD    
+			WHERE A_HIS.EQP_CD = #{searchStr1}               
+        	<if test='fromDate != null and  fromDate != ""'>
+				AND A_HIS.EVENT_TIME &gt; FN_START_DATE(#{fromDate})
+			</if>
+			<if test='toDate != null and  toDate != ""'>
+				AND A_HIS.EVENT_TIME &lt; FN_START_DATE(#{toDate})
+			</if>
+            <if test='alarmLevel != null and  alarmLevel != "" and  alarmLevel != "all"'>
+				AND A_CODE.ALARM_LEVEL = #{alarmLevel}
+			</if>
+			<if test='alarmCode != null and  alarmCode != ""'>
+				AND (A_CODE.ALARM_CD LIKE '%${alarmCode}%' OR A_CODE.ALARM_NM LIKE '%${alarmCode}%')
+			</if>
+        ) TAB
+        GROUP BY EVENT_TIME
+        ORDER BY EVENT_TIME
+	</select>
+	
+	<!-- 일자별 알람 통계 -->
+	<select id="selectEquipmentAlarmsSatsByDate" parameterType="HashMap" resultType="ExqueryMap" >
+	 	SELECT TO_CHAR(EVENT_TIME,'YYYY-MM-DD') AS EVENT_TIME
+	 		  , TO_CHAR(COUNT(*)) AS TOTAL_Count
+		FROM COM_EQP_ALARM_HIS 
+		<where>
+			<if test='fromDate != null and  fromDate != ""'>
+			AND EVENT_TIME &gt; FN_START_DATE(#{fromDate})
+			</if>
+			<if test='toDate != null and  toDate != ""'>
+			AND EVENT_TIME &lt; FN_END_DATE(#{toDate})
+			</if>
+		</where>
+		GROUP BY TO_CHAR(EVENT_TIME,'YYYY-MM-DD')
+	</select>
+	
+	<!-- 설비별 알람 통계 -->
+	<select id="selectAlarmsSats" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT EQP_CD
+		     , FN_GET_MSG(EQP_NM, #{ssUserLang}) AS EQP_NM
+		     , TO_CHAR(TOTALCNT) AS TOTAL_Count
+		FROM 
+		(
+		    SELECT A.EQP_CD
+		         , A.EQP_NM
+		         , COUNT(*) AS TOTALCNT
+		    FROM COM_EQUIPMENT A
+		    INNER JOIN COM_EQP_ALARM_HIS B
+		    ON A.EQP_CD = B.EQP_CD 
+		    LEFT OUTER JOIN COM_ALARM_CODE C
+		    ON B.ALARM_CD = C.ALARM_CD
+    		<where>
+	    		<if test='eqpCd != null and  eqpCd != ""'>
+				AND EQP_CD = #{eqpCd}
+				</if>
+				<if test='fromDate != null and  fromDate != ""'>
+				AND B.EVENT_TIME &gt; FN_START_DATE(#{fromDate})
+				</if>
+				<if test='toDate != null and  toDate != ""'>
+				AND B.EVENT_TIME &lt; FN_END_DATE(#{toDate})
+				</if>
+				<if test='alarmLevel != null and  alarmLevel != ""'>
+				AND C.ALARM_LEVEL = #{alarmLevel}
+				</if>
+			</where>
+		    GROUP BY A.EQP_CD , A.EQP_NM
+		) TAB
+	</select>
+	
+</mapper>

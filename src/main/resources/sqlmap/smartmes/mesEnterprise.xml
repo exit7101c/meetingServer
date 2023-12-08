@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.smartmes.mesEnterprise">
+	
+	<!--
+	QueryID     : selectEnterpriseOneByName
+	Description : 법인명으로 법인정보 조회하기
+	-->
+	<select id="selectEnterpriseOneByName" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			ENTERPRISE_CD
+			, ENTERPRISE_NM
+			, REMARKS
+			, USE_YN
+			, CREATED_DT
+			, CREATED_USER_ID
+			, UPDATED_DT
+			, UPDATED_USER_ID
+		FROM COM_ENTERPRISE
+        WHERE ENTERPRISE_NM = #{enterpriseNm}
+	</select>
+
+	<!--
+	QueryID     : selectEnterpriseOneByEnterCd
+	Description : 법인코드로 법인정보 조회하기
+	-->
+	<select id="selectEnterpriseOneByEnterCd" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			ENTERPRISE_CD
+			, ENTERPRISE_NM
+			, REMARKS
+			, USE_YN
+			, CREATED_DT
+			, CREATED_USER_ID
+			, UPDATED_DT
+			, UPDATED_USER_ID
+		FROM COM_ENTERPRISE
+        WHERE ENTERPRISE_CD = #{enterpriseCd}
+	</select>
+
+	<!--
+	QueryID     : insertEnterpriseByJoin
+	Description : 회원가입 시 법인 신규등록
+	-->
+	<insert id="insertEnterpriseByJoin" parameterType="HashMap">
+		<selectKey resultType="int" keyProperty="enterSeq" order="BEFORE">
+			SELECT  SEQ_ENTERPRISE_ID.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO COM_ENTERPRISE
+		(ENTERPRISE_CD, ENTERPRISE_NM, USE_YN, CREATED_DT, CREATED_USER_ID, UPDATED_DT, UPDATED_USER_ID, ENTER_KEY)
+		VALUES
+		(#{enterSeq}, #{enterpriseNm}, 'Y', SYSDATE, 'admin', SYSDATE, 'admin', #{enterKey})
+	</insert>
+
+	<!--
+        QueryID     : insertCustomerConfirmNo
+        Description : 인증번호를 저장한다.
+        -->
+	<insert id="insertCustomerConfirmNo" parameterType="HashMap">
+		<selectKey resultType="int" keyProperty="newId" order="BEFORE">
+			SELECT  SEQ_SEND_ID.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO COM_CUSTOMER_CONFIRM
+		(SEND_ID, PHONE, CONFIRM_NO, SEND_DATE, CUSTOMER_ID)
+		VALUES
+		(#{newId}, #{phone}, #{confirmNo}, SYSDATE, #{customerId})
+	</insert>
+
+	<!--
+        QueryID     : checkCustomerConfirmNo
+        Description : 인증번호 중복 확인.
+        -->
+	<select id="checkCustomerConfirmNo" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT MIN(CONFIRM_NO) KEEP(DENSE_RANK FIRST ORDER BY SEND_ID DESC)
+			CONFIRM_NO
+		FROM COM_CUSTOMER_CONFIRM
+		WHERE PHONE = #{phone}
+	</select>
+
+
+    <!--
+    QueryID     : checkCustomerEnterprise
+    Description : 법인명 출력부분.
+    -->
+    <select id="checkCustomerEnterprise" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			ENTERPRISE_CD
+			,ENTERPRISE_NM
+		FROM COM_ENTERPRISE
+        WHERE ENTERPRISE_CD = #{enterpriseCd}
+	</select>
+
+    <!--
+    QueryID     : checkCustomerUserNm
+    Description : 사용자 이름 출력부분.
+    -->
+    <select id="checkCustomerUserNm" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			CUSTOMER_ID
+			,CUSTOMER_NM
+		FROM COM_CUSTOMER
+        WHERE CUSTOMER_ID = #{customerId}
+	</select>
+
+	<!--연습부분 areaName-->
+	<select id="areaName" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+		  AREA_CD
+		  ,AREA_NM
+		FROM COM_AREA
+		WHERE AREA_CD = #{areaCd}
+	</select>
+
+	<select id="equipmentStr" parameterType="HashMap" resultType="ExqueryMap">
+	SELECT
+     EQP_NM,LINE_CD,EQP_NM||'('||LINE_CD||')' AS EQP_STR
+    FROM COM_EQUIPMENT
+    WHERE LINE_CD = #{lineCd}
+	</select>
+
+	<!--
+        QueryID     : selectManagerByManagerKey
+        Description : ManagerKey 중복체크
+        -->
+	<select id="selectManagerByEnterKey" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			*
+		FROM COM_ENTERPRISE
+		WHERE ENTER_KEY = #{enterKey}
+	</select>
+
+	<!--
+        QueryID     : selectEnterSetting
+        Description : 법인의 셋팅 값 불러오기
+        -->
+	<select id="selectEnterSetting" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			ENTERPRISE_CD
+			, MESSAGE_YN
+			, DAILY_START_TIME
+			, GOODS_RATE_ALERT
+			, PROD_RATE_ALERT
+		FROM COM_SETTING
+		WHERE ENTERPRISE_CD = #{ssCustomerEnterCd}
+	</select>
+
+	<!--
+	QueryID     : insertSettingByJoin
+	Description : 회원가입 시 설정 값 등록
+	-->
+	<insert id="insertSettingByJoin" parameterType="HashMap" >
+		INSERT INTO COM_SETTING
+		(ENTERPRISE_CD, MESSAGE_YN, DAILY_START_TIME, GOODS_RATE_ALERT, PROD_RATE_ALERT)
+		VALUES
+		(#{enterSeq}, 'Y', 9, 50, 50)
+	</insert>
+
+	<!--
+	QueryID     : updateSetting
+	Description : 설정 값 업데이트
+	-->
+	<update id="updateSetting" parameterType="HashMap" >
+		UPDATE COM_SETTING
+		<set>
+			MESSAGE_YN = #{messageYn}
+			, DAILY_START_TIME = #{dailyStartTime}
+			, GOODS_RATE_ALERT = #{goodsRateAlert}
+			, PROD_RATE_ALERT = #{prodRateAlert}
+		</set>
+		WHERE ENTERPRISE_CD = #{ssCustomerEnterCd}
+	</update>
+
+	<!--
+	QueryID     : insertMessageHis
+	Description : SMS전송시 이력 저장
+	-->
+	<insert id="insertMessageHis" parameterType="HashMap">
+		INSERT INTO COM_SEND_MESSAGE_HIS
+		(PHONE, CREATED_DT, MSG_CONTENTS)
+		VALUES
+		(#{phonNumber}, SYSDATE, #{msg})
+	</insert>
+
+	<!--
+	QueryID     : selectMessageHisByFiveMin
+	Description : 최근 5분 해당 번호로 발송한 메시지이력 리스트
+	-->
+	<select id="selectMessageHisByFiveMin" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			PHONE
+			, CREATED_DT
+		FROM COM_SEND_MESSAGE_HIS
+		WHERE (CREATED_DT BETWEEN SYSDATE - 1/24/60*5 AND SYSDATE)
+		AND PHONE = #{phone}
+	</select>
+
+	<!--
+	QueryID     : selectMessageYnByEnter
+	Description : 해당 법인의 문자메시지 수신여부 확인
+	-->
+	<select id="selectMessageYnByEnter" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			ENTERPRISE_CD
+			, MESSAGE_YN
+		FROM COM_SETTING
+		WHERE ENTERPRISE_CD = #{enterpriseCd}
+	</select>
+
+	<!--
+	QueryID     : selectEnterDashboard
+	Description : 해당 공장의 공장종합효율 조회
+	-->
+	<select id="selectEnterDashboard" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			STD_DATE
+			, ENTERPRISE_CD
+			, PROD_CNT
+			, BAD_CNT
+			, RUN_TIME
+			, ROUND(GOODS_RATE, 2) AS GOODS_RATE
+			, DOWN_TIME
+			, MAINTAIN_TIME
+			, T_PROD_CNT
+			, ROUND(TIME_RATIO, 2) AS TIME_RATIO
+			, ROUND(PROD_RATIO, 2) AS PROD_RATIO
+			, OEE
+			, ROUND((100 - OEE) * (100 - GOODS_RATE) / DECODE((300 - (GOODS_RATE+TIME_RATIO+PROD_RATIO)),0,1,(300 - (GOODS_RATE+TIME_RATIO+PROD_RATIO))) ,3) AS GOODS_LOSS
+			, ROUND((100 - OEE) * (100 - TIME_RATIO) / DECODE((300 - (GOODS_RATE+TIME_RATIO+PROD_RATIO)),0,1,(300 - (GOODS_RATE+TIME_RATIO+PROD_RATIO))) ,3) AS TIME_LOSS
+			, ROUND((100 - OEE) * (100 - PROD_RATIO) / DECODE((300 - (GOODS_RATE+TIME_RATIO+PROD_RATIO)),0,1,(300 - (GOODS_RATE+TIME_RATIO+PROD_RATIO))) ,3) AS PROD_LOSS
+		FROM COM_ENTER_DASHBOARD
+		WHERE ENTERPRISE_CD = #{ssCustomerEnterCd}
+		AND STD_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+	</select>
+
+</mapper>

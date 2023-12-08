@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.main.sqlEnergy">
+
+
+	<!-- TODO : TAG_CD 임의로넣어놈. 추후 확인후 변경해야함 -->
+	<!-- 에너지모니터링 데이터조회 -->
+	<select id="selectPowerUsageList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			TAG_CD
+			, TO_CHAR(EVENT_TIME,'YYYY-MM-DD HH24:MI:SS') AS EVENT_TIME
+			, TAG_VALUE
+		FROM COM_TAG_VALUE_CURRENT
+		WHERE TAG_CD IN ('UC1MA101PW01', 'UC1MA201PW01')
+	</select>
+
+
+	<!-- TODO : TAG_CD 임의로넣어놈. 합계로 집계함. 추후 확인후 변경해야함 -->
+	<!-- 에너지모니터링 데이터조회 (상단 일단위, 월단위 통계) -->
+	<!--
+		Y1 : 전일 평균전압
+		Y2 : 전일 유효전력
+		T1 : 당일 평균전압
+		T2 : 당일 유효전력
+
+		YM1 : 전월 평균전압
+		YM2 : 전월 유효전력
+		TM1 : 당월 평균전압
+		TM2 : 당월 유효전력
+
+		DIST1 평균전압 (일단위) : UC1MA101PW04
+		DIST2 평균전압 (일단위) : UC1CCT07HE07
+		DIST1 유효전력 (일단위) : UC1MA101PW07
+		DIST2 유효전력 (일단위) : UC1CCT16HE16
+
+		DIST1 평균전압 (월단위) : UC1CCT01HE01
+		DIST2 평균전압 (월단위) : UC1CCT03HE03
+		DIST1 유효전력 (월단위) : UC1CCT02HE02
+		DIST2 유효전력 (월단위) : UC1CCT04HE04
+	-->
+	<select id="selectPowerUsageStateList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			KEY, ROUND(SUM(SUM),2) AS VAL
+		FROM (
+				SELECT
+					CASE WHEN TAG_CD = 'UC1CCT01HE01' THEN 'YM1' ELSE 'YM2' END KEY
+					,SUM
+				FROM COM_TAG_VALUE_SUM
+				WHERE TAG_CD IN ( 'UC1CCT01HE01', 'UC1CCT02HE02' )
+				AND MEASURE_TYPE = 'M'
+				AND EVENT_TIME = TRUNC(ADD_MONTHS(SYSDATE,-1), 'MM')
+			UNION ALL
+				SELECT
+					CASE WHEN TAG_CD = 'UC1CCT03HE03' THEN 'YM1' ELSE 'YM2' END KEY
+					,SUM
+				FROM COM_TAG_VALUE_SUM
+				WHERE TAG_CD IN ( 'UC1CCT03HE03', 'UC1CCT04HE04' )
+				AND MEASURE_TYPE = 'M'
+				AND EVENT_TIME = TRUNC(ADD_MONTHS(SYSDATE,-1), 'MM')
+			)
+			GROUP BY KEY
+			UNION ALL
+			SELECT
+				KEY, SUM(SUM) AS SUM
+			FROM (
+			SELECT
+				CASE WHEN TAG_CD = 'UC1CCT01HE01' THEN 'TM1' ELSE 'TM2' END KEY
+				,SUM
+			FROM COM_TAG_VALUE_SUM
+			WHERE TAG_CD IN ( 'UC1CCT01HE01', 'UC1CCT02HE02' )
+			AND MEASURE_TYPE = 'M'
+			AND EVENT_TIME = TRUNC(SYSDATE,'MM')
+			UNION ALL
+			SELECT
+				CASE WHEN TAG_CD = 'UC1CCT03HE03' THEN 'TM1' ELSE 'TM2' END KEY
+				,SUM
+			FROM COM_TAG_VALUE_SUM
+			WHERE TAG_CD IN ( 'UC1CCT03HE03', 'UC1CCT04HE04' )
+			AND MEASURE_TYPE = 'M'
+			AND EVENT_TIME = TRUNC(SYSDATE,'MM')
+			UNION ALL
+			SELECT
+				CASE WHEN TAG_CD = 'UC1MA101PW04' THEN 'Y1' ELSE 'Y2' END KEY
+				,SUM
+			FROM COM_TAG_VALUE_SUM
+			WHERE TAG_CD IN ( 'UC1MA101PW04', 'UC1MA101PW07' )
+			AND MEASURE_TYPE = 'D'
+			AND EVENT_TIME = TRUNC(SYSDATE-1,'DD')
+			UNION ALL
+			SELECT
+				CASE WHEN TAG_CD = 'UC1CCT07HE07' THEN 'Y1' ELSE 'Y2' END KEY
+				,SUM
+			FROM COM_TAG_VALUE_SUM
+			WHERE TAG_CD IN ( 'UC1CCT07HE07', 'UC1CCT16HE16' )
+			AND MEASURE_TYPE = 'D'
+			AND EVENT_TIME = TRUNC(SYSDATE-1,'DD')
+			)
+			GROUP BY KEY
+			UNION ALL
+			SELECT
+				KEY, SUM(SUM) AS SUM
+			FROM (
+			SELECT
+				CASE WHEN TAG_CD = 'UC1MA101PW04' THEN 'T1' ELSE 'T2' END KEY
+				, SUM
+			FROM COM_TAG_VALUE_SUM
+			WHERE TAG_CD IN ( 'UC1MA101PW04', 'UC1MA101PW07' )
+			AND MEASURE_TYPE = 'D'
+			AND EVENT_TIME = TRUNC(SYSDATE,'DD')
+			UNION ALL
+			SELECT
+				CASE WHEN TAG_CD = 'UC1CCT07HE07' THEN 'T1' ELSE 'T2' END KEY
+				,SUM
+			FROM COM_TAG_VALUE_SUM
+			WHERE TAG_CD IN ( 'UC1CCT07HE07', 'UC1CCT16HE16' )
+			AND MEASURE_TYPE = 'D'
+			AND EVENT_TIME = TRUNC(SYSDATE,'DD')
+			)
+		GROUP BY KEY
+	</select>
+
+
+	<!-- 에너지모니터링 데이터조회 (상세보기 팝업) -->
+	<select id="selectEngTagCurrentList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			A.TAG_CD
+			, TO_CHAR(A.EVENT_TIME,'YYYY-MM-DD HH24:MI:SS') AS EVENT_TIME
+			, A.TAG_VALUE
+			, FN_GET_MSG(B.TAG_NM, #{ssUserLang}) AS TAG_NM
+			, B.UNIT
+		FROM COM_TAG_VALUE_CURRENT A
+		INNER JOIN COM_TAG B
+		ON A.TAG_CD = B.TAG_CD
+		WHERE A.TAG_CD IN
+		(
+		SELECT
+			TAG_CD
+		FROM COM_METER_TAG
+		WHERE METER_CD = #{meterCd}
+		)
+		ORDER BY TAG_CD
+	</select>
+
+
+</mapper>

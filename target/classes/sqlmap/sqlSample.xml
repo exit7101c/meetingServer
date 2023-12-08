@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.sqlSample">
+
+
+	<!-- 목록을 조회한다.  -->
+	<select id="selectEnterpriseList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+		   ENTERPRISE_CD
+          , FN_GET_MSG(ENTERPRISE_NM, #{lang}) AS ENTERPRISE_NM
+          , REMARKS
+          , FN_GET_DATE_STR(CREATED_DT) AS CREATED_DT
+          , CREATED_USER_ID
+          , FN_GET_DATE_STR(UPDATED_DT) AS UPDATED_DT
+          , UPDATED_USER_ID
+          , USE_YN
+          FROM COM_ENTERPRISE
+		<where>
+			<if  test="searchStr1 != null and searchStr1 != ''">
+				AND ENTERPRISE_CD LIKE '%${searchStr1}%'
+			</if>
+			<if  test="searchStr2 != null and searchStr2 != ''">
+				AND ENTERPRISE_NM LIKE '%${searchStr2}%'
+			</if>
+            <if test="fromDate != null and toDate != null">
+                AND UPDATED_DT BETWEEN #{fromDate} and #{toDate}
+            </if>
+            <if  test="useYn != null and useYn != ''">
+                AND USE_YN = #{useYn}
+            </if>
+		</where>
+   </select>
+
+	<!-- 한건을 조회한다.  -->
+	<select id="selectEnterpriseOne" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT
+          ENTERPRISE_CD
+    	  , FN_GET_MSG(ENTERPRISE_NM,'en') AS ENTERPRISE_NM_EN 	-- 영어
+		  , FN_GET_MSG(ENTERPRISE_NM,'ko') AS ENTERPRISE_NM_KO 	-- 한국어
+          , FN_GET_MSG(ENTERPRISE_NM, 'cn') AS ENTERPRISE_NM_CN 	-- 중국어
+          , REMARKS
+          , FN_GET_DATE_STR(CREATED_DT) AS CREATED_DT
+          , CREATED_USER_ID
+          , FN_GET_DATE_STR(UPDATED_DT) AS UPDATED_DT
+          , UPDATED_USER_ID
+          , USE_YN
+        FROM COM_ENTERPRISE
+        WHERE ENTERPRISE_CD = #{selectKey}
+    </select>
+
+	<!-- 한건을 저장한다.  -->
+	<select id="insertEnterprise" parameterType="HashMap" resultType="ExqueryMap" >
+		INSERT INTO COM_ENTERPRISE
+        (ENTERPRISE_CD, ENTERPRISE_NM, REMARKS, CREATED_DT, CREATED_USER_ID, UPDATED_DT, UPDATED_USER_ID, USE_YN)
+        VALUES
+        (#{enterpriseCd}, #{enterpriseNm}, #{remarks}, sysdate, #{ssUserId}, sysdate, #{ssUserId}, #{useYn})
+   </select>
+
+	<!-- 한건을 수정한다.  -->
+	<select id="updateEnterprise" parameterType="HashMap" resultType="ExqueryMap" >
+		UPDATE COM_ENTERPRISE
+        SET
+        ENTERPRISE_NM       = #{enterpriseNm},
+        REMARKS             = #{remarks},
+        USE_YN				= #{useYn},
+        UPDATED_USER_ID     = #{ssUserId},
+        UPDATED_DT          = sysdate
+        WHERE ENTERPRISE_CD = #{enterpriseCd}
+   </select>
+
+	<!-- 한건을 사용하지 않는다.  -->
+	<select id="disableEnterprise" parameterType="HashMap" resultType="ExqueryMap" >
+		UPDATE COM_ENTERPRISE
+		SET
+		USE_YN              = 'N',
+		UPDATED_USER_ID     = #{ssUserId},
+        UPDATED_DT          = sysdate
+		WHERE ENTERPRISE_CD = #{enterpriseCd}
+   </select>
+
+
+</mapper>

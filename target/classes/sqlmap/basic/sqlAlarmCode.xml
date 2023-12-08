@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.basic.sqlAlarmCode">
+	
+	<!-- 부서 -->
+	<select id="selectAlarmCodeList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT ROWNUM AS NO
+			, A.ALARM_CD
+			, FN_GET_MSG(A.ALARM_NM, #{ssUserLang})   AS ALARM_NM
+			, FN_GET_MSG(A.ALARM_DESC, #{ssUserLang}) AS ALARM_DESC
+			, A.ALARM_LEVEL
+			, A.REMARKS
+			, FN_GET_COMMCODE_NAME(#{ssUserLang}, 'USE_YN', A.USE_YN) AS USE_YN
+			, TO_CHAR(A.CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+			, A.CREATED_USER_ID
+			, TO_CHAR(A.UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+			, A.UPDATED_USER_ID
+			, B.TAG_CD
+		FROM COM_ALARM_CODE A, COM_EQP_TAG B
+		WHERE A.ALARM_CD = B.TAG_CD(+)
+			<if test='searchStr1 != null and searchStr1 != ""'>
+				AND A.ALARM_CD LIKE '%${searchStr1}%' OR A.ALARM_NM LIKE '%${searchStr1}%'
+			</if>
+			<if test='useYn != null and useYn != ""'>
+				AND A.USE_YN = #{useYn}
+			</if>
+		  <if test='eqpCd != null and eqpCd != ""'>
+			  AND B.EQP_CD = #{eqpCd}
+		  </if>
+		  <if test='alarmLevel != null and alarmLevel != "all"'>
+			  AND A.ALARM_LEVEL = #{alarmLevel}
+		  </if>
+	</select>
+	
+	<select id="selectAlarmCodeOne" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT 
+			  ALARM_CD
+			, FN_LANG_INP(ALARM_NM,'en')  AS ALARM_NM_EN 	-- 영어
+		    , FN_LANG_INP(ALARM_NM,'ko')  AS ALARM_NM_KO 	-- 한국어
+            , FN_LANG_INP(ALARM_NM,'cn')  AS ALARM_NM_CN 	-- 중국어
+			, FN_GET_MSG(ALARM_DESC, #{ssUserLang}) AS ALARM_DESC
+			, ALARM_LEVEL
+			, REMARKS
+			, USE_YN
+			, CREATED_DT
+			, CREATED_USER_ID
+			, UPDATED_DT
+			, UPDATED_USER_ID
+		FROM COM_ALARM_CODE
+        WHERE ALARM_CD = #{alarmCd}
+	</select>
+	
+	<insert id="insertAlarmCode" parameterType="HashMap" >
+		INSERT INTO COM_ALARM_CODE (
+			  ALARM_CD
+			, ALARM_NM
+			, ALARM_DESC
+			, ALARM_LEVEL
+			, USE_YN
+			, CREATED_DT
+			, CREATED_USER_ID
+			, UPDATED_DT
+			, UPDATED_USER_ID
+		) VALUES (
+			  #{alarmCd}
+			, #{alarmNm}
+			, #{alarmDesc}
+			, #{alarmLevel}
+			, #{useYn}
+			, SYSDATE
+			, #{ssUserId}
+			, SYSDATE
+			, #{ssUserId}
+		)    
+	</insert>
+	
+	<update id="updateAlarmCode" parameterType="HashMap" >
+		UPDATE COM_ALARM_CODE
+		<set>
+			  ALARM_NM = #{alarmNm}
+			, ALARM_DESC = #{alarmDesc}
+			, ALARM_LEVEL = #{alarmLevel}
+			, USE_YN = #{useYn}
+			, UPDATED_DT = SYSDATE
+			, UPDATED_USER_ID = #{ssUserId}
+		</set>
+		WHERE ALARM_CD = #{alarmCd}
+	</update>
+	
+	<update id="deleteAlarmCode" parameterType="HashMap">
+		UPDATE COM_ALARM_CODE
+		<set>
+			  USE_YN = #{useYn}
+  			, UPDATED_USER_ID = #{ssUserId}
+			, UPDATED_DT = SYSDATE
+		</set>
+		WHERE ALARM_CD = #{alarmCd} 
+	</update>
+
+	<!--설비상태코드-->
+	<select id="selectStateCodeList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+				CSC.EQP_CD
+			 , (SELECT FN_GET_MSG(EQP_NM,#{ssUserLang}) FROM COM_EQUIPMENT WHERE EQP_CD = CSC.EQP_CD) AS EQP_NM
+			 , STATE_CD
+	 		 , FN_GET_MSG(STATE_NM, #{ssUserLang}) AS STATE_NM
+			 , STATE_TYPE
+		     , FN_GET_COMMCODE_NAME(#{ssUserLang},'STATE_TYPE',STATE_TYPE) AS STATE_TYPE_NM
+		     , TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') 	AS CREATED_DT
+		     , CREATED_USER_ID
+   		     , (SELECT USER_NM FROM COM_USER WHERE USER_ID = CSC.CREATED_USER_ID AND USE_YN = 'Y' AND ROWNUM = 1) AS CREATED_USER_NM
+		     , TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+		     , UPDATED_USER_ID
+     		 , (SELECT USER_NM FROM COM_USER WHERE USER_ID = CSC.UPDATED_USER_ID AND USE_YN = 'Y' AND ROWNUM = 1) AS UPDATED_USER_NM
+		     , FN_GET_COMMCODE_NAME(#{ssUserLang},'USE_YN',USE_YN) AS USE_YN
+		FROM COM_STATE_CODE CSC
+		WHERE CSC.EQP_CD IN
+		<foreach collection="equipmentList" item="item"  open="(" close=")" separator=",">
+			'${item.eqpCd}'
+		</foreach>
+		<if test='searchStr1 !=null and searchStr1 !=""'>
+			AND (FN_LANG_INP(STATE_NM, #{ssUserLang}) LIKE '%${searchStr1}%' OR STATE_CD LIKE '%${searchStr1}%')
+		</if>
+		<if test='useYn != null and useYn != ""'>
+			AND USE_YN = #{useYn}
+		</if>
+	</select>
+	
+	<select id="selectStateCodeOne" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT A.STATE_CD
+	 		 , FN_LANG_INP(A.STATE_NM, 'en') AS STATE_NM_EN
+	 		 , FN_LANG_INP(A.STATE_NM, 'ko') AS STATE_NM_KO
+	 		 , FN_LANG_INP(A.STATE_NM, 'cn') AS STATE_NM_CN
+		     , A.STATE_TYPE
+		     , TO_CHAR(A.CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+		     , A.CREATED_USER_ID
+		     , TO_CHAR(A.UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+		     , A.UPDATED_USER_ID
+		     , A.USE_YN
+		     , A.EQP_CD
+			 , (SELECT FN_GET_MSG(EQP_NM,#{ssUserLang}) FROM COM_EQUIPMENT WHERE EQP_CD = A.EQP_CD) AS EQP_NM
+		FROM COM_STATE_CODE A
+        WHERE A.STATE_CD = #{stateCd} AND A.EQP_CD = #{eqpCd}
+	</select>
+	
+	<insert id="insertStateCode" parameterType="HashMap" >
+		INSERT INTO COM_STATE_CODE (
+		    STATE_CD
+		  , STATE_NM
+		  , STATE_TYPE
+		  , CREATED_DT
+		  , CREATED_USER_ID
+		  , UPDATED_DT
+		  , UPDATED_USER_ID
+		  , USE_YN
+		  , EQP_CD
+		) VALUES (
+		    #{stateCd}
+		  , #{stateNm}
+		  , #{stateType}
+		  , SYSDATE
+		  , #{ssUserId}
+		  , SYSDATE
+		  , #{ssUserId}
+		  , #{useYn}
+		  , #{eqpCd}
+		)    
+	</insert>
+	
+	<update id="updateStateCode" parameterType="HashMap" >
+		UPDATE COM_STATE_CODE
+		<set>
+			  STATE_NM = #{stateNm}
+			, STATE_TYPE = #{stateType}
+			, UPDATED_DT = SYSDATE
+			, UPDATED_USER_ID = #{ssUserId}
+			, USE_YN = #{useYn}
+		</set>
+		WHERE STATE_CD = #{stateCd} AND EQP_CD = #{eqpCd}
+	</update>
+	
+	<update id="deleteStateCode" parameterType="HashMap">
+		UPDATE COM_STATE_CODE
+		<set>
+			  USE_YN = 'N'
+  			, UPDATED_USER_ID = #{ssUserId}
+			, UPDATED_DT = SYSDATE
+		</set>
+		WHERE STATE_CD = #{stateCd} AND EQP_CD = #{eqpCd}
+	</update>
+	
+</mapper>

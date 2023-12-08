@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cronies.message">
+	<!-- SMS즉시발송 -->
+	<insert id="insertMessageTran" parameterType="HashMap" >
+		INSERT INTO SC_TRAN
+		(TR_NUM, TR_SENDDATE, TR_SENDSTAT, TR_MSGTYPE, TR_PHONE, TR_CALLBACK, TR_MSG)
+		VALUES
+		( SC_TRAN_SEQ.NEXTVAL, SYSDATE, '0', '0', #{phonNumber}, '028483380', #{msg})
+	</insert>
+	<!-- MMS즉시발송 -->
+	<insert id="insertMessageTranMms" parameterType="HashMap" >
+		INSERT INTO MMS_MSG
+		(MSGKEY, SUBJECT, PHONE, CALLBACK, STATUS, REQDATE, MSG, TYPE)
+		VALUES
+		(MMS_MSG_SEQ.NEXTVAL,'[제조나라]', #{phonNumber}, '028483380', '0', SYSDATE, #{msg}, '0')
+	</insert>
+
+
+	<select id="selectManagerEnterInfo" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			A.ENTERPRISE_CD,
+			B.ENTERPRISE_NM,
+			A.MANAGER_ID,
+			A.MANAGER_NM,
+			A.LINE_CD,
+			C.LINE_NM,
+			A.PROC_CD,
+			D.PROC_NM
+		FROM COM_MANAGER A,
+		COM_ENTERPRISE B, COM_LINE C, COM_PROCESS D
+		WHERE A.ENTERPRISE_CD = B.ENTERPRISE_CD
+		AND A.LINE_CD = C.LINE_CD
+		AND A.PROC_CD = D.PROC_CD
+		AND A.MANAGER_KEY = #{managerKey}
+	</select>
+
+</mapper>

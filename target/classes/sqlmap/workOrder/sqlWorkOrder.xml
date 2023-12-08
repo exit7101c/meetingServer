@@ -1,0 +1,385 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.workOrder.sqlWorkOrder">
+
+	<!-- 작업지시 조회 -->
+	<select id="selectWorkOrderList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT ROWNUM AS NO
+			 , PLAN_DT
+			 , WO_ID
+			 , WO_TYPE
+			 , STATE
+			 , STATE_NM
+			 , PROD_CD
+			 , PROD_NM
+			 , FN_THREECOMMA(QTY) AS QTY
+			 , UNIT_CD
+			 , START_TIME
+			 , END_TIME
+			 , LINE_NM
+			 , LINE_CD
+			 , PROC_NM
+			 , PROC_CD
+			 , SHIFT_NM
+			 , SHIFT_CD
+			 , MAPPED_WO_ID
+			 , USE_YN
+			 , CREATED_DT
+			 , CREATED_USER_ID
+			 , UPDATED_DT
+			 , UPDATED_USER_ID
+	      FROM (
+					SELECT TO_CHAR(TO_DATE(CW.PLAN_DT, 'YYYYMMDD'), 'YYYY-MM-DD') AS PLAN_DT
+						 , CW.WO_ID
+						 , CW.WO_TYPE
+						 , CW.STATE
+						 , FN_GET_COMMCODE_NAME(#{ssUserLang},'PMS_ORDER_STATE',CW.STATE) AS STATE_NM
+						 , CW.PROD_CD
+						 , FN_GET_MSG(CP.PROD_NM, #{ssUserLang}) AS PROD_NM
+						 , CW.QTY
+						 , CW.UNIT_CD
+						 , TO_CHAR(CW.START_DT,'YYYY-MM-DD HH24:MI:SS') AS START_TIME
+						 , TO_CHAR(CW.END_DT,'YYYY-MM-DD HH24:MI:SS') AS END_TIME
+						 , FN_GET_MSG(CL.LINE_NM, #{ssUserLang}) AS LINE_NM
+						 , CW.LINE_CD
+						 , FN_GET_COMMCODE_NAME(#{ssUserLang},'MES_PROCESS',CW.PROC_CD) AS PROC_NM
+						 , CW.PROC_CD
+						 , FN_GET_MSG(CS.SHIFT_NM, #{ssUserLang}) AS SHIFT_NM
+						 , CW.SHIFT_CD
+						 , CW.MAPPED_WO_ID
+						 , FN_GET_COMMCODE_NAME(#{ssUserLang},'USE_YN',CW.USE_YN) AS USE_YN
+						 , TO_CHAR(CW.CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+						 , NVL(CU1.USER_NM, CW.CREATED_USER_ID) AS CREATED_USER_ID
+						 , TO_CHAR(CW.UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+						 , NVL(CU2.USER_NM, CW.UPDATED_USER_ID) AS UPDATED_USER_ID
+					  FROM COM_WORKORDER CW
+					  LEFT OUTER JOIN COM_PRODUCT CP
+					    ON CP.PROD_CD = CW.PROD_CD
+					   AND CP.USE_YN = 'Y'
+					  LEFT OUTER JOIN COM_LINE CL
+					    ON CL.LINE_CD = CW.LINE_CD
+					   AND CL.USE_YN = 'Y'
+					  LEFT OUTER JOIN COM_SHIFT CS
+					    ON CS.SHIFT_CD = CW.SHIFT_CD
+					   AND CS.USE_YN = 'Y'
+					  LEFT OUTER JOIN COM_USER CU1
+					    ON CU1.USER_ID = CW.CREATED_USER_ID
+					   AND CU1.USE_YN = 'Y'
+					  LEFT OUTER JOIN COM_USER CU2
+					    ON CU2.USER_ID = CW.UPDATED_USER_ID
+					   AND CU2.USE_YN = 'Y'
+					 WHERE CW.PLAN_DT BETWEEN TO_CHAR(FN_START_DATE(#{fromDate}), 'YYYYMMDD') AND TO_CHAR(FN_END_DATE(#{toDate}), 'YYYYMMDD')
+					   AND CW.WO_TYPE != 'VIRTUAL'
+					   AND CW.LINE_CD IN (SELECT LINE_CD FROM COM_LINE WHERE AREA_CD = #{ssUserAreaCd})
+		<if test='useYn != null and useYn !="" '>
+					   AND CW.USE_YN = #{useYn}
+		</if>
+		<if test='searchStr1 !=null and searchStr1 !="" '>
+					   AND CW.WO_ID LIKE '%#{searchStr1}%'
+		</if>
+		<if test='searchStr2 !=null and searchStr2 !="" '>
+					   AND CW.PROD_CD LIKE '%${searchStr2}%' OR CP.PROD_NM LIKE '%${searchStr2}%'
+		</if>
+		<if test='searchStr3 !=null and searchStr3 !="" '>
+					   AND CW.LINE_CD = #{searchStr3}
+		</if>
+		<if test='searchStr4 !=null and searchStr4 !="" '>
+					   AND CW.PROC_CD = #{searchStr4}
+		</if>
+		<if test='searchStr5 !=null and searchStr5 !="" '>
+					   AND CW.SHIFT_CD = #{searchStr5}
+		</if>
+					 ORDER BY CW.PLAN_DT DESC
+							, CW.STATE
+							, CW.PROD_CD
+							, CW.SHIFT_CD
+							, CW.LINE_CD
+							, CW.PROC_CD
+				)
+	</select>
+
+	<select id="selectWorkOrderOne" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT CW.WO_ID
+			 , CW.PLAN_DT
+			 , CW.PROD_CD
+			 , FN_GET_MSG(CP.PROD_NM, #{ssUserLang}) AS PROD_NM
+			 , CW.QTY
+			 , CW.UNIT_CD
+			 , CW.LINE_CD
+			 , CW.PROC_CD
+			 , CW.SHIFT_CD
+		  FROM COM_WORKORDER CW
+		  LEFT OUTER JOIN COM_PRODUCT CP
+		    ON CP.PROD_CD = CW.PROD_CD
+		   AND CP.USE_YN = 'Y'
+     	 WHERE CW.WO_ID = #{woId}
+		   AND CW.USE_YN = 'Y'
+	</select>
+
+	<select id="validWorkOrder" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT MAX(WO_ID) WO_ID
+		  FROM COM_WORKORDER
+         WHERE PLAN_DT = #{planDt}
+		   AND PROD_CD = #{prodCd}
+		   AND LINE_CD = #{lineCd}
+		   AND PROC_CD = #{procCd}
+		   AND SHIFT_CD = #{shiftCd}
+		   AND USE_YN = 'Y'
+	</select>
+
+	<select id="selectNewWorkOrder" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT CASE WHEN MAX(WO_ID) IS NULL
+									THEN 'WO' || #{planDt} || #{lineCd} || #{procCd} || '01'
+									ELSE 'WO' || #{planDt} || #{lineCd} || #{procCd} || LPAD(TO_CHAR(TO_NUMBER(SUBSTR(MAX(WO_ID), 18, 2)) + 1), 2, '0')
+						END WO_ID
+		  FROM COM_WORKORDER
+		 WHERE PLAN_DT = #{planDt}
+		   AND LINE_CD = #{lineCd}
+		   AND PROC_CD = #{procCd}
+	</select>
+
+	<select id="selectNewLot" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT CASE WHEN MAX(LOT_ID) IS NULL
+								THEN 'PL' || #{planDt} || #{lineCd} || #{procCd} || '01'
+								ELSE 'PL' || #{planDt} || #{lineCd} || #{procCd} || LPAD(TO_CHAR(TO_NUMBER(SUBSTR(MAX(LOT_ID), 18, 2)) + 1), 2, '0')
+						END LOT_ID
+		  FROM COM_PRODUCT_LOT
+		 WHERE WORK_DT = #{planDt}
+		   AND LINE_CD = #{lineCd}
+		   AND PROC_CD = #{procCd}
+		   AND LOT_TYPE = 'PL'
+	</select>
+
+	<!-- MES 작업지시 수신 -->
+	<select id="executeIFRWorkOrder" parameterType="HashMap" resultType="ExqueryMap">
+		EXECUTE IFR_MES.IFR_MES_WORKORDER
+	</select>
+
+	<insert id="insertWorkOrder" parameterType="HashMap">
+		INSERT INTO COM_WORKORDER(
+		      WO_ID
+			, WO_TYPE
+			, STATE
+			, PLAN_DT
+			, PROD_CD
+			, QTY
+			, UNIT_CD
+			, LINE_CD
+			, PROC_CD
+			, SHIFT_CD
+			, PLAN_START_DT
+			, PLAN_END_DT
+			, USE_YN
+			, CREATED_DT
+			, CREATED_USER_ID
+		)
+		VALUES(
+			  #{woId}
+			, 'LOCAL'
+			, 'InActive'
+			, #{planDt}
+			, #{prodCd}
+			, #{qty}
+			, #{unitCd}
+			, #{lineCd}
+			, #{procCd}
+			, #{shiftCd}
+			, #{planDt}
+			, #{planDt}
+			, 'Y'
+			, SYSDATE
+			, #{ssUserId}
+		)
+	</insert>
+
+	<insert id="insertWorkOrderHis" parameterType="HashMap">
+		INSERT INTO COM_WORKORDER_HIS (
+               ID
+             , WO_ID
+             , WO_TYPE
+             , STATE
+             , PLAN_DT
+             , PROD_CD
+             , QTY
+             , UNIT_CD
+             , LINE_CD
+             , PROC_CD
+             , SHIFT_CD
+             , PLAN_START_DT
+             , PLAN_END_DT
+             , START_DT
+             , END_DT
+             , MAPPED_WO_ID
+             , MAPPED_STAT
+             , MAPPED_STAT_DESC
+             , USE_YN
+             , REMARKS
+             , CREATED_DT
+             , CREATED_USER_ID
+             , UPDATED_DT
+             , UPDATED_USER_ID)
+        SELECT SEQ_WORKORDER_HIS_ID.NEXTVAL
+             , WO_ID
+             , WO_TYPE
+             , STATE
+             , PLAN_DT
+             , PROD_CD
+             , QTY
+             , UNIT_CD
+             , LINE_CD
+             , PROC_CD
+             , SHIFT_CD
+             , PLAN_START_DT
+             , PLAN_END_DT
+             , START_DT
+             , END_DT
+             , MAPPED_WO_ID
+             , MAPPED_STAT
+             , MAPPED_STAT_DESC
+             , USE_YN
+             , REMARKS
+             , CREATED_DT
+             , CREATED_USER_ID
+             , UPDATED_DT
+             , UPDATED_USER_ID
+          FROM COM_WORKORDER
+         WHERE WO_ID = #{woId}
+	</insert>
+
+	<insert id="insertLot" parameterType="HashMap">
+		INSERT INTO COM_PRODUCT_LOT(
+			  LOT_ID
+			, LOT_TYPE
+			, STATE
+			, WO_ID
+			, WORK_DT
+			, PROD_CD
+			, QTY
+			, UNIT_CD
+			, LINE_CD
+			, PROC_CD
+			, SHIFT_CD
+			, USE_YN
+			, CREATED_DT
+			, CREATED_USER_ID
+		)
+		VALUES(
+			  #{lotId}
+			, 'PL'
+			, 'Created'
+			, #{woId}
+			, #{planDt}
+			, #{prodCd}
+			, 0
+			, #{unitCd}
+			, #{lineCd}
+			, #{procCd}
+			, #{shiftCd}
+			, 'Y'
+			, SYSDATE
+			, #{ssUserId}
+		)
+	</insert>
+
+	<update id="updateWorkOrder" parameterType="HashMap">
+		UPDATE COM_WORKORDER
+		<set>
+			   STATE = #{state}
+			<if test='btnState == "start" '>
+			 , START_DT = SYSDATE
+			 , END_DT = NULL
+			</if>
+			<if test='btnState == "end" '>
+			 , END_DT = SYSDATE
+			</if>
+			 , UPDATED_DT = SYSDATE
+			 , UPDATED_USER_ID = #{ssUserId}
+		</set>
+		 WHERE WO_ID = #{woId}
+	</update>
+
+	<select id="validWorkOrderActive" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT MAX(WO_ID) WO_ID
+		  FROM COM_WORKORDER
+     	 WHERE LINE_CD = #{lineCd}
+		   AND PROC_CD = #{procCd}
+		   AND USE_YN = 'Y'
+		   AND STATE = 'Active'
+	</select>
+
+	<update id="deleteWorkOrder" parameterType="HashMap">
+		UPDATE COM_WORKORDER
+		<set>
+			   USE_YN = 'N'
+  		     , UPDATED_USER_ID = #{ssUserId}
+			 , UPDATED_DT = SYSDATE
+		</set>
+		 WHERE WO_ID = #{woId} 
+	</update>
+
+	<update id="deleteLot" parameterType="HashMap">
+		UPDATE COM_PRODUCT_LOT
+		<set>
+			   USE_YN = 'N'
+  		     , UPDATED_USER_ID = #{ssUserId}
+			 , UPDATED_DT = SYSDATE
+		</set>
+		 WHERE WO_ID = #{woId} 
+	</update>
+
+
+
+	<!--현재생산제품 제거-->
+	<select id="deleteLineProduct" parameterType="HashMap" resultType="ExqueryMap">
+		DELETE COM_LINE_PRODUCT
+		WHERE LINE_CD = (
+		SELECT LINE_CD FROM COM_WORKORDER
+		WHERE WO_ID = #{woId}
+		)
+	</select>
+
+	<!--현재생산제품 업데이트-->
+	<select id="mergeLineProduct" parameterType="HashMap" resultType="ExqueryMap">
+		MERGE INTO COM_LINE_PRODUCT T
+		USING (
+			SELECT WO_ID, LINE_CD, PROD_CD FROM COM_WORKORDER
+			WHERE WO_ID = #{woId}
+		)  S
+		ON (T.LINE_CD = S.LINE_CD)
+		WHEN MATCHED THEN
+		 UPDATE SET
+			  T.PROD_CD  = S.PROD_CD,
+			  T.UPDATED_DT  = SYSDATE
+		WHEN NOT MATCHED THEN
+		 INSERT (T.LINE_CD, T.PROD_CD,T.UPDATED_DT, UPDATED_USER_ID)
+		 VALUES (S.LINE_CD, S.PROD_CD,SYSDATE, 'SYSTEM')
+	</select>
+
+	<!--현재생산제품 히스토리 업데이트-->
+	<select id="updateHisLineProduct" parameterType="HashMap" resultType="ExqueryMap">
+		UPDATE COM_LINE_PRODUCT_HIS
+        SET END_TIME = SYSDATE, LAST_YN = 'N'
+        WHERE LINE_CD = (
+			SELECT LINE_CD FROM COM_WORKORDER
+			WHERE WO_ID = #{woId}
+		)
+        AND LAST_YN = 'Y'
+	</select>
+
+	<!--현재생산제품 히스토리 저장 -->
+	<select id="insertHisLineProduct" parameterType="HashMap" resultType="ExqueryMap">
+        INSERT INTO COM_LINE_PRODUCT_HIS
+        (LINE_CD, START_TIME, END_TIME, PROD_CD, LAST_YN , CREATED_DT, CREATED_USER_ID)
+        SELECT LINE_CD, SYSDATE, SYSDATE+3650, PROD_CD, 'Y', SYSDATE, 'SYSTEM' FROM COM_WORKORDER
+        WHERE WO_ID = #{woId}
+	</select>
+
+
+	<!-- -->
+	<select id="checkWorkOrder" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT *
+		FROM COM_WORKORDER
+		WHERE WO_ID = #{woId}
+	</select>
+</mapper>

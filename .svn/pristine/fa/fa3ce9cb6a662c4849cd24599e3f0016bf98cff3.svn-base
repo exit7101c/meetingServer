@@ -1,0 +1,1470 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cronies.app.openChat">
+
+	<select id="getPartitionList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			PARTITION_CD
+			, PARTITION_NM
+			, DESCRIPTION
+			, ICON
+			, ICON_NM
+		FROM SC_OPENCHAT_PARTITION
+		WHERE 1=1
+		AND USE_YN = 'Y'
+		ORDER BY SHOW_ORDER
+	</select>
+
+	<select id="getPartitionSubList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			PARTITION_CD
+			, SUB_PARTITION_CD
+			, SUB_PARTITION_NM
+			, DESCRIPTION
+			, ICON
+			, ICON_NM
+		FROM SC_OPENCHAT_PARTITION_SUB
+		WHERE 1=1
+		AND USE_YN = 'Y'
+		<if test='partitionCd != null and partitionCd != ""'>
+			AND PARTITION_CD = #{partitionCd}
+		</if>
+		ORDER BY SHOW_ORDER
+	</select>
+
+	<!-- todo : (대표님숙제)WHERE 절의 A.DEL_YN AND A.PRIVATE_YN 조건이 A.PARTITION_CD 조건 다음으로 순서 변경 필요해보임 -->
+	<select id="getOpenChatList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			*
+		FROM (
+			SELECT TOP 100 PERCENT
+				A.OPEN_CHAT_KEY
+				, A.TITLE
+				, A.DATE
+				, A.DATE_STR
+				, A.FILE_ID
+				, A.DUE_DATE
+				, A.DEL_YN
+				, A.BOOKMARK_YN
+				, A.LATLON_DISTANCE
+				, A.POPULARITY
+				, B.SERVER_IP + '/' + B.FILE_PATH + B.SERVER_FILE_NM AS CDN_NM
+				, B.SERVER_IP + '/' + B.FILE_PATH + B.THUMB_FILE_NM AS CDN_THUMB_NM
+				<if test='sortCd != null and sortCd == "time"'>
+					, ROW_NUMBER() OVER(ORDER BY A.REG_TIME DESC) AS ROWNUM
+				</if>
+				<if test='sortCd != null and sortCd == "popular"'>
+					, ROW_NUMBER() OVER(ORDER BY A.POPULARITY DESC) AS ROWNUM
+				</if>
+				<if test='sortCd != null and sortCd == "latlon"'>
+					--, ROW_NUMBER() OVER(ORDER BY A.LATLON_DISTANCE) AS ROWNUM
+					, ROW_NUMBER() OVER(ORDER BY(CASE WHEN A.LATLON_DISTANCE IS NULL THEN 99999999 ELSE A.LATLON_DISTANCE END), A.OPEN_CHAT_KEY DESC) AS ROWNUM
+				</if>
+				<if test='sortCd != null and sortCd == ""'>
+					, ROW_NUMBER() OVER(ORDER BY A.OPENCHAT_ID DESC) AS ROWNUM
+				</if>
+			FROM (
+				SELECT
+					A.OPENCHAT_ID AS OPEN_CHAT_KEY
+					, A.TITLE
+					, A.CON_DATE AS DATE
+					, CONVERT(VARCHAR(10), CONVERT(DATETIME, CONVERT(VARCHAR(8), A.CON_DATE)), 120) AS DATE_STR
+					, B.ATTACH_FILE_ID AS FILE_ID
+					, A.REG_TIME
+					, A.VIEW_CNT
+					, (SELECT COUNT(*) FROM SC_OPENCHAT_ATTEND WHERE OPENCHAT_ID = A.OPENCHAT_ID) AS ATTEND_CNT
+					, CASE
+						WHEN A.DUE_DATE = '2999-12-31' THEN '상시 모집'
+						ELSE A.DUE_DATE + '까지' END AS DUE_DATE
+					, A.DEL_YN
+					, CASE WHEN D.USER_ID IS NOT NULL THEN 'Y' ELSE 'N' END BOOKMARK_YN
+					, CASE WHEN
+						(6371*acos(cos(radians( A.LAT ))*cos(radians( ISNULL(E.CURR_LAT, E.LAT) ))*cos(radians( ISNULL(E.CURR_LON, E.LON) )
+							-radians( A.LON ))+sin(radians( A.LAT ))*sin(radians( ISNULL(E.CURR_LAT, E.LAT) )))) >= 1
+						THEN ROUND((6371*acos(cos(radians( A.LAT ))*cos(radians( ISNULL(E.CURR_LAT, E.LAT) ))*cos(radians( ISNULL(E.CURR_LON, E.LON) )
+								-radians( A.LON ))+sin(radians( A.LAT ))*sin(radians( ISNULL(E.CURR_LAT, E.LAT) )))), 0)
+						ELSE ROUND((6371*acos(cos(radians( A.LAT ))*cos(radians( ISNULL(E.CURR_LAT, E.LAT) ))*cos(radians( ISNULL(E.CURR_LON, E.LON) )
+								-radians( A.LON ))+sin(radians( A.LAT ))*sin(radians( ISNULL(E.CURR_LAT, E.LAT) )))), 1)
+					END LATLON_DISTANCE
+					, A.POPULARITY
+-- 						DBO.FN_LATLON_DISTANCE(A.LAT, A.LON, ISNULL(E.CURR_LAT, E.LAT), ISNULL(E.CURR_LON, E.LON)) >= 1
+-- 							THEN ROUND(DBO.FN_LATLON_DISTANCE(A.LAT, A.LON, ISNULL(E.CURR_LAT, E.LAT), ISNULL(E.CURR_LON, E.LON)), 0)
+-- 							ELSE ROUND(DBO.FN_LATLON_DISTANCE(A.LAT, A.LON, ISNULL(E.CURR_LAT, E.LAT), ISNULL(E.CURR_LON, E.LON)), 1)
+-- 					END LATLON_DISTANCE
+				FROM SC_OPENCHAT A
+				LEFT OUTER JOIN SC_OPENCHAT_PHOTO B
+					ON A.OPENCHAT_ID = B.OPENCHAT_ID
+				LEFT OUTER JOIN SC_OPENCHAT_BOOKMARK D
+					ON A.OPENCHAT_ID = D.OPENCHAT_ID
+					AND D.USER_ID = #{userId}
+				LEFT OUTER JOIN SC_USER_ADDR E
+					ON E.USER_ID = #{userId}
+				WHERE 1=1
+					AND A.PRIVATE_YN = 'Y'
+				<if test='partitionCd != null and partitionCd != ""'>
+					AND A.PARTITION_CD = #{partitionCd}
+				</if>
+				<if test='subPartitionCd != null and subPartitionCd != ""'>
+					AND SUB_PARTITION_CD = #{subPartitionCd}
+				</if>
+				<if test='str != null and str != ""'>
+					AND (CONTAINS(A.TITLE, '"*${str}*"') OR CONTAINS(A.CONTENT, '"*${str}*"'))
+				</if>
+				<if test='alwaysYn != null and alwaysYn == "Y"'>
+					AND ALWAYS_YN = 'Y'
+				</if>
+					AND A.DEL_YN = 'N'
+				) A
+				LEFT OUTER JOIN SC_ATTACH_FILE B
+				ON A.FILE_ID = B.ATTACH_FILE_ID
+		<if test='sortCd != null and sortCd == "time"'>
+			ORDER BY A.REG_TIME DESC --최신
+		</if>
+		<if test='sortCd != null and sortCd == "popular"'>
+			ORDER BY A.POPULARITY DESC --인기
+		</if>
+		<if test='sortCd != null and sortCd == "latlon"'>
+			ORDER BY A.LATLON_DISTANCE, A.OPEN_CHAT_KEY DESC --거리
+		</if>
+		) A
+	</select>
+
+	<select id="getOpenChatDetail" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			A.LEADER_USER_ID AS REG_USER_KEY
+			, A.OPENCHAT_ID
+			, B.ICON_CD
+			, A.CHATROOM_ID
+			, C.ATTACH_FILE_ID AS MAIN_FILE_KEY
+			, CASE WHEN A.LEADER_USER_ID = #{userId} THEN 'Y'
+				  	ELSE 'N'
+				END IS_REG_YN
+			, A.TITLE
+			, A.CONTENT
+			, A.LOCATION
+			, A.ALWAYS_YN
+			, A.DUE_DATE
+			, A.DEL_YN
+			, CASE WHEN D.USER_ID IS NOT NULL THEN 'Y' ELSE 'N'
+					END BOOKMARK_YN
+			, CASE WHEN E.ATTEND_YN IS NULL THEN ''
+					WHEN E.ATTEND_YN = 'Y' THEN 'Y'
+				   	ELSE 'N'
+					END ATTEND_YN
+			, B.DROP_YN AS REG_USER_DROP_YN
+			, B.NAME
+			, B.NICK
+			, E.ATTENDER_CANCEL_YN
+		    , F.PARTITION_CD
+			, F.PARTITION_NM
+			, A.VIEW_CNT
+			, dbo.FN_GET_DATE_STR(A.REG_TIME) AS REG_DATE_STR
+			, CASE
+				  WHEN A.DUE_DATE = '2999-12-31' THEN '상시 모집'
+				  WHEN DATEDIFF(MINUTE, CONVERT(VARCHAR(10), GETDATE(), 23), A.DUE_DATE) = 1 THEN '내일'
+				  WHEN DATEDIFF(DD, CONVERT(VARCHAR(10), GETDATE(), 23), A.DUE_DATE) = 0 THEN '오늘'
+				  WHEN DATEDIFF(DD, CONVERT(VARCHAR(10), GETDATE(), 23), A.DUE_DATE) > 0 THEN CONCAT(DATEDIFF(DD, CONVERT(VARCHAR(10), GETDATE(), 23), A.DUE_DATE), '일 후')
+				  ELSE CONCAT(DATEDIFF(DD, A.DUE_DATE, CONVERT(VARCHAR(10), GETDATE(), 23)), '일 전')
+				  END AS DUE_DATE_STR
+			, #{userId} AS SS_USER_KEY
+			, E.LEADER_CONFIRM_YN
+			, CASE WHEN G.USER_ID IS NULL THEN 'NOTATTEND' ELSE 'ATTEND' END AS ATTEND_CHK
+			, E.REG_TIME AS ATTEND_REG_TIME
+			, A.OPENCHAT_RANK
+			, (SELECT COUNT(*) FROM SC_OPENCHAT WHERE DEL_YN = 'N' AND PRIVATE_YN = 'Y') AS TOTAL_ROOM
+			, (<![CDATA[
+				SELECT COUNT(*) FROM SC_BUFF_OPENCHAT_BOOST
+				WHERE OPENCHAT_ID = #{openChatKey}
+				AND (START_TIME < GETDATE() AND END_TIME > GETDATE())
+			    ]]>) AS USE_CNT
+			, H.SERVER_IP + '/' + H.FILE_PATH + H.SERVER_FILE_NM AS CDN_NM
+			, H.SERVER_IP + '/' + H.FILE_PATH + H.THUMB_FILE_NM AS CDN_THUMB_NM
+			, A.LAT
+			, A.LON
+			, A.SUB_PARTITION_CD
+			, I.SUB_PARTITION_NM
+			, CONVERT(VARCHAR(16), (SELECT LAST_CONNECT FROM SC_USER WHERE USER_ID = A.LEADER_USER_ID), 120) AS RECENT_TIME
+			, A.PRIVATE_YN
+			, (SELECT COUNT(USER_ID) FROM SC_CHATROOM_USER WHERE CHATROOM_ID = A.CHATROOM_ID) AS USER_COUNT
+			, (SELECT SUBSCRIBE_CD FROM SC_SUBSCRIBE_CURRENT WHERE USER_ID = B.USER_ID AND SUBSCRIBE_YN = 'Y') AS SUBSCRIBE_CD
+		FROM SC_OPENCHAT A
+		LEFT OUTER JOIN SC_USER B
+			ON A.LEADER_USER_ID = B.USER_ID
+		LEFT OUTER JOIN SC_OPENCHAT_PHOTO C
+			ON A.OPENCHAT_ID = C.OPENCHAT_ID
+		LEFT OUTER JOIN SC_OPENCHAT_BOOKMARK D
+			ON A.OPENCHAT_ID = D.OPENCHAT_ID
+			AND D.USER_ID = #{userId}
+		LEFT OUTER JOIN SC_OPENCHAT_ATTEND E
+			ON A.OPENCHAT_ID = E.OPENCHAT_ID
+			AND E.USER_ID = #{userId}
+		LEFT OUTER JOIN SC_OPENCHAT_PARTITION F
+			ON A.PARTITION_CD = F.PARTITION_CD
+		LEFT OUTER JOIN SC_CHATROOM_USER G
+			ON A.CHATROOM_ID = G.CHATROOM_ID
+			AND G.USER_ID = #{userId}
+		LEFT OUTER JOIN SC_ATTACH_FILE H
+			ON C.ATTACH_FILE_ID = H.ATTACH_FILE_ID
+		LEFT OUTER JOIN SC_OPENCHAT_PARTITION_SUB I
+			ON A.SUB_PARTITION_CD = I.SUB_PARTITION_CD
+		WHERE 1=1
+		AND A.OPENCHAT_ID = #{openChatKey}
+	</select>
+
+	<select id="getAttendInfo" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			A.USER_ID
+			, A.REG_TIME
+			, A.LEADER_CONFIRM_YN
+			, B.NICK
+		 	, C.PHOTO1
+			, D.SERVER_IP + '/' + D.FILE_PATH + D.THUMB_FILE_NM AS CDN_THUMB_NM
+		FROM SC_OPENCHAT_ATTEND A
+		INNER JOIN SC_USER B
+			ON A.USER_ID = B.USER_ID
+		LEFT OUTER JOIN SC_USER_PIC C
+			ON B.USER_ID = C.USER_ID
+		LEFT OUTER JOIN SC_ATTACH_FILE D
+			ON C.PHOTO1 = D.ATTACH_FILE_ID
+		WHERE A.OPENCHAT_ID = #{openChatKey}
+			AND A.USER_ID != #{userId}
+			AND A.ATTENDER_CANCEL_YN = 'N'
+			AND A.LEADER_CONFIRM_YN = 'N'
+		ORDER BY REG_TIME ASC
+	</select>
+
+	<select id="getChatRoomUserCountCheck" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			COUNT(A.USER_ID) AS ROOM_USER_COUNT
+		FROM SC_CHATROOM_USER A
+			LEFT OUTER JOIN SC_OPENCHAT B
+			ON A.CHATROOM_ID = B.CHATROOM_ID
+		WHERE B.OPENCHAT_ID = #{openChatKey}
+	</select>
+
+	<select id="updateOpenChatViewCount" parameterType="HashMap" resultType="ExqueryMap">
+		UPDATE SC_OPENCHAT
+		SET VIEW_CNT = VIEW_CNT + 1
+		WHERE OPENCHAT_ID = #{openChatKey}
+	</select>
+
+	<!-- todo : (대표님숙제)ORDER BY REG_TIME을 추가하는 것이 좋아보임 -->
+	<select id="getOpenChatDelYn" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			DEL_YN
+		FROM SC_OPENCHAT
+		WHERE 1=1
+		  AND OPENCHAT_ID = #{openChatKey}
+	</select>
+
+	<!-- todo : (대표님숙제)ORDER BY REG_TIME을 추가하는 것이 좋아보임 -->
+	<select id="getOpenChatBookmark" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			USER_ID
+	  	FROM SC_OPENCHAT_BOOKMARK
+		WHERE 1=1
+		AND OPENCHAT_ID = #{openChatKey}
+		AND USER_ID = #{userId}
+	</select>
+
+	<!-- todo : (대표님숙제)ORDER BY REG_TIME을 추가하는 것이 좋아보임 -->
+	<select id="getOpenChatAttend" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			USER_ID
+	  	FROM SC_OPENCHAT_ATTEND
+		WHERE 1=1
+		AND OPENCHAT_ID = #{openChatKey}
+		AND USER_ID = #{userKey}
+	</select>
+
+	<insert id="setOpenChatBookmarkAdd" parameterType="HashMap">
+		INSERT INTO SC_OPENCHAT_BOOKMARK
+		    (USER_ID, OPENCHAT_ID, REG_TIME)
+		VALUES
+		    (#{userId}, #{openChatKey}, GETDATE())
+	</insert>
+
+	<update id="setOpenChatAttendYn" parameterType="HashMap">
+		UPDATE SC_OPENCHAT_ATTEND SET
+			LEADER_CONFIRM_YN = 'Y'
+			, ATTEND_YN = #{type}
+			, LEADER_CONFIRM_TIME = GETDATE()
+		WHERE OPENCHAT_ID = #{openChatKey}
+		AND USER_ID = #{userId}
+	</update>
+
+	<update id="deleteOpenChatAttend" parameterType="HashMap">
+		DELETE SC_OPENCHAT_ATTEND
+		WHERE OPENCHAT_ID = #{openChatKey}
+		AND USER_ID = #{userId}
+	</update>
+
+	<delete id="setOpenChatBookmarkDel" parameterType="HashMap">
+		DELETE SC_OPENCHAT_BOOKMARK
+		WHERE OPENCHAT_ID = #{openChatKey}
+		AND USER_ID = #{userId}
+	</delete>
+
+	<!-- todo : (대표님숙제)ORDER BY A.REG_TIME을 추가하는 것이 좋아보임 -->
+	<select id="getOpenChatInvite" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			A.USER_ID
+		    , A.ATTEND_YN
+			, A.ATTENDER_CANCEL_YN
+			, CASE WHEN B.LEADER_USER_ID IS NOT NULL THEN 'Y'
+					ELSE 'N'
+					END IS_LEADER_YN
+		FROM SC_OPENCHAT_ATTEND A
+		LEFT OUTER JOIN SC_OPENCHAT B
+			ON A.OPENCHAT_ID = B.OPENCHAT_ID
+			AND A.USER_ID = B.LEADER_USER_ID
+		WHERE 1=1
+		  AND A.OPENCHAT_ID = #{openChatKey}
+		  AND A.USER_ID = #{userId}
+	</select>
+
+	<select id="getLeaderUserInfo" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			LEADER_USER_ID,
+			(SELECT NICK FROM SC_USER WHERE USER_ID = #{userId}) AS NICK
+		FROM SC_OPENCHAT
+		WHERE OPENCHAT_ID = #{openChatKey}
+	</select>
+
+	<select id="selectUserInfoNick" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT NICK FROM SC_USER
+		WHERE USER_ID = #{userId}
+	</select>
+
+	<select id="selectOpenchatInfo" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT CHATROOM_ID, TITLE FROM SC_OPENCHAT WHERE OPENCHAT_ID = #{openChatKey}
+	</select>
+
+	<select id="selectOpenchatCancleMin" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT DATEDIFF(minute, ATTENDER_CANCEL_TIME, GETDATE()) AS CANCLE_TIME FROM SC_OPENCHAT_ATTEND
+		WHERE OPENCHAT_ID = #{openChatKey}
+		AND USER_ID = #{userId}
+	</select>
+
+	<select id="selectOpenchatUserInfo" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			*
+		FROM SC_CHATROOM_USER
+		WHERE CHATROOM_ID = #{chatroomId}
+		AND USER_ID = #{userId}
+	</select>
+
+
+	<insert id="setOpenChatInviteRegUser" parameterType="HashMap">
+		INSERT INTO SC_OPENCHAT_ATTEND
+			(OPENCHAT_ID, USER_ID, LEADER_CONFIRM_YN, LEADER_CONFIRM_TIME, LEADER_AGREE_TIME, ATTEND_YN, REG_TIME, ATTENDER_CANCEL_YN)
+		VALUES
+			(#{openChatId}, #{userId}, 'Y', GETDATE(), GETDATE(), 'Y', GETDATE(), 'N')
+	</insert>
+
+	<select id="createChatroomNew" parameterType="HashMap" resultType="ExqueryMap">
+		INSERT INTO SC_CHATROOM (
+            LAST_CHAT
+            , LAST_TIME
+            , CHATROOM_TYPE
+            , CREATED_TIME
+            , CREATED_USER_ID
+            , TITLE
+            , IMG_ID
+        )
+        VALUES (
+            ''
+			, GETDATE()
+            , 'openchat'
+            , GETDATE()
+            , #{ssUserId}
+            , #{title}
+            , #{fileId}
+        )
+		SELECT [CHATROOM_ID] = SCOPE_IDENTITY()
+	</select>
+
+	<insert id="createChatroomUser" parameterType="HashMap">
+		INSERT INTO SC_CHATROOM_USER (
+		CHATROOM_ID
+		, USER_ID
+		, CONNECT_TIME
+		, IS_FIRST
+		, IS_RECEIVE
+		)
+		VALUES (
+		#{chatroomId}
+		, #{ssUserId}
+		, GETDATE()
+		, 'Y'
+		, 'Y'
+		)
+	</insert>
+
+	<insert id="createChatroomAttend" parameterType="HashMap">
+		INSERT INTO SC_CHATROOM_USER (
+		CHATROOM_ID
+		, USER_ID
+		, CONNECT_TIME
+		, IS_FIRST
+	 	, IS_RECEIVE
+		)
+		VALUES (
+		#{chatroomId}
+		, #{userId}
+		, GETDATE()
+		, 'N'
+		, 'Y'
+		)
+	</insert>
+
+	<update id="updateChatroomIsFirst" parameterType="HashMap">
+		UPDATE SC_CHATROOM_USER
+			SET	IS_FIRST = 'N'
+		WHERE CHATROOM_ID = #{chatroomId}
+	</update>
+
+	<insert id="setOpenChatInvite" parameterType="HashMap">
+		INSERT INTO SC_OPENCHAT_ATTEND
+			(OPENCHAT_ID, USER_ID, LEADER_CONFIRM_YN, REG_TIME, ATTENDER_CANCEL_YN)
+		VALUES
+			(#{openChatKey}, #{userId}, 'N', GETDATE(), 'N')
+	</insert>
+
+	<update id="setOpenChatReInvite" parameterType="HashMap">
+		UPDATE SC_OPENCHAT_ATTEND
+			SET	ATTENDER_CANCEL_YN = 'N'
+				, ATTENDER_CANCEL_TIME = NULL
+				, ATTEND_YN = NULL
+				, LEADER_CONFIRM_YN = 'N'
+				, LEADER_CONFIRM_TIME = NULL
+				, LEADER_AGREE_TIME = NULL
+				, REG_TIME = GETDATE()
+		WHERE OPENCHAT_ID = #{openChatKey}
+		AND USER_ID = #{userId}
+	</update>
+
+	<update id="setOpenChatInviteCancel" parameterType="HashMap">
+		UPDATE SC_OPENCHAT_ATTEND
+			SET	ATTENDER_CANCEL_YN = 'Y'
+				, ATTENDER_CANCEL_TIME = GETDATE()
+		WHERE OPENCHAT_ID = #{openChatKey}
+		AND USER_ID = #{userId}
+	</update>
+
+	<select id="setOpenChat" parameterType="HashMap" resultType="ExqueryMap">
+		INSERT INTO SC_OPENCHAT
+			( LEADER_USER_ID
+			, PARTITION_CD
+			, SUB_PARTITION_CD
+			, REG_TIME
+			, REG_USER
+			, TITLE
+			, CONTENT
+			, DEL_YN
+			, VIEW_CNT
+			, CON_DATE
+			, LOCATION
+		<if test='alwaysYn != null and alwaysYn != ""'>
+			, ALWAYS_YN
+			, DUE_DATE
+		</if>
+		<if test='privateYn != null and privateYn != ""'>
+			, PRIVATE_YN
+		</if>
+			, CHATROOM_ID
+		<if test='locationYn != null and locationYn != ""'>
+			, LOCATION_YN
+		</if>
+		<if test='locationYn != null and locationYn == "Y"'>
+			, LAT
+			, LON
+		</if>
+			)
+		VALUES
+			( #{userId}
+			, #{partitionCd}
+			, #{subPartitionCd}
+			, GETDATE()
+			, #{userId}
+			, #{title}
+			, #{content}
+			, 'N'
+			, '0'
+			, #{date}
+			, #{location}
+		<if test='alwaysYn != null and alwaysYn == "Y"'>
+			, 'Y'
+			, '2999-12-31'
+		</if>
+		<if test='alwaysYn != null and alwaysYn == "N"'>
+			, 'N'
+			, #{dueDate}
+		</if>
+		<if test='privateYn != null and privateYn != ""'>
+			, #{privateYn}
+		</if>
+			,#{chatroomId}
+		<if test='locationYn != null and locationYn != ""'>
+			, #{locationYn}
+		</if>
+		<if test='locationYn != null and locationYn == "Y"'>
+			, #{lat}
+			, #{lon}
+		</if>
+			)
+		SELECT @@IDENTITY AS CUR_ID
+	</select>
+
+	<select id="getOpenChatPhoto" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			OPENCHAT_ID
+			, ATTACH_FILE_ID
+		FROM SC_OPENCHAT_PHOTO
+		WHERE 1=1
+		AND OPENCHAT_ID = #{openChatKey}
+	</select>
+
+	<select id="getLeaderCheck" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			CASE
+				WHEN LEADER_USER_ID = #{ssUserId} OR SUB_LEADER_YN = 'Y' THEN 'Y'
+				ELSE 'N' END LEADER_YN
+		FROM SC_OPENCHAT A
+			LEFT OUTER JOIN SC_CHATROOM_USER B
+			ON A.CHATROOM_ID = B.CHATROOM_ID
+				AND B.USER_ID = #{ssUserId}
+				AND B.CHATROOM_ID = #{chatroomId}
+		WHERE A.OPENCHAT_ID = #{openChatId}
+	</select>
+
+	<insert id="setOpenChatPhoto" parameterType="HashMap">USE [SECOND]
+		INSERT INTO SC_OPENCHAT_PHOTO
+			( OPENCHAT_ID
+			, ATTACH_FILE_ID
+			)
+		VALUES
+			( #{openChatId}
+			, #{fileId}
+			)
+	</insert>
+
+	<update id="setOpenChatDel" parameterType="HashMap">
+		UPDATE SC_OPENCHAT
+		SET
+			DEL_YN = 'Y'
+			, UPD_USER = #{userId}
+			, UPD_TIME = GETDATE()
+		WHERE 1=1
+		AND OPENCHAT_ID = #{openChatKey}
+	</update>
+
+	<update id="setOpenChatUpdate" parameterType="HashMap">
+		UPDATE SC_OPENCHAT
+		SET
+			PARTITION_CD = #{partitionCd}
+			, SUB_PARTITION_CD = #{subPartitionCd}
+		    , TITLE = #{title}
+		    , CONTENT = #{content}
+			, CON_DATE = #{date}
+			, LOCATION = #{location}
+			, UPD_TIME = GETDATE()
+			, UPD_USER = #{userId}
+		<if test='alwaysYn != null and alwaysYn != ""'>
+			, ALWAYS_YN = #{alwaysYn}
+		</if>
+		<if test='alwaysYn != null and alwaysYn == "Y"'>
+			, DUE_DATE = '2999-12-31'
+		</if>
+		<if test='alwaysYn != null and alwaysYn == "N"'>
+			, DUE_DATE = #{dueDate}
+		</if>
+		<if test='privateYn != null and privateYn != ""'>
+			, PRIVATE_YN = #{privateYn}
+		</if>
+		<if test='locationYn != null and locationYn != ""'>
+			, LOCATION_YN = #{locationYn}
+		</if>
+		<if test='locationYn != null and locationYn == "Y"'>
+			, LAT = #{lat}
+			, LON = #{lon}
+		</if>
+		<if test='locationYn != null and locationYn == "N"'>
+			, LAT = NULL
+			, LON = NULL
+		</if>
+		WHERE 1=1
+		AND OPENCHAT_ID = #{openChatKey}
+	</update>
+
+	<update id="updateChatroomTitle" parameterType="HashMap">
+		UPDATE SC_CHATROOM
+        SET TITLE = #{title}
+        WHERE CHATROOM_ID = (
+        SELECT CHATROOM_ID FROM SC_OPENCHAT
+        WHERE OPENCHAT_ID = #{openChatKey}
+        )
+	</update>
+
+	<update id="updateChatroomImgId" parameterType="HashMap">
+		UPDATE SC_CHATROOM
+        SET IMG_ID = #{fileId}
+        WHERE CHATROOM_ID = (
+        SELECT CHATROOM_ID FROM SC_OPENCHAT
+        WHERE OPENCHAT_ID = #{openChatKey}
+        )
+	</update>
+
+	<update id="setOpenChatPhotoUpdate" parameterType="HashMap">
+		UPDATE SC_OPENCHAT_PHOTO
+		SET
+		<if test='fileId != null and fileId == "emtpy"'>
+			ATTACH_FILE_ID = NULL
+		</if>
+		<if test='fileId != null and fileId != "emtpy" and fileId != ""'>
+			ATTACH_FILE_ID = #{fileId}
+		</if>
+		WHERE 1=1
+		AND OPENCHAT_ID = #{openChatKey}
+	</update>
+
+	<!-- todo : (대표님숙제)TOP 100 PERCENT 필요하지 않아보임, 페이징쿼리 대신 OFFSET FETCH를 사용하면 안되는지 궁금함 -->
+	<select id="getOpenChatMyList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT * FROM (
+			SELECT TOP 100 PERCENT
+				A.OPENCHAT_ID AS OPEN_CHAT_KEY
+				 , (
+					SELECT COUNT(*) FROM SC_OPENCHAT_ATTEND
+					WHERE OPENCHAT_ID = A.OPENCHAT_ID
+				  	AND USER_ID != #{userId}
+					AND ATTENDER_CANCEL_YN = 'N'
+					AND LEADER_CONFIRM_YN = 'N'
+					) AS ATTEND_CNT
+				 , A.LEADER_USER_ID AS LEADER_USER_KEY
+				 , A.TITLE
+				 , A.VIEW_CNT
+				 , CONVERT(VARCHAR, A.REG_TIME, 120) AS REG_DATE_STR
+				 , B.ICON_CD
+				 , A.CONTENT
+				 , C.ATTACH_FILE_ID AS FILE_ID
+				 , ROW_NUMBER() OVER(ORDER BY A.OPENCHAT_ID DESC) AS ROWNUM
+				 , A.DEL_YN
+				 , (D.SERVER_IP + '/' + D.FILE_PATH + D.THUMB_FILE_NM) AS CDN_THUMB_NM
+				 , A.PRIVATE_YN
+			FROM SC_OPENCHAT A
+			LEFT OUTER JOIN SC_USER B
+				ON A.LEADER_USER_ID = B.USER_ID
+			LEFT OUTER JOIN SC_OPENCHAT_PHOTO C
+				ON A.OPENCHAT_ID = C.OPENCHAT_ID
+			LEFT OUTER JOIN SC_ATTACH_FILE D
+				ON C.ATTACH_FILE_ID = D.ATTACH_FILE_ID
+			WHERE 1=1
+			  AND A.LEADER_USER_ID = #{userId}
+			  AND A.DEL_YN = 'N'
+			ORDER BY A.REG_TIME DESC
+		) A
+	</select>
+
+	<!-- todo : (대표님숙제)TOP 100 PERCENT 필요하지 않아보임, 시간계산 함수 필요,  -->
+	<select id="getOpenChatInviteList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT * FROM (
+			SELECT TOP 100 PERCENT
+				A.OPENCHAT_ID AS OPEN_CHAT_KEY
+				, A.LEADER_USER_ID AS LEADER_USER_KEY
+				, A.TITLE
+				, A.VIEW_CNT
+			    , D.ATTACH_FILE_ID AS FILE_ID
+				, CASE
+					  WHEN DATEDIFF(MINUTE, C.REG_TIME, GETDATE()) BETWEEN 0 AND 59 THEN '방금 전'
+					  WHEN DATEDIFF(MINUTE, C.REG_TIME, GETDATE()) BETWEEN 60 AND 60 * 24 THEN CAST(FLOOR(DATEDIFF(MINUTE, C.REG_TIME, GETDATE()) / 60) AS NVARCHAR(10)) + '시간 전'
+					  WHEN DATEDIFF(MINUTE, C.REG_TIME, GETDATE()) BETWEEN 60 * 24 AND 60 * 24 * 7 THEN CAST(FLOOR(DATEDIFF(MINUTE, C.REG_TIME, GETDATE()) / (60 * 24)) AS NVARCHAR(10)) + '일 전'
+					  WHEN DATEDIFF(MINUTE, C.REG_TIME, GETDATE()) BETWEEN 60 * 24 * 7 AND 60 * 24 * 30 THEN CAST(FLOOR(DATEDIFF(MINUTE, C.REG_TIME, GETDATE()) / (60 * 24 * 7)) AS NVARCHAR(10)) + '주 전'
+					  WHEN DATEDIFF(MINUTE, C.REG_TIME, GETDATE()) BETWEEN 60 * 24 * 30 AND 60 * 24 * 365 THEN CAST(FLOOR(DATEDIFF(MINUTE, C.REG_TIME, GETDATE()) / (60 * 24 * 30)) AS NVARCHAR(10)) + '개월 전'
+					  ELSE CAST(FLOOR(DATEDIFF(MINUTE, C.REG_TIME, GETDATE()) / (60 * 24 * 365)) AS NVARCHAR(10)) + '년 전'
+				END AS REG_DATE_STR
+				, B.ICON_CD
+				, A.CONTENT
+				, ROW_NUMBER() OVER(ORDER BY A.OPENCHAT_ID DESC) AS ROWNUM
+				, A.DEL_YN
+				, C.LEADER_CONFIRM_YN
+				, E.CHATROOM_ID AS IS_ATTEND
+				, (F.SERVER_IP + '/' + F.FILE_PATH + F.THUMB_FILE_NM) AS CDN_THUMB_NM
+			FROM SC_OPENCHAT A
+			LEFT OUTER JOIN SC_USER B
+				ON A.LEADER_USER_ID = B.USER_ID
+			LEFT OUTER JOIN SC_OPENCHAT_ATTEND C
+				ON A.OPENCHAT_ID = C.OPENCHAT_ID
+				AND A.LEADER_USER_ID != C.USER_ID
+				AND C.ATTEND_YN = 'Y'
+			LEFT OUTER JOIN SC_OPENCHAT_PHOTO D
+				ON A.OPENCHAT_ID = D.OPENCHAT_ID
+			LEFT OUTER JOIN SC_CHATROOM_USER E
+				ON A.CHATROOM_ID = E.CHATROOM_ID
+				AND E.USER_ID = #{userId}
+			LEFT OUTER JOIN SC_ATTACH_FILE F
+				ON D.ATTACH_FILE_ID = F.ATTACH_FILE_ID
+			WHERE 1=1
+			 	AND C.USER_ID = #{userId}
+				AND A.DEL_YN = 'N'
+			ORDER BY C.REG_TIME DESC
+		) A
+	</select>
+	<!-- 후에 쿼리튜닝 가능한지 비교
+SELECT
+	A.OPENCHAT_ID AS OPEN_CHAT_KEY
+	, B.LEADER_USER_ID AS LEADER_USER_KEY
+	, B.TITLE
+	, B.VIEW_CNT
+	, CONVERT(CHAR(10), B.REG_TIME, 23) AS REG_DATE_STR
+	, C.ICON_CD
+FROM SC_OPENCHAT_ATTEND A
+LEFT OUTER JOIN SC_OPENCHAT B
+ON A.OPENCHAT_ID = B.OPENCHAT_ID
+AND A.USER_ID != B.LEADER_USER_ID
+LEFT OUTER JOIN SC_USER C
+ON B.LEADER_USER_ID = C.USER_ID
+WHERE 1=1
+AND A.USER_ID = '2'
+AND B.DEL_YN = 'N'
+ORDER BY A.REG_TIME DESC
+-->
+
+	<select id="getOpenChatMyBookmarkList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT * FROM (
+			SELECT TOP 100 PERCENT
+				A.OPENCHAT_ID AS OPEN_CHAT_KEY
+				, A.LEADER_USER_ID AS LEADER_USER_KEY
+				, A.TITLE
+				, A.VIEW_CNT
+-- 				, CASE
+-- 					  WHEN DATEDIFF(MINUTE, C.REG_TIME, GETDATE()) BETWEEN 0 AND 59 THEN '방금 전'
+-- 					  WHEN DATEDIFF(MINUTE, C.REG_TIME, GETDATE()) BETWEEN 60 AND 60 * 24 THEN CAST(FLOOR(DATEDIFF(MINUTE, C.REG_TIME, GETDATE()) / 60) AS NVARCHAR(10)) + '시간 전'
+-- 					  WHEN DATEDIFF(MINUTE, C.REG_TIME, GETDATE()) BETWEEN 60 * 24 AND 60 * 24 * 7 THEN CAST(FLOOR(DATEDIFF(MINUTE, C.REG_TIME, GETDATE()) / (60 * 24)) AS NVARCHAR(10)) + '일 전'
+-- 					  WHEN DATEDIFF(MINUTE, C.REG_TIME, GETDATE()) BETWEEN 60 * 24 * 7 AND 60 * 24 * 30 THEN CAST(FLOOR(DATEDIFF(MINUTE, C.REG_TIME, GETDATE()) / (60 * 24 * 7)) AS NVARCHAR(10)) + '주 전'
+-- 					  WHEN DATEDIFF(MINUTE, C.REG_TIME, GETDATE()) BETWEEN 60 * 24 * 30 AND 60 * 24 * 365 THEN CAST(FLOOR(DATEDIFF(MINUTE, C.REG_TIME, GETDATE()) / (60 * 24 * 30)) AS NVARCHAR(10)) + '개월 전'
+-- 					  ELSE CAST(FLOOR(DATEDIFF(MINUTE, C.REG_TIME, GETDATE()) / (60 * 24 * 365)) AS NVARCHAR(10)) + '년 전'
+-- 				END AS REG_DATE_STR
+				, CONVERT(CHAR(19), A.REG_TIME, 120) AS REG_DATE_STR
+				, B.ICON_CD
+				, A.CONTENT
+				, D.ATTACH_FILE_ID AS FILE_ID
+				, ROW_NUMBER() OVER(ORDER BY C.REG_TIME DESC) AS ROWNUM
+				, A.DEL_YN
+				, (E.SERVER_IP + '/' + E.FILE_PATH + E.THUMB_FILE_NM) AS CDN_THUMB_NM
+			FROM SC_OPENCHAT A
+			LEFT OUTER JOIN SC_USER B
+				ON A.LEADER_USER_ID = B.USER_ID
+			LEFT OUTER JOIN SC_OPENCHAT_BOOKMARK C
+				ON A.OPENCHAT_ID = C.OPENCHAT_ID
+			LEFT OUTER JOIN SC_OPENCHAT_PHOTO D
+				ON A.OPENCHAT_ID = D.OPENCHAT_ID
+			LEFT OUTER JOIN SC_ATTACH_FILE E
+				ON D.ATTACH_FILE_ID = E.ATTACH_FILE_ID
+			WHERE 1=1
+				AND A.DEL_YN = 'N'
+				AND C.USER_ID = #{userId}
+			ORDER BY C.REG_TIME DESC
+		) A
+	</select>
+	<!-- 후에 쿼리튜닝 가능한지 비교
+SELECT
+	A.OPENCHAT_ID AS OPEN_CHAT_KEY
+	, B.LEADER_USER_ID AS LEADER_USER_KEY
+	, B.TITLE
+	, B.VIEW_CNT
+	, CONVERT(CHAR(10), B.REG_TIME, 23) AS REG_DATE_STR
+	, C.ICON_CD
+FROM SC_OPENCHAT_BOOKMARK A
+LEFT OUTER JOIN SC_OPENCHAT B
+ON A.OPENCHAT_ID = B.OPENCHAT_ID
+LEFT OUTER JOIN SC_USER C
+ON B.LEADER_USER_ID = C.USER_ID
+WHERE 1=1
+AND A.USER_ID = '2'
+AND B.DEL_YN = 'N'
+ORDER BY A.REG_TIME DESC
+-->
+	<select id="getDefaultImgList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			FILE_ID AS FILE_KEY
+			, NAME
+			, B.SERVER_IP + '/' + B.FILE_PATH + B.SERVER_FILE_NM AS CDN_NM
+			, B.SERVER_IP + '/' + B.FILE_PATH + B.THUMB_FILE_NM AS CDN_THUMB_NM
+		FROM SC_OPENCHAT_DEFAULT_IMG A
+		LEFT OUTER JOIN SC_ATTACH_FILE B
+		ON A.FILE_ID = B.ATTACH_FILE_ID
+		WHERE 1=1
+			AND SHOW_YN = 'Y'
+			AND SUBSCRIBE_YN = #{subscribeYn}
+		ORDER BY SHOW_ORDER
+	</select>
+
+	<update id="setUserLatLon" parameterType="HashMap">
+		UPDATE SC_USER_ADDR
+		SET
+			CURR_LAT = #{lat}
+			, CURR_LON = #{lon}
+			, UPD_DATE = GETDATE()
+		WHERE 1=1
+		AND USER_ID = #{userId}
+	</update>
+
+	<select id="getOpenChatUserAddr" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			ADDR_LIVE
+			 , ADDR_LIVE_SUM
+			 , LAT
+			 , LON
+			 , CURR_LAT
+			 , CURR_LON
+		FROM SC_USER_ADDR
+		WHERE USER_ID = #{userId}
+	</select>
+
+	<select id="getOpenChatLatLon" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			A.OPEN_CHAT_KEY
+			, A.TITLE
+			, A.DATE
+			, A.DATE_STR
+			, A.FILE_ID
+			, B.SERVER_IP + '/' + B.FILE_PATH + B.SERVER_FILE_NM AS CDN_NM
+			, B.SERVER_IP + '/' + B.FILE_PATH + B.THUMB_FILE_NM AS CDN_THUMB_NM
+			, A.DUE_DATE
+			, A.LOCATION
+			, A.DEL_YN
+			, A.BOOKMARK_YN
+			, A.LATLON_DISTANCE
+			, A.LAT
+			, A.LON
+			, A.NICK
+			, A.CONTENT
+			, A.REG_DATE_STR
+			, A.PARTITION_NM
+			, A.ATTENDER_CANCEL_YN
+			, A.REG_USER_KEY
+			, A.SS_USER_KEY
+			, A.ATTEND_YN
+			, A.ATTEND_CHK
+			, A.ATTEND_REG_TIME
+			, A.RECENT_TIME
+			, A.ACTIVE_TIME
+		FROM (
+			SELECT TOP 100 PERCENT
+				A.OPENCHAT_ID AS OPEN_CHAT_KEY
+				, CONVERT(VARCHAR(16), (SELECT LAST_CONNECT FROM SC_USER WHERE USER_ID = A.LEADER_USER_ID), 120) AS RECENT_TIME
+				, A.TITLE
+				, A.CON_DATE AS DATE
+				, CONVERT(VARCHAR(10), CONVERT(DATETIME, CONVERT(VARCHAR(8), A.CON_DATE)), 120) AS DATE_STR
+				, B.ATTACH_FILE_ID AS FILE_ID
+				, A.REG_TIME
+				, A.VIEW_CNT
+				, A.LOCATION
+				, A.CONTENT
+				, A.LEADER_USER_ID
+				, A.DUE_DATE AS ACTIVE_TIME
+				, (SELECT COUNT(*) FROM SC_OPENCHAT_ATTEND WHERE OPENCHAT_ID = A.OPENCHAT_ID) AS ATTEND_CNT
+				, CASE
+					WHEN A.DUE_DATE = '2999-12-31' THEN '상시 모집'
+					ELSE A.DUE_DATE + '까지' END AS DUE_DATE
+				, A.DEL_YN
+				, C.NICK
+				, dbo.FN_GET_DATE_STR( A.REG_TIME ) AS REG_DATE_STR
+				, CASE WHEN D.USER_ID IS NOT NULL THEN 'Y' ELSE 'N' END BOOKMARK_YN
+			<if test='mapLat != null and mapLat != "" and mapLon != null and mapLon != ""'>
+				, CASE WHEN
+					(6371*acos(cos(radians( A.LAT ))*cos(radians( ISNULL(#{mapLat}, E.LAT) ))*cos(radians( ISNULL(#{mapLon},E.LON) )-radians( A.LON ))+sin(radians( A.LAT ))*sin(radians( ISNULL(#{mapLat}, E.LAT) )))) >= 1
+					THEN ROUND((6371*acos(cos(radians( A.LAT ))*cos(radians( ISNULL(#{mapLat}, E.LAT) ))*cos(radians(ISNULL(#{mapLon}, E.LON) )-radians( A.LON ))+sin(radians( A.LAT ))*sin(radians( ISNULL(#{mapLat}, E.LAT) )))), 0)
+					ELSE ROUND((6371*acos(cos(radians( A.LAT ))*cos(radians( ISNULL(#{mapLat}, E.LAT) ))*cos(radians(ISNULL(#{mapLon}, E.LON) )-radians( A.LON ))+sin(radians( A.LAT ))*sin(radians( ISNULL(#{mapLat}, E.LAT) )))), 1)
+					END LATLON_DISTANCE
+			</if>
+			<if test='mapLat == null or mapLat == "" or mapLon == null or mapLon == ""'>
+				, CASE WHEN
+					(6371*acos(cos(radians( A.LAT ))*cos(radians( ISNULL(E.CURR_LAT, E.LAT) ))*cos(radians( ISNULL(E.CURR_LON,E.LON) )-radians( A.LON ))+sin(radians( A.LAT ))*sin(radians( ISNULL(E.CURR_LAT, E.LAT) )))) >= 1
+					THEN ROUND((6371*acos(cos(radians( A.LAT ))*cos(radians( ISNULL(E.CURR_LAT, E.LAT) ))*cos(radians(ISNULL(E.CURR_LON, E.LON) )-radians( A.LON ))+sin(radians( A.LAT ))*sin(radians( ISNULL(E.CURR_LAT, E.LAT) )))), 0)
+					ELSE ROUND((6371*acos(cos(radians( A.LAT ))*cos(radians( ISNULL(E.CURR_LAT, E.LAT) ))*cos(radians(ISNULL(E.CURR_LON, E.LON) )-radians( A.LON ))+sin(radians( A.LAT ))*sin(radians( ISNULL(E.CURR_LAT, E.LAT) )))), 1)
+					END LATLON_DISTANCE
+			</if>
+				, A.LAT
+				, A.LON
+				, F.PARTITION_NM
+				, G.ATTENDER_CANCEL_YN
+				, A.LEADER_USER_ID AS REG_USER_KEY
+				, #{userId} AS SS_USER_KEY
+				, CASE
+				WHEN G.ATTEND_YN IS NULL THEN ''
+				WHEN G.ATTEND_YN = 'Y' THEN 'Y'
+				ELSE 'N'
+				END ATTEND_YN
+				, CASE WHEN H.USER_ID IS NULL THEN 'NOTATTEND' ELSE 'ATTEND' END AS ATTEND_CHK
+				, G.REG_TIME AS ATTEND_REG_TIME
+			FROM SC_OPENCHAT A
+			LEFT OUTER JOIN SC_OPENCHAT_PHOTO B
+				ON A.OPENCHAT_ID = B.OPENCHAT_ID
+			LEFT OUTER JOIN SC_USER C
+				ON A.LEADER_USER_ID = C.USER_ID
+			LEFT OUTER JOIN SC_OPENCHAT_BOOKMARK D
+				ON A.OPENCHAT_ID = D.OPENCHAT_ID
+				AND D.USER_ID = #{userId}
+			LEFT OUTER JOIN SC_USER_ADDR E
+				ON E.USER_ID = #{userId}
+			LEFT OUTER JOIN SC_OPENCHAT_PARTITION F
+				ON A.PARTITION_CD = F.PARTITION_CD
+			LEFT OUTER JOIN SC_OPENCHAT_ATTEND G
+				ON A.OPENCHAT_ID = G.OPENCHAT_ID
+				AND G.USER_ID = #{userId}
+			LEFT OUTER JOIN SC_CHATROOM_USER H
+				ON A.CHATROOM_ID = H.CHATROOM_ID
+				AND H.USER_ID = #{userId}
+			WHERE 1=1
+			AND A.DEL_YN = 'N'
+			AND A.PRIVATE_YN = 'Y'
+			<if test='partitionCd != null and partitionCd != ""'>
+			    AND A.PARTITION_CD = #{partitionCd}
+			</if>
+			<choose>
+				<when test="subPartitionCd == 'allTime'">
+					AND (
+						CONVERT(DATE, A.DUE_DATE) >= CONVERT(DATE, CONVERT(VARCHAR, GETDATE(), 23))
+						OR A.REG_TIME > DATEADD(HOUR, -6, CONVERT(VARCHAR, GETDATE(), 20))
+					) --CONVERT(VARCHAR(19), A.DUE_DATE, 120) = '2999-12-31'
+				</when>
+				<when test="subPartitionCd == 'today'">
+					AND (A.DUE_DATE = '2999-12-31'
+						OR CONVERT(VARCHAR(10), A.DUE_DATE, 120) = CONVERT(VARCHAR(10), GETDATE(), 120)
+					)
+				</when>
+				<when test="subPartitionCd == 'tomorrow'">
+					AND (A.DUE_DATE = '2999-12-31'
+						OR CONVERT(DATE, A.DUE_DATE) = DATEADD(DAY, 1, CONVERT(DATE, GETDATE()))
+					)
+				</when>
+				<when test="subPartitionCd == 'week'">
+				<![CDATA[
+					AND (A.DUE_DATE = '2999-12-31'
+						OR (A.DUE_DATE >= DATEADD(DAY, DATEDIFF(DAY, 0, GETDATE()) / 7 * 7, 0)
+						AND A.DUE_DATE < DATEADD(DAY, DATEDIFF(DAY, 0, GETDATE()) / 7 * 7 + 7, 0))
+					)
+				]]>
+				</when>
+				<when test="subPartitionCd == 'month'">
+					AND (A.DUE_DATE = '2999-12-31'
+						OR CONVERT(VARCHAR(7), A.DUE_DATE, 120) = CONVERT(VARCHAR(7), GETDATE(), 120)
+					)
+				</when>
+			</choose>
+		) A
+		LEFT OUTER JOIN SC_ATTACH_FILE B
+			ON A.FILE_ID = B.ATTACH_FILE_ID
+		WHERE A.LATLON_DISTANCE IS NOT NULL
+		<choose>
+			<when test="zoomSize == null or zoomSize == ''">
+				<![CDATA[AND A.LATLON_DISTANCE <= 10]]>
+			</when>
+		  	<when test="zoomSize gte 15">
+				<![CDATA[AND A.LATLON_DISTANCE <= 5]]>
+			</when>
+		  	<when test="zoomSize lt 15 and zoomSize gte 12">
+				<![CDATA[AND A.LATLON_DISTANCE <= 10]]>
+			</when>
+			<when test="zoomSize lt 12 and zoomSize gte 10">
+				<![CDATA[AND A.LATLON_DISTANCE <= 25]]>
+			</when>
+			<when test="zoomSize lt 10 and zoomSize gte 8">
+				<![CDATA[AND A.LATLON_DISTANCE <= 40]]>
+			</when>
+			<otherwise>
+			</otherwise>
+		</choose>
+		<![CDATA[
+			AND (
+				A.ACTIVE_TIME >= GETDATE()-1
+				OR
+				A.ACTIVE_TIME = '2999-12-31'
+			)
+		  	AND A.RECENT_TIME > DATEADD(HOUR, -24, GETDATE())
+		]]>
+	</select>
+
+	<update id="setCheckPrivateYn" parameterType="HashMap">
+		UPDATE SC_OPENCHAT
+		SET PRIVATE_YN = #{updatePrivateYn}
+		WHERE LEADER_USER_ID = #{userId}
+		AND OPENCHAT_ID = #{openChatKey}
+	</update>
+
+	<select id="setPrivateCount" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			COUNT(PRIVATE_YN) AS PRIVATE
+		FROM SC_OPENCHAT
+		WHERE LEADER_USER_ID = #{userId}
+		AND PRIVATE_YN = 'Y'
+	</select>
+
+	<select id="userPrivateYnCheck" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1 PRIVATE_YN FROM SC_OPENCHAT
+		WHERE LEADER_USER_ID = #{userId}
+		AND OPENCHAT_ID = #{openChatKey}
+	</select>
+
+	<select id="getOpenChatMeetCategory" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			CATEGORY_CD
+			, CATEGORY_NM
+		FROM SC_OPENCHAT_MEET_CATEGORY
+		WHERE USE_YN = 'Y'
+		ORDER BY SHOW_ORDER ASC
+	</select>
+
+	<select id="getOpenChatMeetList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			MEET_ID
+		    , OPENCHAT_ID
+			, TITLE
+			, CONTENT
+			, CASE
+				WHEN A.CREATED_USER_ID = #{ssUserId} THEN 'Y'
+				ELSE 'N' END CREATED_USER_YN
+			, ISNULL(COMMENT_CNT, 0) AS COMMENT_CNT
+		    , CATEGORY
+			, CREATED_DT
+			, CREATED_USER_ID
+			, UPDATED_DT
+			, UPDATED_USER_ID
+			<if test="categoryCd == 'MEET_GROUP'">
+			, LAT
+			, LON
+			, MEET_DATE
+			, MEET_TIME
+			, ISNULL(MEET_RANGE, 0) AS MEET_RANGE
+			, ISNULL(MEET_COST, 0) AS MEET_COST
+			, MEET_ADDR
+			, MEET_ADDR_DETAIL
+			, MEET_PUSH
+			, (SELECT COUNT(*) FROM SC_OPENCHAT_MEET_USER WHERE OPENCHAT_ID = A.OPENCHAT_ID AND MEET_ID = A.MEET_ID AND DEL_YN = 'N') AS PARTICIPATE_CNT
+			, <![CDATA[(SELECT CASE WHEN COUNT(*) > 0 THEN 'Y' ELSE 'N' END AS T FROM SC_OPENCHAT_MEET_USER WHERE OPENCHAT_ID = A.OPENCHAT_ID AND MEET_ID = A.MEET_ID AND USER_ID = #{userId} AND DEL_YN = 'N') AS ATTEND_YN]]>
+			</if>
+		FROM SC_OPENCHAT_MEET A
+		WHERE OPENCHAT_ID = #{openChatId}
+		AND CATEGORY = #{categoryCd}
+		AND DEL_YN = 'N'
+		<if test="categoryCd == 'MEET_GROUP'">
+			<![CDATA[ AND CONVERT(DATETIME, CONCAT(MEET_DATE, ' ', ISNULL(MEET_TIME, '23:59:59'))) > GETDATE() ]]>
+			ORDER BY CONVERT(DATETIME, CONCAT(MEET_DATE, ' ', ISNULL(MEET_TIME, '23:59:59'))) ASC
+		</if>
+		<if test="categoryCd != 'MEET_GROUP'">
+			ORDER BY CREATED_DT DESC
+		</if>
+	</select>
+
+	<select id="getAddMeetUserCheck" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			MEET_ID
+			, OPENCHAT_ID
+			, DEL_YN
+		FROM SC_OPENCHAT_MEET_USER
+		WHERE
+			OPENCHAT_ID = #{openChatId}
+		AND MEET_ID = #{meetId}
+		AND USER_ID = #{userId}
+	</select>
+
+	<select id="getMeetUserCheck" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			MEET_ID
+			, OPENCHAT_ID
+		FROM SC_OPENCHAT_MEET_USER
+		WHERE
+			OPENCHAT_ID = #{openChatId}
+		AND MEET_ID = #{meetId}
+		AND USER_ID = #{userId}
+		AND DEL_YN = 'N'
+	</select>
+
+	<select id="getOpenChatMeetOne" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			MEET_ID
+			, OPENCHAT_ID AS OPEN_CHAT_ID
+			, #{userId} AS USER_ID
+		FROM SC_OPENCHAT_MEET
+		WHERE OPENCHAT_ID = #{openChatId}
+	  	AND CATEGORY = #{categoryCd}
+		AND CREATED_USER_ID = #{userId}
+		AND DEL_YN = 'N'
+		ORDER BY CREATED_DT DESC
+	</select>
+
+	<insert id="createOpenChatMeet" parameterType="HashMap">
+		INSERT INTO SC_OPENCHAT_MEET
+		(
+			OPENCHAT_ID
+			,TITLE
+			,CONTENT
+			,CREATED_DT
+			,CREATED_USER_ID
+			,DEL_YN
+			,LAT
+			,LON
+			,MEET_ADDR
+			,MEET_ADDR_DETAIL
+			,MEET_RANGE
+			,MEET_PUSH
+			,MEET_COST
+			,CATEGORY
+			,MEET_DATE
+			,MEET_TIME
+		)
+		VALUES
+		(
+			#{openChatId}
+			, #{title}
+			, #{content}
+			, GETDATE()
+			, #{userId}
+			<if test="delYn == null or delYn == ''">
+				, 'N'
+			</if>
+			<if test="delYn != null and delYn != ''">
+				, #{delYn}
+			</if>
+			<if test="lat == null or lat == ''">
+				, NULL
+			</if>
+			<if test="lat != null and lat != ''">
+				, #{lat}
+			</if>
+			<if test="lon == null or lon == ''">
+				, NULL
+			</if>
+			<if test="lon != null and lon != ''">
+				, #{lon}
+			</if>
+			<if test="meetAddr == null or meetAddr == ''">
+				, NULL
+			</if>
+			<if test="meetAddr != null and meetAddr != ''">
+				, #{meetAddr}
+			</if>
+			<if test="meetAddrDetail == null or meetAddrDetail == ''">
+				, NULL
+			</if>
+			<if test="meetAddrDetail != null and meetAddrDetail != ''">
+				, #{meetAddrDetail}
+			</if>
+			<if test="meetRange == null or meetRange == ''">
+				, NULL
+			</if>
+			<if test="meetRange != null and meetRange != ''">
+				, #{meetRange}
+			</if>
+			<if test="meetPush == null or meetPush == ''">
+				, 'N'
+			</if>
+			<if test="meetPush != null and meetPush != ''">
+				, #{meetPush}
+			</if>
+			<if test="meetCost == null or meetCost == ''">
+				, NULL
+			</if>
+			<if test="meetCost != null and meetCost != ''">
+				, #{meetCost}
+			</if>
+			<if test="categoryCd == null or categoryCd == ''">
+				, NULL
+			</if>
+			<if test="categoryCd != null and categoryCd != ''">
+				, #{categoryCd}
+			</if>
+			<if test="meetDate == null or meetDate == ''">
+				, NULL
+			</if>
+			<if test="meetDate != null and meetDate != ''">
+				, #{meetDate}
+			</if>
+			<if test="meetTime == null or meetTime == ''">
+				, NULL
+			</if>
+			<if test="meetTime != null and meetTime != ''">
+				, #{meetTime}
+			</if>
+		)
+	</insert>
+
+	<update id="updateOpenChatMeet" parameterType="HashMap">
+		UPDATE SC_OPENCHAT_MEET
+		SET
+			UPDATED_USER_ID = #{userId}
+			, UPDATED_DT = GETDATE()
+			<if test="title != null and title != ''">
+				, TITLE = #{title}
+			</if>
+			<if test="lat != null and lat != ''">
+				, LAT = #{lat}
+			</if>
+			<if test="lon != null and lon != ''">
+				, LON = #{lon}
+			</if>
+			<if test="meetAddr != null and meetAddr != ''">
+				,MEET_ADDR = #{meetAddr}
+			</if>
+			<if test="meetAddrDetail != null and meetAddrDetail != ''">
+				, MEET_ADDR_DETAIL = #{meetAddrDetail}
+			</if>
+			<if test="meetRange != null and meetRange != ''">
+				, MEET_RANGE = #{meetRange}
+			</if>
+			<if test="meetPush != null and meetPush != ''">
+				, MEET_PUSH = #{meetPush}
+			</if>
+			<if test="meetCost != null and meetCost != ''">
+				, MEET_COST = #{meetCost}
+			</if>
+			<if test="category != null and category != ''">
+				, CATEGORY = {category}
+			</if>
+			<if test="meetDate != null and meetDate != ''">
+				, MEET_DATE = #{meetDate}
+			</if>
+			<if test="meetTime != null and meetTime != ''">
+				, MEET_TIME = #{meetTime}
+			</if>
+		WHERE
+			OPENCHAT_ID = #{openChatId}
+		AND MEET_ID = #{meetId}
+		AND DEL_YN = 'N'
+	</update>
+
+	<update id="deleteOpenChatMeet" parameterType="HashMap">
+		UPDATE SC_OPENCHAT_MEET
+		SET
+		  	UPDATED_USER_ID = #{userId}
+			, UPDATED_DT = GETDATE()
+			<if test="delYn == null or delYn == ''">
+				, 'Y'
+			</if>
+			<if test="delYn != null or delYn != ''">
+				, #{delYn}
+			</if>
+		WHERE
+			OPENCHAT_ID = #{openChatId}
+		AND MEET_ID = #{meetId}
+		AND DEL_YN = 'N'
+	</update>
+
+	<select id="getMeetUserList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			A.USER_ID
+			, A.REG_TIME
+		    , B.NICK
+			, D.SERVER_IP + '/' + D.FILE_PATH + D.SERVER_FILE_NM AS CDN_NM
+			, D.SERVER_IP + '/' + D.FILE_PATH + D.THUMB_FILE_NM AS CDN_THUMB_NM
+		FROM SC_OPENCHAT_MEET_USER A
+		INNER JOIN SC_USER B
+			ON A.USER_ID = B.USER_ID
+			AND CONNECT_YN = 'Y'
+  	        AND DROP_YN = 'N'
+		LEFT OUTER JOIN SC_USER_PIC C
+			ON A.USER_ID = C.USER_ID
+		LEFT OUTER JOIN SC_ATTACH_FILE D
+			ON C.PHOTO1 = D.ATTACH_FILE_ID
+		WHERE
+			A.OPENCHAT_ID = #{openChatId}
+		AND A.MEET_ID = #{meetId}
+		AND A.DEL_YN = 'N'
+	</select>
+
+	<select id="getAlbumList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT * FROM (
+			SELECT TOP 100 PERCENT
+				A.FILE_ID
+				, B.SERVER_IP + '/' + B.FILE_PATH + B.SERVER_FILE_NM AS CDN_NM
+				, B.SERVER_IP + '/' + B.FILE_PATH + B.THUMB_FILE_NM AS CDN_THUMB_NM
+				, ROW_NUMBER() OVER(ORDER BY A.REG_TIME DESC) AS ROWNUM
+			FROM SC_MESSAGE_MASTER A
+			LEFT OUTER JOIN SC_ATTACH_FILE B
+			ON A.FILE_ID = B.ATTACH_FILE_ID
+			WHERE MESSAGE_TYPE = 'image'
+			AND CHATROOM_ID = #{chatroomId}
+		) A
+	</select>
+
+	<insert id="addMeetUser" parameterType="HashMap">
+		INSERT INTO SC_OPENCHAT_MEET_USER
+		(MEET_ID, OPENCHAT_ID, USER_ID, REG_TIME, DEL_YN)
+		VALUES
+		(#{meetId}, #{openChatId}, #{userId}, GETDATE(), 'N')
+	</insert>
+
+	<update id="updateMeetUser" parameterType="HashMap">
+		UPDATE SC_OPENCHAT_MEET_USER
+			SET DEL_YN = 'N'
+		WHERE
+		MEET_ID = #{meetId}
+		AND USER_ID = #{userId}
+	</update>
+
+	<update id="deleteMeetUser" parameterType="HashMap">
+		UPDATE SC_OPENCHAT_MEET_USER
+		    <if test="delYn == null or delYn == ''">
+				SET DEL_YN = 'Y'
+			</if>
+			<if test="delYn != null and delYn != ''">
+				SET DEL_YN = #{delYn}
+			</if>
+		WHERE
+			MEET_ID = #{meetId}
+		AND USER_ID = #{userId}
+		AND DEL_YN = 'N'
+	</update>
+
+	<select id="getMeetCommentSeq" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT NEXT VALUE FOR OPENCHAT_MEET_COMMENT_SEQ AS COMMENT_ID
+	</select>
+
+	<insert id="addMeetComment" parameterType="HashMap">
+		INSERT INTO SC_OPENCHAT_MEET_COMMENT
+		(
+			COMMENT_ID
+			, MEET_ID
+			<if test="parentCommentId != null and parentCommentId != ''">
+				, PARENT_COMMENT_ID
+			</if>
+			, CONTENTS
+			, REG_USER_ID
+			, REG_USER_NM
+			, REG_TIME
+			, DEL_YN
+			, CATEGORY
+		)
+		VALUES
+		(
+			#{commentId}
+			, #{meetId}
+			<if test="parentCommentId != null and parentCommentId != ''">
+				, #{parentCommentId}
+			</if>
+			, #{contents}
+			, #{userId}
+			, (SELECT NAME FROM SC_USER WHERE USER_ID = #{userId} AND CONNECT_YN = 'Y' AND DROP_YN = 'N')
+			, GETDATE()
+			<if test="delYn != null and delYn != ''">
+				, #{delYn}
+			</if>
+			<if test="delYn == null or delYn == ''">
+				, 'N'
+			</if>
+			<if test="categoryCd != null and categoryCd != ''">
+				, #{categoryCd}
+			</if>
+			<if test="categoryCd == null or categoryCd == ''">
+				, NULL
+			</if>
+		)
+	</insert>
+
+	<update id="updateMeetComment" parameterType="HashMap">
+		UPDATE SC_OPENCHAT_MEET_COMMENT
+		SET
+			UPD_TIME = GETDATE()
+			, COMMENTS = #{contents}
+		WHERE
+			COMMENT_ID = #{commentId}
+		AND MEET_ID = #{meetId}
+		AND DEL_YN = 'N'
+	</update>
+
+	<update id="deleteMeetComment" parameterType="HashMap">
+		UPDATE SC_OPENCHAT_MEET_COMMENT
+		SET
+			UPD_TIME = GETDATE()
+			<if test="delYn != null and delYn != ''">
+				, DEL_YN = #{delYn}
+			</if>
+			<if test="delYn == null and delYn == ''">
+				, DEL_YN = 'Y'
+			</if>
+		WHERE
+			COMMENT_ID = #{commentId}
+		AND MEET_ID = #{meetId}
+		AND DEL_YN = 'N'
+	</update>
+
+	<select id="getMeetContentData" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			TITLE
+			, CONTENT
+		    , (SELECT NICK FROM SC_USER WHERE USER_ID = A.CREATED_USER_ID) AS NICK
+			, (SELECT SERVER_IP + '/' + FILE_PATH + THUMB_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = (SELECT PHOTO1 FROM SC_USER_PIC WHERE USER_ID = A.CREATED_USER_ID)) AS CDN_NM
+		FROM SC_OPENCHAT_MEET A
+		WHERE OPENCHAT_ID = #{openChatId}
+		AND MEET_ID = #{meetId}
+		AND DEL_YN = 'N'
+	</select>
+
+	<select id="getMeetCommentList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			COMMENT_ID
+			, COMMENT_ID AS COMMENT_KEY
+			, PARENT_COMMENT_ID
+			, CONTENTS
+			, REG_USER_ID
+			, REG_USER_NM
+			, MEET_ID
+		    , A.DEL_YN
+			, CASE
+				WHEN A.REG_USER_ID = #{userId} THEN 'Y'
+				ELSE 'N' END IS_REG_YN
+			, (SELECT NICK FROM SC_USER WHERE USER_ID = A.REG_USER_ID) AS COMMENT_NICK
+			, (SELECT SERVER_IP + '/' + FILE_PATH + THUMB_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = (SELECT PHOTO1 FROM SC_USER_PIC WHERE USER_ID = A.CREATED_USER_ID)) AS CDN_NM
+		FROM SC_OPENCHAT_MEET_COMMENT A
+		WHERE
+			MEET_ID = #{meetId}
+		AND DEL_YN = 'N'
+		AND A.PARENT_COMMENT_ID IS NULL
+	</select>
+
+	<select id="getMeetChildCommentList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			COMMENT_ID
+		     , COMMENT_ID AS COMMENT_KEY
+			 , PARENT_COMMENT_ID
+			 , CONTENTS
+			 , REG_USER_ID
+			 , REG_USER_NM
+			 , MEET_ID
+			 , A.DEL_YN
+			 , CASE
+				   WHEN A.REG_USER_ID = #{userId} THEN 'Y'
+				   ELSE 'N' END IS_REG_YN
+			 , (SELECT NICK FROM SC_USER WHERE USER_ID = A.REG_USER_ID) AS COMMENT_NICK
+			 , (SELECT SERVER_IP + '/' + FILE_PATH + THUMB_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = (SELECT PHOTO1 FROM SC_USER_PIC WHERE USER_ID = A.REG_USER_ID)) AS CDN_NM
+		FROM SC_OPENCHAT_MEET_COMMENT A
+		WHERE
+			MEET_ID = #{meetId}
+		AND PARENT_COMMENT_ID = #{commentId}
+		AND DEL_YN = 'N'
+	</select>
+
+	<select id="openchatDelCheck" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT DEL_YN FROM SC_OPENCHAT WHERE OPENCHAT_ID = #{openChatId}
+	</select>
+
+	<select id="getOpenChatMeetEdit" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			TITLE
+			 , CONTENT
+			 , LAT
+			 , LON
+			 , MEET_ADDR
+			 , MEET_ADDR_DETAIL
+			 , MEET_COST
+			 , CATEGORY
+			 , MEET_RANGE
+			 , MEET_DATE
+		FROM SC_OPENCHAT_MEET
+		WHERE OPENCHAT_ID = #{openChatId}
+		  AND MEET_ID = #{meetId}
+		  AND DEL_YN = 'N'
+	</select>
+</mapper>

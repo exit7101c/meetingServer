@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pmsCommon">
+    <!-- 테스트샘플  -->
+    <select id="selectUserList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT * FROM COM_USER
+   </select>
+
+    <!-- 테스트샘플  -->
+    <select id="selectUserOne" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT
+        *
+        FROM COM_USER
+        WHERE USER_ID = #{selectKey}
+    </select>
+
+    <!-- 테스트샘플  -->
+    <select id="insertUser" parameterType="HashMap" resultType="ExqueryMap" >
+		INSERT INTO COM_USER
+        (USER_ID, USER_PWD, USER_NM, EMAIL)
+        VALUES
+        (#{userId}, #{userPwd}, #{userNm}, #{email})
+   </select>
+    <!-- 테스트샘플  -->
+    <select id="updateUser" parameterType="HashMap" resultType="ExqueryMap" >
+		UPDATE COM_USER
+        SET
+        USER_PWD = #{userPwd},
+        USER_NM = #{userNm},
+        EMAIL = #{email}
+        WHERE USER_ID = #{userId}
+   </select>
+    <!-- 테스트샘플  -->
+    <select id="disableUser" parameterType="HashMap" resultType="ExqueryMap" >
+		UPDATE COM_USER
+		SET
+		USE_YN = #{useYn}
+		WHERE USER_ID = #{userId}
+   </select>
+
+
+    <!-- 다국아 가져오기 -->
+    <select id="selectMessages" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+            *
+        FROM COM_MESSAGE
+   </select>
+   
+    <!-- FileAttach  -->
+    <insert id="insertAttachFile" parameterType="HashMap" keyProperty="attachFileId" useGeneratedKeys="true">
+		<selectKey resultType="int" keyProperty="attachFileId" order="BEFORE">
+			SELECT  SEQ_ATTACH_FILE_ID.NEXTVAL FROM DUAL
+		</selectKey>
+		
+		INSERT INTO COM_ATTACH_FILE
+        (ATTACH_FILE_ID, ATTACH_FILE_NM, SERVER_FILE_NM, FILE_PATH, FILE_SIZE, FILE_EXT, USE_YN, CREATED_DT,CREATED_USER_ID,
+        THUMBNAIL)
+        VALUES
+        (#{attachFileId}, #{orgFileName}, #{serverFileNm}, #{filePath}, #{fileSize}, #{fileExt}, 'Y', SYSDATE, #{userSeq},
+        #{thumbnail})
+   </insert>
+
+
+    <!-- FileAttach thumbnail 추가  -->
+    <update id="updateThumbnailFile" parameterType="HashMap">
+        UPDATE COM_ATTACH_FILE
+        SET THUMBNAIL = #{thumbnailNm}
+        WHERE ATTACH_FILE_ID = #{attachFileId}
+    </update>
+
+   <!-- FileDelete  -->
+   <delete id="deleteAttachFile" parameterType="HashMap">
+   		UPDATE COM_ATTACH_FILE
+   		SET USE_YN = 'N'
+   		WHERE ATTACH_FILE_ID = #{fileId}
+   </delete>
+   
+   <!-- FileList  -->
+   <select id="selectAttachFileSelectOne" parameterType="HashMap" resultType="ExqueryMap" >
+         SELECT ATTACH_FILE_ID
+             , ATTACH_FILE_NM
+             , SERVER_FILE_NM
+             , REFERENCD_FILE_ID
+             , FILE_PATH
+             , FILE_SIZE
+             , FILE_EXT
+             , USE_YN
+             , CREATED_DT
+             , CREATED_USER_ID
+             , UPDATED_DT
+             , UPDATED_USER_ID 
+        FROM COM_ATTACH_FILE
+        WHERE REFERENCD_FILE_ID = #{referencdFileId}
+        AND ATTACH_FILE_ID = #{fileId}
+        AND USE_YN = 'Y'
+   </select>
+
+
+    <!-- FileList  -->
+    <select id="selectAttachFileSelectOne2" parameterType="HashMap" resultType="ExqueryMap" >
+         SELECT ATTACH_FILE_ID
+             , ATTACH_FILE_NM
+             , SERVER_FILE_NM
+             , REFERENCD_FILE_ID
+             , FILE_PATH
+             , FILE_SIZE
+             , FILE_EXT
+             , USE_YN
+             , CREATED_DT
+             , CREATED_USER_ID
+             , UPDATED_DT
+             , UPDATED_USER_ID
+        FROM COM_ATTACH_FILE
+        WHERE ATTACH_FILE_ID = #{fileId}
+        AND USE_YN = 'Y'
+   </select>
+
+   <!-- FileList  -->
+   <select id="selectAttachFileList" parameterType="HashMap" resultType="ExqueryMap" >
+         SELECT ATTACH_FILE_ID
+             , ATTACH_FILE_NM
+             , SERVER_FILE_NM
+             , REFERENCD_FILE_ID
+             , FILE_PATH
+             , FILE_SIZE
+             , FILE_EXT
+             , USE_YN
+             , CREATED_DT
+             , CREATED_USER_ID
+             , UPDATED_DT
+             , UPDATED_USER_ID 
+        FROM COM_ATTACH_FILE
+        WHERE REFERENCD_FILE_ID = #{referenceFileId}
+        AND USE_YN = 'Y'
+   </select>
+
+    <!-- FileList  -->
+    <select id="selectFreeBoardAttachFileList" parameterType="HashMap" resultType="ExqueryMap" >
+         SELECT B.ATTACH_FILE_ID
+             , B.ATTACH_FILE_NM
+             , B.SERVER_FILE_NM
+             , B.REFERENCD_FILE_ID
+             , B.FILE_PATH
+             , B.FILE_SIZE
+             , B.FILE_EXT
+             , B.USE_YN
+             , B.CREATED_DT
+             , B.CREATED_USER_ID
+             , B.UPDATED_DT
+             , B.UPDATED_USER_ID
+        FROM COM_ARTICLE_FILE A
+        LEFT JOIN COM_ATTACH_FILE B
+        ON A.ATTACH_FILE_ID = B.ATTACH_FILE_ID
+        WHERE A.ARTICLE_ID = #{articleId}
+        AND B.USE_YN = 'Y'
+   </select>
+</mapper>

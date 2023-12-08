@@ -1,0 +1,490 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.system.sqlConfig">
+	
+	<!-- 리스트 조회 (다국어-화면용어) -->
+	<select id="selectLangLabelList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			ROWNUM AS NO,
+			KEY,
+			MSG_EN,
+			MSG_KO,
+			MSG_CN,
+			TYPE,
+			USE_YN AS USE_YN,
+			FN_GET_COMMCODE_NAME(#{ssUserLang},'USE_YN','USE_YN') AS USE_YN_NM,
+			CREATED_DT,
+			CREATED_USER_ID,
+			UPDATED_DT,
+			UPDATED_USER_ID
+		FROM (
+			SELECT
+				KEY,
+				MAX(MSG_EN) AS MSG_EN,
+				MAX(MSG_KO) AS MSG_KO,
+				MAX(MSG_CN) AS MSG_CN,
+				FN_GET_COMMCODE_NAME(#{ssUserLang},'MESSAGE_TYPE',MAX(MESSAGE_TYPE)) AS TYPE,
+				MAX(USE_YN) AS USE_YN,
+				MAX(CREATED_DT) AS CREATED_DT,
+				MAX(CREATED_USER_ID) AS CREATED_USER_ID,
+				MAX(UPDATED_DT) AS UPDATED_DT,
+				MAX(UPDATED_USER_ID) AS UPDATED_USER_ID
+			FROM (
+			SELECT
+				A.KEY,
+				MESSAGE_TYPE,
+				CASE WHEN LANG = 'en' THEN MESSAGE ELSE '' END MSG_EN,
+				CASE WHEN LANG = 'ko' THEN MESSAGE ELSE '' END MSG_KO,
+				CASE WHEN LANG = 'cn' THEN MESSAGE ELSE '' END MSG_CN,
+				USE_YN,
+				FN_GET_DATE_STR(CREATED_DT) AS CREATED_DT,
+				CREATED_USER_ID,
+				FN_GET_DATE_STR(UPDATED_DT) AS UPDATED_DT,
+				UPDATED_USER_ID
+			FROM COM_MESSAGE_LABEL A,(
+			SELECT KEY FROM COM_MESSAGE_LABEL
+			<where>
+				<if test='searchType != null and  searchType != ""'>
+					AND MESSAGE_TYPE LIKE '%${searchType}%'
+				</if>
+				<if test='searchKey != null and  searchKey != ""'>
+					AND KEY LIKE '%${searchKey}%'
+				</if>
+				<foreach collection="searchList" item="item"  open="AND (" close=")" separator="or">
+					MESSAGE LIKE '%${item}%'
+				</foreach>
+				<if test='useYn != null and useYn != ""'>
+					AND USE_YN = #{useYn}
+				</if>
+			</where>
+			) B
+			WHERE A.KEY = B.KEY
+			)
+			GROUP BY KEY
+			ORDER BY TYPE DESC, KEY
+		)
+
+	</select>
+
+	<!-- 한건 조회 (다국어 화면용어) -->
+	<select id="selectLangLabelOne" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT
+            KEY,
+            MAX(MSG_EN) AS MSG_EN,
+            MAX(MSG_KO) AS MSG_KO,
+            MAX(MSG_CN) AS MSG_CN,
+            FN_GET_COMMCODE_NAME(#{ssUserLang},'MESSAGE_TYPE',MAX(MESSAGE_TYPE)) AS TYPE_STR,
+            MAX(MESSAGE_TYPE) AS TYPE,
+            MAX(USE_YN) AS USE_YN,
+            MAX(CREATED_DT) AS CREATED_DT,
+            MAX(CREATED_USER_ID) AS CREATED_USER_ID,
+            MAX(UPDATED_DT) AS UPDATED_DT,
+            MAX(UPDATED_USER_ID) AS UPDATED_USER_ID
+        FROM (
+        SELECT
+            A.KEY,
+            MESSAGE_TYPE,
+            CASE WHEN LANG = 'en' THEN MESSAGE ELSE '' END MSG_EN,
+            CASE WHEN LANG = 'ko' THEN MESSAGE ELSE '' END MSG_KO,
+            CASE WHEN LANG = 'cn' THEN MESSAGE ELSE '' END MSG_CN,
+            USE_YN,
+            FN_GET_DATE_STR(CREATED_DT) AS CREATED_DT,
+            CREATED_USER_ID,
+            FN_GET_DATE_STR(UPDATED_DT) AS UPDATED_DT,
+            UPDATED_USER_ID
+        FROM COM_MESSAGE_LABEL A,(
+        SELECT KEY FROM COM_MESSAGE_LABEL
+        WHERE KEY = #{selectKey}
+        ) B
+        WHERE A.KEY = B.KEY
+        )
+        GROUP BY KEY
+		ORDER BY TYPE DESC, KEY
+	</select>
+
+	<!-- 한건을 저장한다. (다국어 화면용어 - 영어) -->
+	<select id="insertLangLabelEn" parameterType="HashMap" resultType="ExqueryMap" >
+		INSERT INTO COM_MESSAGE_LABEL
+		(LANG, KEY, MESSAGE, MESSAGE_TYPE, USE_YN, CREATED_DT, CREATED_USER_ID, UPDATED_DT, UPDATED_USER_ID)
+		VALUES
+		('en', #{key}, #{msgEn}, #{type}, #{useYn}, sysdate, #{ssUserId}, sysdate, #{ssUserId})
+	</select>
+
+	<!-- 한건을 저장한다. (다국어 화면용어 - 한국어) -->
+	<select id="insertLangLabelKo" parameterType="HashMap" resultType="ExqueryMap" >
+		INSERT INTO COM_MESSAGE_LABEL
+		(LANG, KEY, MESSAGE, MESSAGE_TYPE, USE_YN, CREATED_DT, CREATED_USER_ID, UPDATED_DT, UPDATED_USER_ID)
+		VALUES
+		('ko', #{key}, #{msgKo}, #{type}, #{useYn}, sysdate, #{ssUserId}, sysdate, #{ssUserId})
+	</select>
+
+	<!-- 한건을 저장한다. (다국어 화면용어 - 중국어) -->
+	<select id="insertLangLabelCn" parameterType="HashMap" resultType="ExqueryMap" >
+		INSERT INTO COM_MESSAGE_LABEL
+		(LANG, KEY, MESSAGE, MESSAGE_TYPE, USE_YN, CREATED_DT, CREATED_USER_ID, UPDATED_DT, UPDATED_USER_ID)
+		VALUES
+		('cn', #{key}, #{msgCn}, #{type}, #{useYn}, sysdate, #{ssUserId}, sysdate, #{ssUserId})
+	</select>
+
+	<!-- 한건을 수정한다. (다국어 화면용어 - 영어) -->
+	<select id="updateLangLabelEn" parameterType="HashMap" resultType="ExqueryMap" >
+		UPDATE COM_MESSAGE_LABEL
+		SET
+		MESSAGE            	= #{msgEn},
+		MESSAGE_TYPE        = #{type},
+		USE_YN             	= #{useYn},
+		UPDATED_USER_ID     = #{ssUserId},
+		UPDATED_DT          = sysdate
+		WHERE LANG = 'en' AND KEY = #{key}
+	</select>
+
+	<!-- 한건을 수정한다. (다국어 화면용어 - 한국어) -->
+	<select id="updateLangLabelKo" parameterType="HashMap" resultType="ExqueryMap" >
+		UPDATE COM_MESSAGE_LABEL
+		SET
+		MESSAGE            	= #{msgKo},
+		MESSAGE_TYPE        = #{type},
+		USE_YN             	= #{useYn},
+		UPDATED_USER_ID     = #{ssUserId},
+		UPDATED_DT          = sysdate
+		WHERE LANG = 'ko' AND KEY = #{key}
+	</select>
+
+	<!-- 한건을 수정한다. (다국어 화면용어 - 중국어) -->
+	<select id="updateLangLabelCn" parameterType="HashMap" resultType="ExqueryMap" >
+		UPDATE COM_MESSAGE_LABEL
+		SET
+		MESSAGE            	= #{msgCn},
+		MESSAGE_TYPE        = #{type},
+		USE_YN             	= #{useYn},
+		UPDATED_USER_ID     = #{ssUserId},
+		UPDATED_DT          = sysdate
+		WHERE LANG = 'cn' AND KEY = #{key}
+	</select>
+
+	<!-- 한건을 사용하지 않는다. (다국어 화면용어) -->
+	<select id="disableLangLabel" parameterType="HashMap" resultType="ExqueryMap" >
+		UPDATE COM_MESSAGE_LABEL
+		SET
+		USE_YN              = 'N',
+		UPDATED_USER_ID     = #{ssUserId},
+		UPDATED_DT          = sysdate
+		WHERE KEY = #{key}
+	</select>
+	
+	<!-- 리스트 조회 (다국어-메시지) -->
+	<select id="selectLangMsgList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			ROWNUM AS NO,
+			KEY,
+			MSG_EN,
+			MSG_KO,
+			MSG_CN,
+			TYPE,
+			USE_YN,
+			CREATED_DT,
+			CREATED_USER_ID,
+			UPDATED_DT,
+			UPDATED_USER_ID
+		FROM (
+			SELECT
+				KEY,
+				MAX(MSG_EN) AS MSG_EN,
+				MAX(MSG_KO) AS MSG_KO,
+				MAX(MSG_CN) AS MSG_CN,
+				FN_GET_COMMCODE_NAME(#{ssUserLang},'MESSAGE_TYPE',MAX(MESSAGE_TYPE)) AS TYPE,
+				FN_GET_COMMCODE_NAME(#{ssUserLang}, 'USE_YN', MAX(USE_YN)) AS USE_YN,
+				MAX(CREATED_DT) AS CREATED_DT,
+				MAX(CREATED_USER_ID) AS CREATED_USER_ID,
+				MAX(UPDATED_DT) AS UPDATED_DT,
+				MAX(UPDATED_USER_ID) AS UPDATED_USER_ID
+			FROM (
+			SELECT
+				A.KEY,
+				MESSAGE_TYPE,
+				CASE WHEN LANG = 'en' THEN MESSAGE ELSE '' END MSG_EN,
+				CASE WHEN LANG = 'ko' THEN MESSAGE ELSE '' END MSG_KO,
+				CASE WHEN LANG = 'cn' THEN MESSAGE ELSE '' END MSG_CN,
+				USE_YN,
+				FN_GET_DATE_STR(CREATED_DT) AS CREATED_DT,
+				CREATED_USER_ID,
+				FN_GET_DATE_STR(UPDATED_DT) AS UPDATED_DT,
+				UPDATED_USER_ID
+			FROM COM_MESSAGE A,(
+			SELECT KEY FROM COM_MESSAGE
+			<where>
+				<if test='searchType != null and  searchType != ""'>
+					AND MESSAGE_TYPE LIKE '%${searchType}%'
+				</if>
+				<if test='searchKey != null and  searchKey != ""'>
+					AND KEY LIKE '%${searchKey}%'
+				</if>
+				<foreach collection="searchList" item="item"  open="AND (" close=")" separator="or">
+					MESSAGE LIKE '%${item}%'
+				</foreach>
+				<if test='useYn != null and useYn != ""'>
+					AND USE_YN = #{useYn}
+				</if>
+			</where>
+			) B
+			WHERE A.KEY = B.KEY
+			)
+			GROUP BY KEY
+			ORDER BY TYPE DESC, KEY )
+	</select>
+
+	<!-- 한건 조회 (다국어 메시지) -->
+	<select id="selectLangMsgOne" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT
+            KEY,
+            MAX(MSG_EN) AS MSG_EN,
+            MAX(MSG_KO) AS MSG_KO,
+            MAX(MSG_CN) AS MSG_CN,
+            FN_GET_COMMCODE_NAME(#{ssUserLang},'MESSAGE_TYPE',MAX(MESSAGE_TYPE)) AS TYPE_STR,
+            MAX(MESSAGE_TYPE) AS TYPE,
+            MAX(USE_YN) AS USE_YN,
+            MAX(CREATED_DT) AS CREATED_DT,
+            MAX(CREATED_USER_ID) AS CREATED_USER_ID,
+            MAX(UPDATED_DT) AS UPDATED_DT,
+            MAX(UPDATED_USER_ID) AS UPDATED_USER_ID
+        FROM (
+        SELECT
+            A.KEY,
+            MESSAGE_TYPE,
+            CASE WHEN LANG = 'en' THEN MESSAGE ELSE '' END MSG_EN,
+            CASE WHEN LANG = 'ko' THEN MESSAGE ELSE '' END MSG_KO,
+            CASE WHEN LANG = 'cn' THEN MESSAGE ELSE '' END MSG_CN,
+            USE_YN,
+            FN_GET_DATE_STR(CREATED_DT) AS CREATED_DT,
+            CREATED_USER_ID,
+            FN_GET_DATE_STR(UPDATED_DT) AS UPDATED_DT,
+            UPDATED_USER_ID
+        FROM COM_MESSAGE A,(
+        SELECT KEY FROM COM_MESSAGE
+        WHERE KEY = #{selectKey}
+        ) B
+        WHERE A.KEY = B.KEY
+        )
+        GROUP BY KEY
+		ORDER BY TYPE DESC, KEY
+	</select>
+
+	<!-- 한건을 저장한다. (다국어 메시지 - 영어) -->
+	<select id="insertLangMsgEn" parameterType="HashMap" resultType="ExqueryMap" >
+		INSERT INTO COM_MESSAGE
+		(LANG, KEY, MESSAGE, MESSAGE_TYPE, USE_YN, CREATED_DT, CREATED_USER_ID, UPDATED_DT, UPDATED_USER_ID)
+		VALUES
+		('en', #{key}, #{msgEn}, #{type}, #{useYn}, sysdate, #{ssUserId}, sysdate, #{ssUserId})
+	</select>
+
+	<!-- 한건을 저장한다. (다국어 메시지 - 한국어) -->
+	<select id="insertLangMsgKo" parameterType="HashMap" resultType="ExqueryMap" >
+		INSERT INTO COM_MESSAGE
+		(LANG, KEY, MESSAGE, MESSAGE_TYPE, USE_YN, CREATED_DT, CREATED_USER_ID, UPDATED_DT, UPDATED_USER_ID)
+		VALUES
+		('ko', #{key}, #{msgKo}, #{type}, #{useYn}, sysdate, #{ssUserId}, sysdate, #{ssUserId})
+	</select>
+
+	<!-- 한건을 저장한다. (다국어 메시지 - 중국어) -->
+	<select id="insertLangMsgCn" parameterType="HashMap" resultType="ExqueryMap" >
+		INSERT INTO COM_MESSAGE
+		(LANG, KEY, MESSAGE, MESSAGE_TYPE, USE_YN, CREATED_DT, CREATED_USER_ID, UPDATED_DT, UPDATED_USER_ID)
+		VALUES
+		('cn', #{key}, #{msgCn}, #{type}, #{useYn}, sysdate, #{ssUserId}, sysdate, #{ssUserId})
+	</select>
+
+	<!-- 한건을 수정한다. (다국어 메시지 - 영어) -->
+	<select id="updateLangMsgEn" parameterType="HashMap" resultType="ExqueryMap" >
+		UPDATE COM_MESSAGE
+		SET
+		MESSAGE            	= #{msgEn},
+		MESSAGE_TYPE        = #{type},
+		USE_YN             	= #{useYn},
+		UPDATED_USER_ID     = #{ssUserId},
+		UPDATED_DT          = sysdate
+		WHERE LANG = 'en' AND KEY = #{key}
+	</select>
+
+	<!-- 한건을 수정한다. (다국어 메시지 - 한국어) -->
+	<select id="updateLangMsgKo" parameterType="HashMap" resultType="ExqueryMap" >
+		UPDATE COM_MESSAGE
+		SET
+		MESSAGE            	= #{msgKo},
+		MESSAGE_TYPE        = #{type},
+		USE_YN             	= #{useYn},
+		UPDATED_USER_ID     = #{ssUserId},
+		UPDATED_DT          = sysdate
+		WHERE LANG = 'ko' AND KEY = #{key}
+	</select>
+
+	<!-- 한건을 수정한다. (다국어 메시지 - 중국어) -->
+	<select id="updateLangMsgCn" parameterType="HashMap" resultType="ExqueryMap" >
+		UPDATE COM_MESSAGE
+		SET
+		MESSAGE            	= #{msgCn},
+		MESSAGE_TYPE        = #{type},
+		USE_YN             	= #{useYn},
+		UPDATED_USER_ID     = #{ssUserId},
+		UPDATED_DT          = sysdate
+		WHERE LANG = 'cn' AND KEY = #{key}
+	</select>
+
+	<!-- 한건을 사용하지 않는다. (다국어 메시지) -->
+	<select id="disableLangMsg" parameterType="HashMap" resultType="ExqueryMap" >
+		UPDATE COM_MESSAGE
+		SET
+			USE_YN              = 'N',
+			UPDATED_USER_ID     = #{ssUserId},
+			UPDATED_DT          = sysdate
+		WHERE KEY = #{key}
+	</select>
+
+	<!--
+		일반코드 리스트 조회 (sysComCode, NseConfigController)
+	-->
+	<select id="selectComCodeList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			CODE_CD
+			, CODE_VALUE
+            , FN_GET_MSG(CODE_NM, #{ssUserLang}) AS CODE_NM
+			, CODE_DESC
+			, PARENT_CODE_CD
+			, DISPLAY_ORDER
+			, FN_GET_COMMCODE_NAME(#{ssUserLang},'USE_YN',USE_YN) AS USE_YN
+			, REMARKS
+            , FN_GET_DATE_STR(CREATED_DT) AS CREATED_DT
+			, CREATED_USER_ID
+			, FN_GET_DATE_STR(UPDATED_DT) AS UPDATED_DT
+			, UPDATED_USER_ID
+			FROM COM_COMMONCODE
+		<where>
+			<if test='useYn != null and useYn !=""'>
+				AND USE_YN = #{useYn}
+			</if>
+			<if test='searchStr1 != null and searchStr1 !=""'>
+				AND (CODE_NM LIKE '%${searchStr1}%' OR CODE_CD LIKE '%${searchStr1}%')
+			</if>
+		</where>
+		ORDER BY DISPLAY_ORDER
+	</select>
+
+	<select id="selectComCodeListByCd" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			CODE_CD
+			, CODE_VALUE
+            , FN_GET_MSG(CODE_NM, #{ssUserLang}) AS CODE_NM
+			, CODE_DESC
+			, PARENT_CODE_CD
+			, DISPLAY_ORDER
+			, USE_YN
+			, REMARKS
+            , FN_GET_DATE_STR(CREATED_DT) AS CREATED_DT
+			, CREATED_USER_ID
+			, FN_GET_DATE_STR(UPDATED_DT) AS UPDATED_DT
+			, UPDATED_USER_ID
+			FROM COM_COMMONCODE
+		WHERE CODE_CD = #{selectKey}
+	</select>
+
+	<select id="selectComCodeOne" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			CODE_CD
+			, CODE_VALUE
+			, FN_LANG_INP(CODE_NM, 'en')  AS CODE_NM_EN 	-- 영어
+			, FN_LANG_INP(CODE_NM, 'ko')  AS CODE_NM_KO 	-- 한국어
+			, FN_LANG_INP(CODE_NM, 'cn')  AS CODE_NM_CN 	-- 중국어
+			, CODE_DESC
+			, PARENT_CODE_CD
+			, DISPLAY_ORDER
+			, USE_YN
+			, REMARKS
+            , FN_GET_DATE_STR(CREATED_DT) AS CREATED_DT
+			, CREATED_USER_ID
+			, FN_GET_DATE_STR(UPDATED_DT) AS UPDATED_DT
+			, UPDATED_USER_ID
+			FROM COM_COMMONCODE
+		WHERE CODE_CD = #{selectKey} AND CODE_VALUE=#{codeValue}
+	</select>
+
+	<!--
+	 	일반코드 Insert
+	 -->
+	<insert id="insertComCode" parameterType="HashMap" >
+		INSERT INTO COM_COMMONCODE (
+			CODE_CD
+			, CODE_VALUE
+            , CODE_NM
+			, CODE_DESC
+			, DISPLAY_ORDER
+			, USE_YN
+			, REMARKS
+			, CREATED_DT
+			, CREATED_USER_ID
+			, UPDATED_DT
+			, UPDATED_USER_ID
+		) VALUES (
+					 #{codeCd}
+					 , #{codeValue}
+					 , #{codeNm}
+					 , #{codeDesc}
+					 , #{displayOrder}
+					 , #{useYn}
+					 , #{remarks}
+					 , SYSDATE
+					 , #{ssUserId}
+					 , SYSDATE
+					 , #{ssUserId}
+				 )
+	</insert>
+
+	<!--
+         일반코드 업데이트
+     -->
+	<update id="updateComCode" parameterType="HashMap" >
+		UPDATE COM_COMMONCODE
+		SET CODE_NM = #{codeNm}
+		, CODE_DESC = #{codeDesc}
+		<if test='parentCodeCd != null and parentCodeCd !=""'>
+			, PARENT_CODE_CD = #{parentCodeCd}
+		</if>
+		, DISPLAY_ORDER = #{displayOrder}
+		, USE_YN = #{useYn}
+		, REMARKS = #{remarks}
+		, UPDATED_DT = SYSDATE
+		, UPDATED_USER_ID = #{ssUserId}
+		WHERE CODE_CD = #{codeCd}
+		AND CODE_VALUE = #{codeValue}
+	</update>
+
+	<!--
+         일반코드 사용여부 'N'
+     -->
+	<update id="disableComCode" parameterType="HashMap">
+		UPDATE COM_COMMONCODE
+		<set>
+			USE_YN = 'N'
+			, UPDATED_USER_ID = #{ssUserId}
+			, UPDATED_DT = SYSDATE
+		</set>
+		WHERE CODE_CD = #{stateCd} AND
+		CODE_VALUE = #{codeValue}
+	</update>
+
+	<select id="selectSysSetting" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			CODE_CD
+			, CODE_VALUE
+			, CODE_NM
+			, CODE_DESC
+		FROM COM_COMMONCODE
+		WHERE CODE_CD = 'NA_TIME'
+	</select>
+
+	<update id="updateSysSetting" parameterType="HashMap" >
+		UPDATE COM_COMMONCODE
+		SET CODE_VALUE = #{codeValue}
+		WHERE CODE_CD = 'NA_TIME'
+	</update>
+
+</mapper>

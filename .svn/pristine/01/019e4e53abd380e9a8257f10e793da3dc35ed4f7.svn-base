@@ -1,0 +1,385 @@
+package cronies.meeting.user.service.impl;
+
+
+
+import java.security.KeyManagementException;
+import java.security.KeyStore;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
+
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.auth.oauth2.GoogleCredentials;
+import cronies.meeting.user.config.FcmMessage;
+import cronies.meeting.user.service.CommonService;
+import cronies.meeting.user.service.FcmService;
+import cronies.meeting.user.service.PushService;
+import lombok.RequiredArgsConstructor;
+import okhttp3.*;
+import okhttp3.internal.http.HttpHeaders;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import select.spring.exquery.service.ExqueryService;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+
+@Service("pushService")
+@Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
+@EnableAsync
+public class PushServiceImpl implements PushService {
+
+
+/*	@Autowired
+	private SimpMessagingTemplate simpMessagingTemplate;*/
+
+	Logger log = LoggerFactory.getLogger(this.getClass());
+
+	@Autowired
+	private ExqueryService exqueryService;
+
+	@Autowired
+	private CommonService commonService;
+
+	@Autowired
+	public FcmService fcmService;
+
+
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public HashMap<String, Object> sendPushMessage(HashMap<String, Object> param) throws Exception {
+		HashMap<String, Object> resultMap = new HashMap<String, Object>();
+
+		//alarmCd, userId, sendUserId, subMessage를 받아서 메시지 수신여부를 조회한다음, 허용일경우 메시지를 발송한다.
+		String msg = "";
+		String phone = "";
+
+		//알람 메시지 조회
+		HashMap<String, Object> alarmMap = exqueryService.selectOne("cronies.app.push.getAlarmInfo", param);
+
+		//메시지 수신정보 확인
+		if(alarmMap == null){
+			resultMap.put("successYn", "N");
+			resultMap.put("message", "존재하지 않는 알람코드 입니다.");
+			return resultMap;
+		} else if(alarmMap.get("val").equals("N")) {
+			resultMap.put("successYn", "N");
+			resultMap.put("message", "사용자가 메시지 수신에 동의하지 않았습니다.");
+			return resultMap;
+		} else {
+
+			//발송처리
+			msg = alarmMap.get("message").toString();
+
+			//수신자 번호조회
+			HashMap<String, Object> userMap = exqueryService.selectOne("cronies.app.push.getUserToken", param);
+			//phone = userMap.get("phon").toString();
+
+			//C05 참여시 참여자 닉네임 변환 처리
+			if(alarmMap.get("setCd").equals("C05")){
+				msg = msg.replace("{name}", param.get("subMessage").toString());
+			}
+
+			//C06 참여수락시 모임명을 변환한다.
+			if(alarmMap.get("setCd").equals("C06")){
+				msg = msg.replace("{name}", param.get("subMessage").toString());
+			}
+
+			//C09 (메신저알림받기)의 경우 C10의 메시지 표현여부를 확인한다.
+			if(alarmMap.get("setCd").equals("C09")){
+				HashMap<String, Object> c10Map = exqueryService.selectOne("cronies.app.push.getAlarmInfoAboutC10", param);
+				boolean msgShowYn = false;
+				if(c10Map == null){
+					msgShowYn = true;
+				} else if(c10Map.get("val").equals("Y")){
+					msgShowYn = true;
+				}
+				if(msgShowYn){
+					//메시지로 표현
+					//보내는사람 닉네임 조회
+					int maxLen = 30;
+					int cutLen = 0;
+					if((param.get("subMessage").toString()).length() >= maxLen){
+						cutLen = maxLen;
+					} else {
+						cutLen = (param.get("subMessage").toString()).length();
+					}
+					HashMap<String, Object> sendUserMap = new HashMap<String, Object>();
+					if(param.containsKey("communityLastNick")){
+						//커뮤니티 닉네임 사용
+						sendUserMap = exqueryService.selectOne("cronies.app.push.getUserNickAboutPushMsgCom", param);
+					} else {
+						//진짜 닉네임 사용
+						sendUserMap = exqueryService.selectOne("cronies.app.push.getUserNickAboutPushMsg", param);
+					}
+
+					String subMsg = (param.get("subMessage").toString()).substring(0, cutLen);
+					if((param.get("subMessage").toString()).length() >= maxLen){
+						subMsg = subMsg+"..";
+					}
+					msg = sendUserMap.get("nick").toString()+": "+subMsg;
+				} else {
+					//알람메시지로 표현
+					msg = alarmMap.get("message").toString();
+				}
+			}
+
+
+			//HashMap<String, Object> smsMap = new HashMap<String, Object>();
+			//smsMap.put("phoneNo", phone);
+			//smsMap.put("msg", msg);
+			//메시지 발송(임시 sms)
+			//exqueryService.insert("cronies.app.push.insertSmsSend", smsMap);
+
+			//FCM push 처리
+			//sendMessageTo(String targetToken, String title, String body)
+			if(userMap != null){
+				String targetToken = userMap.get("token").toString();
+				String title = "네이비";
+				String body = msg;
+				if(param.containsKey("pushType") && param.get("pushType").toString().equals("message")){
+					//대화메시지 처리
+
+					//대화내용인경우 별도 처리한다.
+					HashMap<String, Object> dataMap = (HashMap<String, Object>) param.get("dataMap");
+					//추가 parameter가 있는 푸쉬
+					fcmService.sendMessageTo("message" ,targetToken, title, body, dataMap);
+				} else if(param.containsKey("pushType") && param.get("pushType").toString().contains("openChat")) {
+					//오픈챗 메시지 처리
+
+					//openChatKey를 별도 처리한다.
+					HashMap<String, Object> dataMap = new HashMap<String, Object>();
+
+					dataMap.put("openChatKey", param.get("openChatKey").toString());
+
+					// insert 위한 param 에 pushKey 에 담기
+					param.put("pushKey", param.get("openChatKey").toString());
+
+					//추가 parameter가 있는 푸쉬
+					fcmService.sendMessageTo(param.get("pushType").toString() ,targetToken, title, body, dataMap);
+				} else if(param.containsKey("pushType") && param.get("pushType").toString().equals("community")) {
+					//커뮤니티 메시지 처리
+
+					//articleKey를 별도 처리한다.
+					HashMap<String, Object> dataMap = new HashMap<String, Object>();
+
+					dataMap.put("articleKey", param.get("articleKey").toString());
+
+					// insert 위한 param 에 pushKey 에 담기
+					param.put("pushKey", param.get("articleKey").toString());
+
+					//추가 parameter가 있는 푸쉬
+					fcmService.sendMessageTo("community" ,targetToken, title, body, dataMap);
+				} else if(param.containsKey("pushType") && param.get("pushType").toString().equals("contestDetail")) {
+					//커뮤니티 메시지 처리
+
+					//articleKey를 별도 처리한다.
+					HashMap<String, Object> dataMap = new HashMap<String, Object>();
+
+					dataMap.put("articleKey", param.get("articleKey").toString());
+
+					// insert 위한 param 에 pushKey 에 담기
+					param.put("pushKey", param.get("articleKey").toString());
+
+					//추가 parameter가 있는 푸쉬
+					fcmService.sendMessageTo("contestDetail" ,targetToken, title, body, dataMap);
+				} else if(param.containsKey("pushType") && param.get("pushType").toString().equals("myLikeMatching")) {
+					//매칭 메시지 처리
+
+					//articleKey를 별도 처리한다.
+					HashMap<String, Object> dataMap = new HashMap<String, Object>();
+
+					dataMap.put("chatroomId", param.get("chatroomId").toString());
+
+					// insert 위한 param 에 pushKey 에 담기
+					param.put("pushKey", param.get("chatroomId").toString());
+
+					//추가 parameter가 있는 푸쉬
+					fcmService.sendMessageTo("myLikeMatching" ,targetToken, title, body, dataMap);
+
+				} else if(param.containsKey("pushType") && param.get("pushType").toString().equals("communityChat")) {
+					//매칭 메시지 처리
+					//articleKey를 별도 처리한다.
+					HashMap<String, Object> dataMap = new HashMap<String, Object>();
+
+					dataMap.put("chatroomId", param.get("chatroomId").toString());
+
+					// insert 위한 param 에 pushKey 에 담기
+					param.put("pushKey", param.get("chatroomId").toString());
+
+					//추가 parameter가 있는 푸쉬
+					fcmService.sendMessageTo("communityChat" ,targetToken, title, body, dataMap);
+				} else if(param.containsKey("pushType")) {
+
+					//pushType은 있지만 추가 parameter가 없는 푸쉬
+					fcmService.sendMessageTo(param.get("pushType").toString(), targetToken, title, body);
+				} else {
+
+					//추가 parameter가 없는 푸쉬
+					fcmService.sendMessageTo(targetToken, title, body);
+				}
+			}
+
+			//아래 코드만 알람으로 저장한다.
+			if(alarmMap.get("setCd").equals("C03") || alarmMap.get("setCd").equals("C04") ||
+			alarmMap.get("setCd").equals("C05") || alarmMap.get("setCd").equals("C06") ||
+			alarmMap.get("setCd").equals("C07") || alarmMap.get("setCd").equals("C08")){
+
+				//익명메시지는 알림으로 저장하지 않는걸로 임시 처리
+				if(!param.get("alarmCd").equals("AL_C04_02")){
+
+					HashMap<String, Object> userAlarmMap = new HashMap<String, Object>();
+					userAlarmMap.put("userId", param.get("userId").toString());
+					userAlarmMap.put("alarmCd", param.get("alarmCd").toString());
+					userAlarmMap.put("msg", msg);
+					userAlarmMap.put("pushType", param.get("pushType").toString());
+					if(param.get("pushKey") != null){
+						userAlarmMap.put("pushKey", param.get("pushKey").toString());
+					}
+
+
+					//SC_USER_ALARM 에 데이터 저장
+					exqueryService.insert("cronies.app.push.insertUserAlarm", userAlarmMap);
+				}
+			}
+
+		}
+
+
+		resultMap.put("successYn", "Y");
+		resultMap.put("message", "정상처리");
+		return resultMap;
+	}
+
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public HashMap<String, Object> sendPushMessageMulti(HashMap<String, Object> param,  List<String> tokenList) throws Exception {
+		/*System.out.println("tokenList 222");
+		System.out.println(tokenList);*/
+		HashMap<String, Object> resultMap = new HashMap<String, Object>();
+
+		//alarmCd, userId, sendUserId, subMessage를 받아서 메시지 수신여부를 조회한다음, 허용일경우 메시지를 발송한다.
+		String msg = "";
+		String phone = "";
+
+		//알람 메시지 조회
+		HashMap<String, Object> alarmMap = exqueryService.selectOne("cronies.app.push.getAlarmInfoMulti", param);
+
+		//메시지 수신정보 확인
+		if(alarmMap == null){
+			resultMap.put("successYn", "N");
+			resultMap.put("message", "존재하지 않는 알람코드 입니다.");
+			return resultMap;
+		} else {
+
+			//발송처리
+			msg = alarmMap.get("message").toString();
+
+			//수신자 번호조회
+			//HashMap<String, Object> userMap = exqueryService.selectOne("cronies.app.push.getUserToken", param);
+			//phone = userMap.get("phon").toString();
+
+			//C05 참여시 참여자 닉네임 변환 처리
+			if(alarmMap.get("setCd").equals("C05")){
+				msg = msg.replace("{name}", param.get("subMessage").toString());
+			}
+
+			//C06 참여수락시 모임명을 변환한다.
+			if(alarmMap.get("setCd").equals("C06")){
+				msg = msg.replace("{name}", param.get("subMessage").toString());
+			}
+
+			//C09 (메신저알림받기)의 경우 C10의 메시지 표현여부를 확인한다.
+			if(alarmMap.get("setCd").equals("C09")){
+				//HashMap<String, Object> c10Map = exqueryService.selectOne("cronies.app.push.getAlarmInfoAboutC10", param);
+				boolean msgShowYn = true;
+				/*if(c10Map == null){
+					msgShowYn = true;
+				} else if(c10Map.get("val").equals("Y")){
+					msgShowYn = true;
+				}*/
+				if(msgShowYn){
+					//메시지로 표현
+					//보내는사람 닉네임 조회
+					int maxLen = 30;
+					int cutLen = 0;
+					if((param.get("subMessage").toString()).length() >= maxLen){
+						cutLen = maxLen;
+					} else {
+						cutLen = (param.get("subMessage").toString()).length();
+					}
+					HashMap<String, Object> sendUserMap = new HashMap<String, Object>();
+					if(param.containsKey("communityLastNick")){
+						//커뮤니티 닉네임 사용
+						sendUserMap = exqueryService.selectOne("cronies.app.push.getUserNickAboutPushMsgCom", param);
+					} else {
+						//진짜 닉네임 사용
+						sendUserMap = exqueryService.selectOne("cronies.app.push.getUserNickAboutPushMsg", param);
+					}
+
+					String subMsg = (param.get("subMessage").toString()).substring(0, cutLen);
+					if((param.get("subMessage").toString()).length() >= maxLen){
+						subMsg = subMsg+"..";
+					}
+					msg = sendUserMap.get("nick").toString()+": "+subMsg;
+				} else {
+					//알람메시지로 표현
+					msg = alarmMap.get("message").toString();
+				}
+			}
+
+
+			//HashMap<String, Object> smsMap = new HashMap<String, Object>();
+			//smsMap.put("phoneNo", phone);
+			//smsMap.put("msg", msg);
+			//메시지 발송(임시 sms)
+			//exqueryService.insert("cronies.app.push.insertSmsSend", smsMap);
+
+			//FCM push 처리
+			//sendMessageTo(String targetToken, String title, String body)
+
+
+				String title = "네이비";
+				String body = msg;
+				//if(param.containsKey("pushType") && param.get("pushType").toString().equals("message")){
+					//대화메시지 처리
+
+					//대화내용인경우 별도 처리한다.
+					HashMap<String, Object> dataMap = (HashMap<String, Object>) param.get("dataMap");
+
+					/*System.out.println("메시지 전송 시작");
+					System.out.println("tokenList :"+ tokenList);
+					System.out.println("title :"+ title);
+					System.out.println("body :"+ body);
+					System.out.println("dataMap :"+ dataMap);*/
+					//추가 parameter가 있는 푸쉬
+					fcmService.sendMessageToMulti(param.get("pushType").toString() ,tokenList, title, body, dataMap);
+				//}
+
+
+
+
+		}
+
+
+		resultMap.put("successYn", "Y");
+		resultMap.put("message", "정상처리");
+		return resultMap;
+	}
+
+}

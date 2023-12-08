@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cronies.app.alarm">
+
+    <!--
+    Description : 알람 리스트
+    -->
+    <select id="getAlarmList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT TOP 15
+            A.ALARM_SEQ
+            , B.ALARM_NM
+            , A.CONTENTS
+            , A.SEND_TIME
+            , A.ROUTE_LINK
+            , dbo.FN_GET_DATE_STR(A.SEND_TIME) AS SEND_TIME_MM
+            , A.PUSH_TYPE
+            , A.PUSH_KEY
+        FROM SC_USER_ALARM A
+            LEFT OUTER JOIN SC_ALARM B
+            ON A.ALARM_CD = B.ALARM_CD
+        WHERE 1=1
+        AND A.USER_ID = #{userId}
+    <if test='nextNo != null and nextNo != ""'>
+        AND ALARM_SEQ &lt; #{nextNo}
+    </if>
+        ORDER BY ALARM_SEQ DESC
+    </select>
+
+    <!--
+    Description : 신규 알람 카운트
+    -->
+    <select id="getAlarmNewReceivedCount" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            COUNT(*) AS ALARM_COUNT
+        FROM SC_USER_ALARM
+        WHERE 1=1
+        AND USER_ID = #{ssUserId}
+        AND CONFIRM_TIME IS NULL
+    </select>
+
+    <!--
+    Description :
+    -->
+    <update id="setAlarmConfirm" parameterType="HashMap">
+        UPDATE SC_USER_ALARM
+        SET CONFIRM_TIME = GETDATE()
+        WHERE 1=1
+        AND USER_ID = #{ssUserId}
+        AND CONFIRM_TIME IS NULL
+    </update>
+
+    <!--
+    Description : 알람 - 오픈챗 삭제여부
+    -->
+    <select id="getAlarmOpenChatDel" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            DEL_YN
+        FROM SC_OPENCHAT
+        WHERE 1=1
+          AND OPENCHAT_ID = #{openChatId}
+    </select>
+
+    <!--
+    Description : 알람 - 커뮤니티 삭제여부
+    -->
+    <select id="getAlarmCommunityDel" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            DEL_YN
+        FROM SC_ARTICLE
+        WHERE 1=1
+          AND ARTICLE_ID = #{articleId}
+    </select>
+
+
+</mapper>

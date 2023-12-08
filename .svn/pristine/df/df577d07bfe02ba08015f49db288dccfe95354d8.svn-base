@@ -1,0 +1,711 @@
+package cronies.meeting.user.service.impl;
+
+import cronies.meeting.user.service.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import select.spring.exquery.service.ExqueryService;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@Service("StoreProcessService")
+@Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
+public class StoreProcessServiceImpl implements StoreProcessService {
+
+    Logger log = LoggerFactory.getLogger(this.getClass());
+
+    @Autowired
+    private ExqueryService exqueryService;
+
+    @Autowired
+    private PointService pointService;
+
+    @Autowired
+    private StoreCommonService storeCommonService;
+
+    @Autowired
+    private CommonService commonService;
+
+    @Autowired
+    private PushService pushService;
+
+    @Autowired
+    private OpenChatService openChatService;
+
+    @Autowired
+    private MessageMainService messageMainService;
+
+    @Autowired
+    private ChoiceService choiceService;
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> setBuyItem(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        HashMap<String, Object> userPointMap = new HashMap<String, Object>();
+        HashMap<String, Object> targetItemMap = new HashMap<String, Object>();
+        List<HashMap<String, Object>> packageList = new ArrayList<>();
+
+        param.put("userId", param.get("ssUserId"));
+
+        try {
+
+            // 현재 하트 조회
+            userPointMap = exqueryService.selectOne("cronies.app.point.getUserLastPoint", param);
+            param.put("currentHeart", userPointMap.get("lastPoint").toString());
+
+            //구매 할 아이템의 하트 총 소모량
+            targetItemMap = exqueryService.selectOne("cronies.app.storeCommon.getUseHeartCntByItemCd", param);
+            param.put("targetHeart", targetItemMap.get("priceHeart").toString());
+            param.put("sumHeart", Integer.parseInt(param.get("currentHeart").toString())-Integer.parseInt(param.get("targetHeart").toString()));
+            param.put("priceWon", "0");
+
+            if(Integer.parseInt(param.get("sumHeart").toString()) < 0){
+                resultMap.put("successYn", "NH");
+                resultMap.put("message", "하트가 부족합니다. 충전하기로 이동하시겠습니까?");
+            } else {
+                resultMap.put("successYn", "Y");
+
+
+                // 콘테스트 투표권일 경우
+                if(param.get("itemCd").toString().equals("IT012_03")){
+                    // 콘테스트 시작여부 조회
+                    HashMap<String, Object> contestStartMap = exqueryService.selectOne("cronies.app.storeCommon.getContestStartInfo", param);
+                    if(contestStartMap != null){
+                        param.put("contestType", contestStartMap.get("contestType"));
+                        // 구매 수량 조회
+                        HashMap<String, Object> contestCntMap = exqueryService.selectOne("cronies.app.storeCommon.getContestBuyCurrentCnt", param);
+                        if(contestCntMap != null){
+                            // 구매한적 있음
+                            // 3회를 소진했는지 확인
+                            if(Integer.parseInt(contestCntMap.get("buyCnt").toString()) < 3){
+                                // 3회 미만
+                                // 구매수량 update
+                                exqueryService.update("cronies.app.storeProcess.updateScContestBuyCurrentCnt", param);
+                            } else {
+                                // 3회를 이미 구매
+                                resultMap.put("successYn", "N");
+                                resultMap.put("message", "이미 구매가능 수량 3회를 소진하였습니다. 다음 콘테스트를 기다려주세요!");
+                            }
+                        } else {
+                            // 구매한적 없음 (정상)
+                            // 1회 추가해주기
+                            exqueryService.update("cronies.app.storeProcess.insertScContestBuyCurrentCnt", param);
+                        }
+                    } else {
+                        // 콘테스트가 시작하지 않았을 때
+                        resultMap.put("successYn", "N");
+                        resultMap.put("message", "콘테스트가 진행되고있지 않습니다. 진행 시 구매 부탁드립니다.");
+                    }
+                }
+
+                if(resultMap.get("successYn").toString().equals("Y")){
+
+                    // ITEM 구매 이력
+                    exqueryService.insert("cronies.app.storeProcess.insertStoreBuyHis", param);
+
+                    // 하트 소모 이력 저장
+                    HashMap<String, Object> returnMap = pointService.setPointHis(param);
+                    if(returnMap.get("successYn").toString().equals("N")){
+                        resultMap.put("successYn", returnMap.get("successYn"));
+                        resultMap.put("message", returnMap.get("message"));
+                    } else {
+                        // 구매 할 아이템(패키지)의 구성리스트 조회
+                        packageList = exqueryService.selectList("cronies.app.storeCommon.getStorePackageListByItemCd", param);
+                        for(int i=0; packageList.size() > i; i++){
+                            packageList.get(i).put("userId", param.get("userId"));
+                            // 해당 각 쿠폰의 충전 할 수량 만큼 insert
+                            for(int j=0; Integer.parseInt(packageList.get(i).get("quantity").toString()) > j; j++){
+                                param.put("couponCd", packageList.get(i).get("couponCd"));
+                                exqueryService.insert("cronies.app.storeProcess.insertStoreCoupon", packageList.get(i));
+                            }
+                            // 기존 쿠폰 수 조회
+                            HashMap<String, Object> currentCouponMap = exqueryService.selectOne("cronies.app.storeCommon.getUserCurrentCntByCoupon", param);
+                            param.put("sumQuantity", Integer.parseInt(currentCouponMap.get("quantity").toString())
+                                    +Integer.parseInt(packageList.get(i).get("quantity").toString()));
+                            // 수량 Update
+                            exqueryService.update("cronies.app.storeProcess.mergeStoreCouponCurrent", param);
+                        }
+                        resultMap.put("successYn", "Y");
+                        resultMap.put("message", "구매되었습니다.");
+                        resultMap.put("lastPoint", param.get("sumHeart"));
+
+
+                        // 콘테스트 투표권일 경우
+                        if(param.get("itemCd").toString().equals("IT012_03")){
+                            // 구매 수량 조회
+                            HashMap<String, Object> contestCntMap = exqueryService.selectOne("cronies.app.storeCommon.getContestBuyCurrentCnt", param);
+                            resultMap.put("buyCnt", contestCntMap.get("buyCnt"));
+                        }
+                    }
+
+                }
+            }
+
+
+        } catch (Exception ex) {
+            resultMap.put("successYn", "NE");
+            resultMap.put("message", "구매 중 오류가 발생하였습니다. 문의 부탁드립니다.");
+        }
+        return resultMap;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> setBuyPackage(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        HashMap<String, Object> userPointMap = new HashMap<String, Object>();
+        HashMap<String, Object> targetItemMap = new HashMap<String, Object>();
+        List<HashMap<String, Object>> packageList = new ArrayList<>();
+
+        param.put("userId", param.get("ssUserId"));
+
+        try {
+            // 현재 하트 조회
+            userPointMap = exqueryService.selectOne("cronies.app.point.getUserLastPoint", param);
+            param.put("currentHeart", userPointMap.get("lastPoint").toString());
+
+            //패키지 정보 조회
+            HashMap<String, Object> packageMap = exqueryService.selectOne("cronies.app.point.selectPackageInfo", param);
+            param.put("priceWon", packageMap.get("priceWon").toString());
+
+            // ITEM 구매 이력
+            exqueryService.insert("cronies.app.storeProcess.insertStoreBuyHis", param);
+
+            resultMap.put("successYn", "Y");
+            resultMap.put("message", "구매되었습니다.");
+
+            // 구매 할 아이템(패키지)의 구성리스트 조회
+            packageList = exqueryService.selectList("cronies.app.storeCommon.getStorePackageListByItemCd", param);
+            for(int i=0; packageList.size() > i; i++){
+                packageList.get(i).put("userId", param.get("userId"));
+                // 구성상품 중 하트가 아닐 경우
+                if(!packageList.get(i).get("couponCd").toString().equals("CU999")){
+                    // 해당 각 쿠폰의 충전 할 수량 만큼 insert
+                    for(int j=0; Integer.parseInt(packageList.get(i).get("quantity").toString()) > j; j++){
+                        param.put("couponCd", packageList.get(i).get("couponCd"));
+                        exqueryService.insert("cronies.app.storeProcess.insertStoreCoupon", packageList.get(i));
+                    }
+                    // 기존 쿠폰 수 조회
+                    HashMap<String, Object> currentCouponMap = exqueryService.selectOne("cronies.app.storeCommon.getUserCurrentCntByCoupon", param);
+                    param.put("sumQuantity", Integer.parseInt(currentCouponMap.get("quantity").toString())
+                            +Integer.parseInt(packageList.get(i).get("quantity").toString()));
+                    // 수량 Update
+                    exqueryService.update("cronies.app.storeProcess.mergeStoreCouponCurrent", param);
+                } else {
+                    // 구성상품 중 하트일 경우
+                    param.put("targetHeart", packageList.get(i).get("quantity").toString());
+                    param.put("sumHeart", Integer.parseInt(param.get("currentHeart").toString())+Integer.parseInt(param.get("targetHeart").toString()));
+
+                    // 하트 소모 이력 저장
+                    HashMap<String, Object> returnMap = pointService.setPointHis(param);
+                    resultMap.put("lastPoint", param.get("sumHeart"));
+                }
+            }
+
+        } catch (Exception ex) {
+            resultMap.put("successYn", "NE");
+            resultMap.put("message", "구매 중 오류가 발생하였습니다. 문의 부탁드립니다.");
+        }
+        return resultMap;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> useHeartAttack(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        HashMap<String, Object> returnMap = new HashMap<>();
+        HashMap<String, Object> subscribeInfoMap = new HashMap<String, Object>();
+        param.put("userId", param.get("ssUserId"));
+
+        try {
+            
+            // 구독정보 조회
+            param.put("infiniteActionCd", "SUPER_LIKE");
+            subscribeInfoMap = storeCommonService.getUserSubscribeInfo(param);
+            if(subscribeInfoMap.get("isActionInfinite").toString().equals("Y")){
+                resultMap.put("successYn", "Y");
+                resultMap.put("message", "사용되었습니다.");
+            } else {
+                // 쿠폰사용(이력저장 및 업데이트)
+                resultMap = useCoupon(param);
+            }
+
+            // SC_LIKE에 저장
+            if(resultMap.get("successYn").toString().equals("Y")){
+
+                param.put("targetUserId", commonService.getDecoding(param.get("targetUserKey").toString()));
+                exqueryService.insert("cronies.app.storeProcess.insertSuperLike", param);
+
+                // ACTION TIME insert
+                param.put("actionType", "like");
+                param.put("actionTypeUpper", "SUPER_LIKE");
+                exqueryService.update("cronies.app.choice.setActionLastTime", param);
+
+                if(param.containsKey("likeType") && param.get("likeType").toString().equals("daily")) {
+                    if(param.containsKey("likeSeq") && !param.get("likeSeq").toString().equals("")){
+                        exqueryService.update("cronies.app.choice.setUserConfirm", param);
+                    }
+                }
+
+                // SWIPER CNT LAST ACTION UPDATE
+                exqueryService.update("cronies.app.choice.updateSwiperLastAction", param);
+
+
+
+                //상대방이 차단했는지 조회
+                HashMap<String, Object> blockMap = new HashMap<String, Object>();
+                blockMap = exqueryService.selectOne("cronies.app.setting.getTargetUserMeBlockOne", param);
+                if(blockMap == null) {
+                    //차단하지 않았을 경우에 푸쉬발송 및 매칭처리
+
+                    //대상에게 푸쉬메시지 발송
+                    //alarmCd, userId, sendUserId, subMessage를 받아서 메시지 수신여부를 조회한다음, 허용일경우 메시지를 발송한다.
+                    HashMap<String, Object> pushMap = new HashMap<String, Object>();
+                    String alarmCd = "AL_C03_02";
+                    pushMap.put("alarmCd", alarmCd);
+                    pushMap.put("userId", param.get("targetUserId").toString());
+                    pushMap.put("sendUserId", "");
+                    pushMap.put("subMessage", "");
+                    pushMap.put("pushType", "myLike");
+                    pushService.sendPushMessage(pushMap);
+
+                    // 매치여부 확인 후 채팅방생성
+                    returnMap = choiceService.setMatchChatRoom(param);
+                    if(!returnMap.get("successYn").toString().equals("N")){
+                        resultMap = returnMap;
+                    }
+
+                }
+
+            }
+       } catch (Exception ex) {
+            resultMap.put("successYn", "N");
+            resultMap.put("message", "사용 중 오류가 발생하였습니다. 문의 부탁드립니다.");
+        }
+
+        return resultMap;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> useReceivedLike(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        HashMap<String, Object> selectMap = new HashMap<String, Object>();
+        param.put("userId", param.get("ssUserId"));
+
+        // 쿠폰사용(이력저장 및 업데이트)
+        resultMap = useCoupon(param);
+
+        try {
+
+            if(resultMap.get("successYn").toString().equals("Y")){
+                // 사용중인 버프가 존재하는지 조회
+                selectMap = exqueryService.selectOne("cronies.app.storeCommon.getUsingReceivedLike", param);
+
+                if(selectMap != null){
+                    // 사용중인 버프 존재
+                    exqueryService.update("cronies.app.storeProcess.updateReceivedLike", param);
+                } else {
+                    // 사용중인 버프 미존재
+                    exqueryService.update("cronies.app.storeProcess.mergeReceivedLike", param);
+                }
+
+                // 사용중인 버프가 존재하는지 조회
+                selectMap = exqueryService.selectOne("cronies.app.storeCommon.getUsingReceivedLike", param);
+                resultMap.put("isBuffYn", selectMap.get("isBuffYn"));
+                resultMap.put("remainingTime", selectMap.get("remainingTime"));
+                resultMap.put("remainingTimeStr", selectMap.get("remainingTimeStr"));
+            }
+
+        } catch (Exception ex) {
+            resultMap.put("successYn", "N");
+            resultMap.put("message", "사용 중 오류가 발생하였습니다. 문의 부탁드립니다.");
+        }
+
+        return resultMap;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> useHoneyBoost(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        HashMap<String, Object> selectMap = new HashMap<String, Object>();
+        param.put("userId", param.get("ssUserId"));
+
+        // 쿠폰사용(이력저장 및 업데이트)
+        resultMap = useCoupon(param);
+
+        try {
+
+            if(resultMap.get("successYn").toString().equals("Y")){
+                // 사용중인 버프가 존재하는지 조회
+                selectMap = exqueryService.selectOne("cronies.app.storeCommon.getUsingHoneyBoost", param);
+
+                if(selectMap != null){
+                    // 사용중인 버프 존재
+                    exqueryService.update("cronies.app.storeProcess.updateHoneyBoost", param);
+                } else {
+                    // 사용중인 버프 미존재
+                    exqueryService.update("cronies.app.storeProcess.mergeHoneyBoost", param);
+                }
+
+                // 사용중인 버프가 존재하는지 조회
+                selectMap = exqueryService.selectOne("cronies.app.storeCommon.getUsingHoneyBoost", param);
+                resultMap.put("isBuffYn", selectMap.get("isBuffYn"));
+                resultMap.put("remainingTime", selectMap.get("remainingTime"));
+                resultMap.put("remainingTimeStr", selectMap.get("remainingTimeStr"));
+            }
+
+        } catch (Exception ex) {
+            resultMap.put("successYn", "N");
+            resultMap.put("message", "사용 중 오류가 발생하였습니다. 문의 부탁드립니다.");
+        }
+
+        return resultMap;
+    }
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> checkBoost(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        HashMap<String, Object> selectMap = new HashMap<String, Object>();
+        param.put("userId", param.get("ssUserId"));
+
+        selectMap = exqueryService.selectOne("cronies.app.storeCommon.getUsingHoneyBoost", param);
+        if(selectMap != null){
+            // 사용중인 버프 존재
+            resultMap.put("isBuffYn", selectMap.get("isBuffYn"));
+            resultMap.put("remainingTime", selectMap.get("remainingTime"));
+            resultMap.put("remainingTimeStr", selectMap.get("remainingTimeStr"));
+        } else {
+            resultMap.put("isBuffYn", "N");
+            resultMap.put("remainingTime", 0);
+            resultMap.put("remainingTimeStr", 0);
+        }
+
+        return resultMap;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> useProfileAd(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        param.put("userId", param.get("ssUserId"));
+
+        // 쿠폰사용(이력저장 및 업데이트)
+        resultMap = useCoupon(param);
+
+        try {
+
+            if(resultMap.get("successYn").toString().equals("Y")){
+                // 프로필 광고 테이블에 추가
+                exqueryService.insert("cronies.app.storeProcess.insertProfileAd", param);
+            }
+        } catch (Exception ex) {
+            resultMap.put("successYn", "N");
+            resultMap.put("message", "사용 중 오류가 발생하였습니다. 문의 부탁드립니다.");
+        }
+
+        return resultMap;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> useSwiperPlus(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        HashMap<String, Object> returnMap = new HashMap<String, Object>();
+        param.put("targetUserId", param.get("userId"));
+        param.put("userId", param.get("ssUserId"));
+
+        // 쿠폰사용(이력저장 및 업데이트)
+        resultMap = useCoupon(param);
+
+        try {
+            if(resultMap.get("successYn").toString().equals("Y")){
+                // 스와이프 수량 조회
+                returnMap = storeCommonService.getUserSwiperInfo(param);
+                if(returnMap.get("successYn").toString().equals("Y")){
+                    param.put("totalCnt", Integer.parseInt(returnMap.get("plusCnt").toString()) + 1);
+                    exqueryService.update("cronies.app.storeProcess.mergeSwiperPlusCnt", param);
+
+                    // 아이템 사용 후 라이크 재시도
+                    param.put("userId", param.get("targetUserId"));
+                    param.put("buyAfterUse", true); // 임시
+                    resultMap = choiceService.setLike(param);
+                }
+            }
+        } catch (Exception ex) {
+            resultMap.put("successYn", "N");
+            resultMap.put("message", "사용 중 오류가 발생하였습니다. 문의 부탁드립니다.");
+        }
+
+        return resultMap;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> useCoupon(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        HashMap<String, Object> returnMap = new HashMap<String, Object>();
+        HashMap<String, Object> couponCurrentMap = new HashMap<String, Object>();
+        HashMap<String, Object> couponIdMap = new HashMap<String, Object>();
+
+        try {
+            resultMap.put("successYn", "Y");
+            resultMap.put("message", "사용되었습니다.");
+            // 쿠폰사용 시
+            if(param.get("useType").toString().equals("COUPON")){
+                couponCurrentMap = storeCommonService.getUserCouponDataOne(param);
+                if(Integer.parseInt(couponCurrentMap.get("quantity").toString()) > 0){
+                    // 보너스 여부
+                    if(couponCurrentMap.get("isBonusYn").toString().equals("Y")){
+                        // 보너스 쿠폰 ID 조회
+                        couponIdMap = exqueryService.selectOne("cronies.app.storeCommon.getBonusCouponLastId", param);
+                    } else {
+                        // 일반 쿠폰 ID 조회
+                        couponIdMap = exqueryService.selectOne("cronies.app.storeCommon.getCommonCouponLastId", param);
+                    }
+                    param.put("couponId", couponIdMap.get("couponId"));
+
+                    // 쿠폰 사용처리
+                    exqueryService.update("cronies.app.storeProcess.useCouponOne", param);
+                    // Current 동기화
+                    exqueryService.update("cronies.app.storeProcess.updateCouponCurrent", param);
+
+                } else {
+                    // 화면에는 수량이 표시되나 실제로는 소모 되었을 시
+                    resultMap.put("successYn", "N");
+                    resultMap.put("message", "수량이 0 입니다. 확인 후 다시 진행해주시기 바랍니다.");
+                }
+            } else {
+
+                // 하트사용 시
+                returnMap = setBuyItem(param);
+                // 구매 아이템 사용처리
+                if(returnMap.get("successYn").toString().equals("Y")){
+                    param.put("useType", "COUPON");
+                    returnMap = useCoupon(param);
+                } else {
+                    resultMap.put("successYn", returnMap.get("successYn"));
+                    resultMap.put("message", returnMap.get("message"));
+                }
+
+            }
+
+        } catch (Exception ex) {
+            resultMap.put("successYn", "N");
+            resultMap.put("message", "사용 중 오류가 발생하였습니다. 문의 부탁드립니다.");
+        }
+        return resultMap;
+    }
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> useOpenChatBoost(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        HashMap<String, Object> selectMap = new HashMap<String, Object>();
+        HashMap<String, Object> returnMap = new HashMap<String, Object>();
+        param.put("userId", param.get("ssUserId"));
+        param.put("openchatId", commonService.getDecoding(String.valueOf(param.get("openChatKey"))));
+        param.put("openChatKey", commonService.getDecoding(String.valueOf(param.get("openChatKey"))));
+
+
+        try {
+
+            if(openChatService.getOpenChatDelYn(param).get("delYn").equals("N")){
+                // 쿠폰사용(이력저장 및 업데이트)
+                resultMap = useCoupon(param);
+
+                if(resultMap.get("successYn").toString().equals("Y")){
+
+                    // 사용중인 버프 미존재
+                    exqueryService.update("cronies.app.storeProcess.insertOpenChatBoost", param);
+
+//                    // 사용중인 버프가 존재하는지 조회
+//                    selectMap = exqueryService.selectOne("cronies.app.storeCommon.getUsingOpenChatBoost", param);
+//
+//                    if(selectMap != null){
+//                        param.put("id", selectMap.get("id"));
+//                        // 사용중인 버프 존재
+//                        exqueryService.update("cronies.app.storeProcess.updateOpenChatBoost", param);
+//                    } else {
+//                        // 사용중인 버프 미존재
+//                        exqueryService.update("cronies.app.storeProcess.insertOpenChatBoost", param);
+//                    }
+
+                    HashMap<String, Object> chatroomMap = exqueryService.selectOne("cronies.app.openChat.selectOpenchatInfo", param);
+                    param.put("chatroomId", chatroomMap.get("chatroomId"));
+                    //기본메시지 처리
+                    HashMap<String, Object> nickMap = exqueryService.selectOne("cronies.app.openChat.selectUserInfoNick", param);
+                    // 누구누구님이 참여하였습니다.
+                    String msg = nickMap.get("nick").toString()+"님이 모임에 불을 지피기 시작합니다!";
+                    param.put("message", msg);
+                    param.put("regUserId", param.get("userId"));
+                    param.put("type", "Y");
+                    param.put("fileId", 0);
+                    messageMainService.sendMessageSingle(param);
+
+                    returnMap = exqueryService.selectOne("cronies.app.storeProcess.callSetPopularity", param);
+
+                    // 사용중인 버프가 존재하는지 조회
+//                    selectMap = exqueryService.selectOne("cronies.app.storeCommon.getUsingOpenChatBoost", param);
+//                    resultMap.put("isBuffYn", selectMap.get("isBuffYn"));
+//                    resultMap.put("remainingTime", selectMap.get("remainingTime"));
+//                    resultMap.put("remainingTimeStr", selectMap.get("remainingTimeStr"));
+                }
+
+            } else {
+                resultMap.put("successYn", "N");
+                resultMap.put("message", "삭제 된 오픈챗입니다.");
+            }
+
+        } catch (Exception ex) {
+            resultMap.put("successYn", "N");
+            resultMap.put("message", "사용 중 오류가 발생하였습니다. 문의 부탁드립니다.");
+        }
+
+        return resultMap;
+    }
+
+
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> useContestVote(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        HashMap<String, Object> returnMap = new HashMap<String, Object>();
+        HashMap<String, Object> couponCurrentMap = new HashMap<String, Object>();
+        HashMap<String, Object> couponIdMap = new HashMap<String, Object>();
+        param.put("targetUserId", commonService.getDecoding(String.valueOf(param.get("targetUserKey"))));
+
+        // 콘테스트가 START 상태인지 조회
+        HashMap<String, Object> contestInfoMap = new HashMap<String, Object>();
+        contestInfoMap = exqueryService.selectOne("cronies.app.home.getContestTypeNotEnd", param);
+
+        try {
+
+            if(contestInfoMap != null){
+                if(contestInfoMap.get("contestState").toString().equals("START")){
+
+                    resultMap.put("successYn", "Y");
+                    resultMap.put("message", "콘테스트 투표권이 사용되었습니다.");
+
+                    // 쿠폰사용 시
+                    if(param.get("useType").toString().equals("COUPON")){
+                        couponCurrentMap = storeCommonService.getUserCouponDataOne(param);
+                        if(Integer.parseInt(couponCurrentMap.get("quantity").toString()) > 0){
+                            // 보너스 여부
+                            if(couponCurrentMap.get("isBonusYn").toString().equals("Y")){
+                                // 보너스 쿠폰 ID 조회
+                                couponIdMap = exqueryService.selectOne("cronies.app.storeCommon.getBonusCouponLastId", param);
+                            } else {
+                                // 일반 쿠폰 ID 조회
+                                couponIdMap = exqueryService.selectOne("cronies.app.storeCommon.getCommonCouponLastId", param);
+                            }
+                            param.put("couponId", couponIdMap.get("couponId"));
+                            // 쿠폰 사용처리
+                            exqueryService.update("cronies.app.storeProcess.useCouponOne", param);
+                            // Current 동기화
+                            exqueryService.update("cronies.app.storeProcess.updateCouponCurrent", param);
+                            // 투표권 카운트 증가
+                            exqueryService.update("cronies.app.contest.updateContestVotesCount", param);
+                            // 투표권 사용내역 저장
+                            exqueryService.insert("cronies.app.contest.insertContestVoteHis", param);
+                        } else {
+                            // 화면에는 수량이 표시되나 실제로는 소모 되었을 시
+                            resultMap.put("successYn", "NI");
+                            resultMap.put("message", "수량이 0 입니다. 확인 후 다시 진행해주시기 바랍니다.");
+                        }
+                    } else {
+                        resultMap.put("successYn", "NI");
+                        resultMap.put("message", "콘테스트 투표권이 부족합니다. 스토어로 이동하시겠습니까?");
+//                // 하트사용 시
+//                returnMap = setBuyItem(param);
+//                // 구매 아이템 사용처리
+//                if(returnMap.get("successYn").toString().equals("Y")){
+//                    param.put("useType", "COUPON");
+//                    returnMap = useContestVote(param);
+//                } else {
+//                    resultMap.put("successYn", returnMap.get("successYn"));
+//                    resultMap.put("message", returnMap.get("message"));
+//                }
+                    }
+
+
+                } else {
+                    resultMap.put("successYn", "N_START");
+                    resultMap.put("message", "투표 가능 기간이 아닙니다.");
+                }
+            } else {
+                resultMap.put("successYn", "N_START");
+                resultMap.put("message", "투표 가능 기간이 아닙니다.");
+            }
+        } catch (Exception ex) {
+            resultMap.put("successYn", "N");
+            resultMap.put("message", "사용 중 오류가 발생하였습니다. 문의 부탁드립니다.");
+        }
+        return resultMap;
+    }
+
+
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> buySubscribeComplete(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        HashMap<String, Object> subscribeMap = new HashMap<String, Object>();
+        List<HashMap<String, Object>> couponList = new ArrayList<>();
+        try {
+            resultMap.put("successYn", "Y");
+            resultMap.put("message", "구독되었습니다.");
+
+            // 결제이력 insert
+            exqueryService.insert("cronies.app.storeProcess.insertScSubscribeHis", param);
+            // 결제이력 조회
+//            subscribeMap = exqueryService.selectOne("cronies.app.storeCommon.getScSubscribeHisLast", param);
+            // 이력이 존재 할 경우
+//            if(subscribeMap != null){
+                // insert time 저장
+//                param.put("regTime", subscribeMap.get("regTime"));
+//                param.put("subscribeCd", subscribeMap.get("subscribeCd"));
+//                param.put("subscribeDay", subscribeMap.get("subscribeDay"));
+                // 구독 현재상태 update
+                exqueryService.update("cronies.app.storeProcess.mergeScSubscribeCurrent", param);
+                // 구독에 맞는 추가 쿠폰 조회
+                couponList = exqueryService.selectList("cronies.app.storeCommon.getSubscribeCouponList", param);
+
+                // 쿠폰 추가
+                for (Map<String, Object> coupon : couponList) {
+                    coupon.put("userId", param.get("ssUserId"));
+                    // 해당 각 쿠폰의 충전 할 수량 만큼 insert
+                    for(int j=0; Integer.parseInt(coupon.get("quantity").toString()) > j; j++){
+                        exqueryService.insert("cronies.app.storeProcess.insertStoreCoupon", coupon);
+                    }
+                    // 기존 쿠폰 수 조회
+                    HashMap<String, Object> currentCouponMap = exqueryService.selectOne("cronies.app.storeCommon.getUserCurrentCntByCoupon", coupon);
+                    coupon.put("sumQuantity", Integer.parseInt(currentCouponMap.get("quantity").toString())
+                            +Integer.parseInt(coupon.get("quantity").toString()));
+                    // 수량 Update
+                    exqueryService.update("cronies.app.storeProcess.mergeStoreCouponCurrent", coupon);
+                }
+//            } else {
+//                // 이력이 존재하지 않을 경우
+//                resultMap.put("successYn", "N");
+//                resultMap.put("message", "구독 중 오류가 발생하였습니다. 문의 부탁드립니다.");
+//            }
+        } catch (Exception e) {
+            resultMap.put("successYn", "N");
+            resultMap.put("message", "구독 중 오류가 발생하였습니다. 문의 부탁드립니다.");
+        }
+        return resultMap;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> cancelSubscribe(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        try {
+            resultMap.put("successYn", "Y");
+            resultMap.put("message", "구독이 RESET 되었습니다.");
+            // 구독 현재 상태 UPDATE
+            exqueryService.update("cronies.app.storeProcess.resetSubscribeCurrent", param);
+        } catch (Exception e) {
+            resultMap.put("successYn", "N");
+            resultMap.put("message", "구독 중 오류가 발생하였습니다. 문의 부탁드립니다.");
+        }
+        return resultMap;
+    }
+
+}

@@ -1,0 +1,107 @@
+package cronies.meeting.user.service.impl;
+
+import cronies.meeting.user.service.AlarmService;
+import cronies.meeting.user.service.CommonService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import select.spring.exquery.service.ExqueryService;
+
+import javax.servlet.http.HttpSession;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+
+@Service("AlarmService")
+@Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
+public class AlarmServiceImpl implements AlarmService {
+
+    Logger log = LoggerFactory.getLogger(this.getClass());
+
+    @Autowired
+    private ExqueryService exqueryService;
+
+    @Autowired
+    private CommonService commonService;
+
+    @Autowired
+    HttpSession session;
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public List<HashMap<String, Object>> getAlarmList(HashMap<String, Object> param) throws Exception {
+        List<HashMap<String, Object>> resultList = new ArrayList<>();
+        param.put("userId", param.get("ssUserId"));
+        resultList = exqueryService.selectList("cronies.app.alarm.getAlarmList", param);
+
+        return resultList;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> removeAlarm(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<>();
+
+        try {
+            exqueryService.update("cronies.app.alarm.removeAlarm", param);
+            resultMap.put("successYn", "Y");
+            resultMap.put("message", "삭제되었습니다.");
+        } catch (Exception e) {
+            resultMap.put("successYn", "N");
+            resultMap.put("message", "문제가 발생했습니다. 다시 시도해주세요.");
+        }
+
+        return resultMap;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> getAlarmCount(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        HashMap<String, Object> countMap = new HashMap<String, Object>();
+        countMap = exqueryService.selectOne("cronies.app.alarm.getAlarmNewReceivedCount", param);
+        resultMap.put("alarmCount", countMap.get("alarmCount"));
+        return resultMap;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> setAlarmConfirm(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        resultMap.put("successYn", "Y");
+        resultMap.put("message", "Y");
+        try {
+            exqueryService.update("cronies.app.alarm.setAlarmConfirm", param);
+        } catch (Exception e) {
+            resultMap.put("successYn", "N");
+            resultMap.put("message", "알람 수신처리 과정 중 에러가 발생하였습니다.");
+        }
+        return resultMap;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> getAlarmOpenChatDel(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        HashMap<String, Object> returnMap = new HashMap<String, Object>();
+        param.put("openChatId", commonService.getDecoding(param.get("openChatKey").toString()));
+        returnMap = exqueryService.selectOne("cronies.app.alarm.getAlarmOpenChatDel", param);
+        resultMap.put("delYn", returnMap.get("delYn"));
+        if(returnMap.get("delYn").toString().equals("Y")){
+            resultMap.put("message", "이미 삭제된 소모임입니다.");
+        }
+        return resultMap;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> getAlarmCommunityDel(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        HashMap<String, Object> returnMap = new HashMap<String, Object>();
+        param.put("articleId", commonService.getDecoding(param.get("articleKey").toString()));
+        returnMap = exqueryService.selectOne("cronies.app.alarm.getAlarmCommunityDel", param);
+        resultMap.put("delYn", returnMap.get("delYn"));
+        if(returnMap.get("delYn").toString().equals("Y")){
+            resultMap.put("message", "이미 삭제된 게시글입니다.");
+        }
+        return resultMap;
+    }
+}

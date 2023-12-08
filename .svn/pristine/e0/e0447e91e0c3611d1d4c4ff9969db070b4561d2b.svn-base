@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cronies.app.attachFile">
+
+	<!-- 파일 CDN 정보 조회  -->
+	<select id="selectCdnInfo" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM AS CDN_NM
+			,SERVER_IP + '/' + FILE_PATH + THUMB_FILE_NM AS CDN_THUMB_NM
+		FROM SC_ATTACH_FILE
+		WHERE ATTACH_FILE_ID = #{saveId}
+	</select>
+
+	<!-- 파일을 조회하기 위한 경로 등 조회  -->
+	<select id="selectImageFileByImageId" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+             SERVER_FILE_NM AS IMAGE_FILE_NAME
+            , FILE_PATH AS IMAGE_FILE_DIR
+			, SERVER_IP
+			, USE_YN
+        FROM SC_ATTACH_FILE
+        WHERE ATTACH_FILE_ID = #{fileId}
+	</select>
+
+	<!-- 파일을 조회하기 위한 경로 등 조회  -->
+	<select id="selectImageFileByImageIdThumb" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+             CASE WHEN FILE_EXT = 'mp4'
+			 THEN SERVER_FILE_NM
+			 ELSE THUMB_FILE_NM
+			 END IMAGE_FILE_NAME
+            , FILE_PATH AS IMAGE_FILE_DIR
+			, SERVER_IP
+			, USE_YN
+			, FILE_EXT
+        FROM SC_ATTACH_FILE
+        WHERE ATTACH_FILE_ID = #{fileId}
+	</select>
+
+	<!-- 파일정보  -->
+	<select id="getFileInfo" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT FILE_ID, FILE_TYPE, ORG_FILE_NAME, SAVE_FILE_NAME, SAVE_PATH, FILE_SIZE, DEL_YN
+		FROM LE_ATTACH_FILE
+		WHERE FILE_ID = #{fileId}
+	</select>
+
+
+	<select id="selectAttachFileIdSeq" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT NEXT VALUE FOR ATTACH_FILE_ID_SEQ AS ATTACH_FILE_ID
+	</select>
+
+	<!-- 첨부파일 (ATTACH_FILE) 입력 -->
+	<insert id="insert" parameterType="HashMap" useGeneratedKeys="true" keyProperty="fileId" keyColumn="FILE_ID">
+		INSERT INTO SC_ATTACH_FILE (
+		ATTACH_FILE_ID
+		, FILE_EXT
+		, ATTACH_FILE_NM
+		, SERVER_FILE_NM
+		, FILE_PATH
+		, FILE_SIZE
+		, USE_YN
+		, CREATED_DT
+		, CREATED_USER_ID
+		, UPDATED_DT
+		, UPDATED_USER_ID
+		, SERVER_IP
+		, THUMB_FILE_NM
+		, WIDTH
+		, HEIGHT
+		) VALUES (
+		#{attachFileId}
+		, #{fileType}
+		, #{orgFileName}
+		, #{saveFileName}
+		, #{savePath}
+		, #{fileSize}
+		, 'N'
+		, GETDATE()
+		, #{userId}
+		, GETDATE()
+		, #{userId}
+		, #{serverIp}
+		, #{thumbnail}
+		, #{width}
+		, #{height}
+		)
+	</insert>
+
+	<!-- 게시물 첨부파일 등록  -->
+	<insert id="insertArticleAttach" parameterType="HashMap">
+        INSERT INTO ARTICLE_ATTACH
+        (
+	        ARTICLE_ID
+	        , FILE_ID
+	        , MAIN_YN
+        )
+        VALUES
+        (
+	        #{articleId}
+	        , #{fileId}
+	        , #{mainYn}
+        )
+    </insert>
+
+	<!-- 게시물 첨부파일 삭제  -->
+	<delete id="deleteArticleAttach" parameterType="HashMap">
+        DELETE ARTICLE_ATTACH
+        WHERE ARTICLE_ID = #{articleId}
+    </delete>
+
+	<!-- 첨부파일 (LE_ATTACH_FILE) 수정 -->
+	<update id="update" parameterType="HashMap" >
+		UPDATE LE_ATTACH_FILE
+		SET
+		    ORG_FILE_NAME 		= #{orgFileName}
+		  , FILE_TYPE  			= #{fileType}
+		  , SAVE_FILE_NAME 		= #{saveFileName}
+		  , SAVE_PATH 			= #{savePath}
+		  , FILE_SIZE 			= #{fileSize}
+		  , UPD_TIME 	= SYSDATE
+		WHERE
+			FILE_ID 	= #{fileId}
+
+	</update>
+
+	<!--  첨부파일 (LE_ATTACH_FILE) 삭제 -->
+	<delete id="delete" parameterType="HashMap" >
+		DELETE
+		FROM  LE_ATTACH_FILE
+       	WHERE
+       	    FILE_ID = #{fileId}
+	</delete>
+
+
+	<!-- 파일삭제여부변경 -->
+	<update id="updateFileDelYn" parameterType="HashMap" >
+		UPDATE LE_ATTACH_FILE
+		<set>
+			DEL_YN = 'Y'
+		</set>
+		WHERE FILE_ID = #{fileId}
+	</update>
+
+</mapper>

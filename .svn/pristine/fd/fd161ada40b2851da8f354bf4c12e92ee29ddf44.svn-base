@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cronies.app.partners">
+
+    <select id="partnersCheck" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT TOP 1 PARTNERS_CODE FROM SC_PARTNERS_MANAGER
+        WHERE USER_ID = #{userId}
+        AND DEL_YN = 'N'
+    </select>
+
+    <select id="partnersInfo" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            A.PARTNERS_CODE
+            ,A.PARTNERS_NAME
+            ,A.PARTNERS_ADDRESS
+            ,A.PARTNERS_ADDRESS_DETAIL
+            ,A.PARTNERS_NUMBER
+            ,A.OPEN_TIME
+            ,A.CLOSE_TIME
+            ,A.SHORT_WORD
+            ,A.INTRODUCE
+            ,A.CURRENT_POINT
+            ,A.KM_MAX
+            ,A.HOUR_MAX
+            ,A.HOUR_MIN
+            ,A.EXPOSURE_CYCLE
+            ,A.AGE_MIN
+            ,A.AGE_MAX
+            ,A.LAT
+            ,A.LON
+            ,A.FILE_ID
+            ,A.PHOTO1
+            ,A.PHOTO2
+            ,A.PHOTO3
+            ,A.PHOTO4
+            ,A.PHOTO5
+            ,A.PHOTO6
+            ,(SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = A.PHOTO1) AS CDN_NM_1
+            ,(SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = A.PHOTO2) AS CDN_NM_2
+            ,(SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = A.PHOTO3) AS CDN_NM_3
+            ,(SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = A.PHOTO4) AS CDN_NM_4
+            ,(SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = A.PHOTO5) AS CDN_NM_5
+            ,(SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = A.PHOTO6) AS CDN_NM_6
+            ,A.UPD_DATE
+        FROM SC_PARTNERS_COMPANY A
+        WHERE 1=1
+        <if test="partnersCode != null and partnersCode != ''">
+            AND A.PARTNERS_CODE = #{partnersCode}
+        </if>
+        <if test="userId != null and userId != ''">
+            AND A.PARTNERS_CODE = (SELECT TOP 1 PARTNERS_CODE FROM SC_PARTNERS_MANAGER WHERE USER_ID = #{userId} AND DEL_YN = 'N')
+        </if>
+        AND DEL_YN = 'N'
+    </select>
+
+    <update id="partnersPhotoUpdate" parameterType="HashMap">
+        UPDATE SC_PARTNERS_COMPANY
+        SET
+            UPD_DATE = GETDATE()
+        <if test='photo1 != null and photo1 != ""'>
+            , FILE_ID = ${photo1}
+            , PHOTO1 = ${photo1}
+        </if>
+        <if test='photo2 != null and photo2 != ""'>
+            , PHOTO2 = ${photo2}
+        </if>
+        <if test='photo3 != null and photo3 != ""'>
+            , PHOTO3 = ${photo3}
+        </if>
+        <if test='photo4 != null and photo4 != ""'>
+            , PHOTO4 = ${photo4}
+        </if>
+        <if test='photo5 != null and photo5 != ""'>
+            , PHOTO5 = ${photo5}
+        </if>
+        <if test='photo6 != null and photo6 != ""'>
+            , PHOTO6 = ${photo6}
+        </if>
+        WHERE PARTNERS_CODE = #{partnersCode}
+    </update>
+
+    <update id="partnersPhotoDelete" parameterType="HashMap">
+        UPDATE SC_PARTNERS_COMPANY
+        SET
+            UPD_DATE = GETDATE()
+        <if test='deletePhoto == "add1"'>
+            , PHOTO1 = NULL
+            , FILE_ID = NULL
+        </if>
+        <if test='deletePhoto == "add2"'>
+            , PHOTO2 = NULL
+        </if>
+        <if test='deletePhoto == "add3"'>
+            , PHOTO3 = NULL
+        </if>
+        <if test='deletePhoto == "add4"'>
+            , PHOTO4 = NULL
+        </if>
+        <if test='deletePhoto == "add5"'>
+            , PHOTO5 = NULL
+        </if>
+        <if test='deletePhoto == "add6"'>
+            , PHOTO6 = NULL
+        </if>
+        WHERE PARTNERS_CODE = #{partnersCode}
+    </update>
+
+    <update id="partnersInfoSave" parameterType="HashMap">
+        UPDATE SC_PARTNERS_COMPANY
+        SET
+            UPD_DATE = GETDATE()
+        <if test="introduce != null and introduce != ''">
+            ,INTRODUCE = #{introduce}
+        </if>
+        <if test="partnersNumber != null and partnersNumber != ''">
+            ,PARTNERS_NUMBER = #{partnersNumber}
+        </if>
+        <if test="lat != null and lat != ''">
+            ,LAT = #{lat}
+        </if>
+        <if test="lon != null and lon != ''">
+            ,LON = #{lon}
+        </if>
+        <if test="partnersAddress != null and partnersAddress != ''">
+            ,PARTNERS_ADDRESS = #{partnersAddress}
+        </if>
+        <if test="partnersAddressDetail != null and partnersAddressDetail != ''">
+            ,PARTNERS_ADDRESS_DETAIL = #{partnersAddressDetail}
+        </if>
+        <if test="shortWord != null and shortWord != ''">
+            ,SHORT_WORD = #{shortWord}
+        </if>
+        <if test="openTime != null and openTime != ''">
+            ,OPEN_TIME = #{openTime}
+        </if>
+        <if test="closeTime != null and closeTime != ''">
+            ,CLOSE_TIME = #{closeTime}
+        </if>
+        <if test="hourMin != null and hourMin != ''">
+            ,HOUR_MIN = #{hourMin}
+        </if>
+        <if test="hourMax != null and hourMax != ''">
+            ,HOUR_MAX = #{hourMax}
+        </if>
+        <if test="kmMax != null and kmMax != ''">
+            ,KM_MAX = #{kmMax}
+        </if>
+        <if test="ageMin != null and ageMin != ''">
+            ,AGE_MIN = #{ageMin}
+        </if>
+        <if test="ageMax != null and ageMax != ''">
+            ,AGE_MAX = #{ageMax}
+        </if>
+        <if test="exposureCycle != null and exposureCycle != ''">
+            ,EXPOSURE_CYCLE = #{exposureCycle}
+        </if>
+
+        WHERE PARTNERS_CODE = #{partnersCode}
+    </update>
+
+    <select id="partnersUserInfo" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT TOP 1
+            A.USER_ID
+            , C.PARTNERS_NAME
+            , C.FILE_ID AS ICON
+        FROM SC_USER A
+        INNER JOIN SC_PARTNERS_MANAGER B
+            ON A.USER_ID = B.USER_ID
+            AND B.PARTNERS_CODE = #{partnersCode}
+            AND B.DEL_YN = 'N'
+        INNER JOIN SC_PARTNERS_COMPANY C
+            ON B.PARTNERS_CODE = C.PARTNERS_CODE
+            AND C.PARTNERS_CODE = #{partnersCode}
+            AND C.DEL_YN = 'N'
+        WHERE 1=1
+        <if test="sameId != null or sameId != ''">
+        <![CDATA[ AND A.USER_ID <> #{ssUserId} ]]>
+        </if>
+
+    </select>
+
+</mapper>

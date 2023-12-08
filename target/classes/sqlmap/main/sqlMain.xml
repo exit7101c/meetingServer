@@ -1,0 +1,618 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.main.sqlMain">
+
+	<!-- Ctq List -->
+	<select id="selectCtqTreeList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			A.TAG_CD
+			, A.EVENT_TIME
+			, TO_CHAR(A.EVENT_TIME, 'YYYY-MM-DD HH24:MI:SS') AS EVENT_TIME_STR
+			, CASE WHEN A.EVENT_TIME &lt; SYSDATE - 1/24/60*(SELECT CODE_VALUE FROM COM_COMMONCODE WHERE CODE_CD = 'NA_TIME') THEN 'N/A'
+				   WHEN TN.VALUE_NM IS NULL THEN FN_THREECOMMA(RTRIM(TO_CHAR(ROUND(NVL(A.TAG_VALUE,''),1), 'FM9999999990.9'),'.'))
+                   ELSE FN_GET_MSG(TN.VALUE_NM, #{ssUserLang})
+			  END TAG_VALUE
+			, B.UCL
+			, B.CL
+			, B.LCL
+			, CASE WHEN TAG_VALUE > UCL OR TAG_VALUE &lt; LCL THEN 'error' ELSE 'ok' END STATE
+			, C.UNIT
+			, FN_GET_MSG(C.TAG_NM,#{ssUserLang}) AS TAG_NM
+			, D.EQP_CD
+			, B.PROD_CD
+            , NVL(E.RUN_YN,'Y') AS RUN_YN
+		FROM COM_TAG_VALUE_CURRENT A
+		LEFT OUTER JOIN
+		(
+			SELECT
+				Q.TAG_CD, UCL,CL,LCL, W.UNIT, FN_GET_MSG(W.TAG_NM,#{ssUserLang}) AS TAG_NM, Q.PROD_CD
+			FROM COM_PRODUCT_TAG_CL Q
+			INNER JOIN COM_TAG W ON Q.TAG_CD = W.TAG_CD
+			WHERE PROD_CD = (SELECT PROD_CD FROM COM_LINE_PRODUCT WHERE LINE_CD = #{lineCd})
+		) B
+		ON A.TAG_CD = B.TAG_CD
+		INNER JOIN COM_TAG C ON A.TAG_CD = C.TAG_CD
+        LEFT OUTER JOIN (SELECT MAX(EQP_CD) AS EQP_CD, TAG_CD FROM COM_EQP_TAG GROUP BY TAG_CD ) D ON A.TAG_CD = D.TAG_CD
+        LEFT OUTER JOIN COM_EQP_STATE E ON D.EQP_CD = E.EQP_CD
+        LEFT OUTER JOIN COM_TAG_VALUE_CODE TN
+        ON A.TAG_CD = TN.TAG_CD AND A.TAG_VALUE = TN.VALUE_CD
+		WHERE A.TAG_CD IN (
+            SELECT
+                TAG_CD
+            FROM (
+                SELECT
+                    TAG_CD
+                FROM COM_EQP_TAG
+                WHERE EQP_CD IN (
+                    SELECT
+                        EQP_CD
+                    FROM COM_EQUIPMENT
+                    WHERE LINE_CD = #{lineCd}
+                )
+                AND (COLLECT_TYPE = 'PV' OR COLLECT_TYPE = 'ET')
+            ) GROUP BY TAG_CD
+        )
+	</select>
+
+	<!-- 설비별 경고상하한 알람 갯수 -->
+	<select id="eqpWarningCnt" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			COUNT(EQP_CD) AS CNT
+			, EQP_CD
+			, EQP_NM
+		FROM
+		(
+			SELECT
+				A.TAG_CD
+				, A.EVENT_TIME
+				, TO_CHAR(A.EVENT_TIME, 'YYYY-MM-DD HH24:MI:SS') AS EVENT_TIME_STR
+				, A.TAG_VALUE
+				, B.UCL
+				, B.CL
+				, B.LCL
+				, CASE WHEN TAG_VALUE > UCL OR TAG_VALUE &lt; LCL THEN 'error' ELSE 'ok' END STATE
+				, C.UNIT
+				, FN_GET_MSG(C.TAG_NM,#{ssUserLang}) AS TAG_NM
+				, D.EQP_CD
+				, B.PROD_CD
+				, (SELECT FN_GET_MSG(EQP_NM, #{ssUserLang}) FROM COM_EQUIPMENT WHERE EQP_CD = D.EQP_CD) AS EQP_NM
+			FROM COM_TAG_VALUE_CURRENT A
+			LEFT OUTER JOIN
+			(
+				SELECT
+					Q.TAG_CD, UCL,CL,LCL, W.UNIT, FN_GET_MSG(W.TAG_NM,#{ssUserLang}) AS TAG_NM, Q.PROD_CD
+				FROM COM_PRODUCT_TAG_CL Q
+				INNER JOIN COM_TAG W ON Q.TAG_CD = W.TAG_CD
+				WHERE PROD_CD = (SELECT PROD_CD FROM COM_LINE_PRODUCT WHERE LINE_CD =  #{lineCd})
+			) B
+			ON A.TAG_CD = B.TAG_CD
+			INNER JOIN COM_TAG C ON A.TAG_CD = C.TAG_CD
+			LEFT OUTER JOIN (SELECT MAX(EQP_CD) AS EQP_CD, TAG_CD FROM COM_EQP_TAG GROUP BY TAG_CD ) D ON A.TAG_CD = D.TAG_CD
+			WHERE A.TAG_CD IN (
+				SELECT
+					TAG_CD
+				FROM (
+					SELECT
+						TAG_CD
+					FROM COM_EQP_TAG
+					WHERE EQP_CD IN (
+						SELECT
+							EQP_CD
+						FROM COM_EQUIPMENT
+						WHERE LINE_CD = #{lineCd}
+					)
+				) GROUP BY TAG_CD
+			) AND (TAG_VALUE > UCL OR TAG_VALUE &lt; LCL)
+		) GROUP BY EQP_CD, EQP_NM ORDER BY EQP_CD
+	</select>
+
+	<!-- Ctq Gauge List -->
+	<select id="selectCtqGaugeList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+		A.TAG_CD
+		, A.EVENT_TIME
+		, TO_CHAR(A.EVENT_TIME, 'YYYY-MM-DD HH24:MI:SS') AS EVENT_TIME_STR
+		, A.TAG_VALUE
+		, B.USL
+		, B.UCL
+		, B.CL
+		, B.LCL
+		, B.LSL
+		, CASE WHEN TAG_VALUE > UCL OR TAG_VALUE &lt; LCL THEN 'error' ELSE 'ok' END STATE
+        , C.UNIT
+        , FN_GET_MSG(C.TAG_NM,#{ssUserLang}) AS TAG_NM
+        , D.EQP_CD
+        , B.PROD_CD
+		FROM COM_TAG_VALUE_CURRENT A
+		INNER JOIN
+		(
+		SELECT
+        Q.TAG_CD, USL, UCL,CL,LCL,LSL, W.UNIT, FN_GET_MSG(W.TAG_NM,#{ssUserLang}) AS TAG_NM, Q.PROD_CD
+		FROM COM_PRODUCT_TAG_CL Q
+        INNER JOIN COM_TAG W ON Q.TAG_CD = W.TAG_CD
+		WHERE PROD_CD = (SELECT PROD_CD FROM COM_LINE_PRODUCT WHERE LINE_CD = #{lineCd})
+        AND UCL IS NOT NULL
+        AND LCL IS NOT NULL
+        AND USL IS NOT NULL
+        AND LSL IS NOT NULL
+		) B
+		ON A.TAG_CD = B.TAG_CD
+		INNER JOIN COM_TAG C ON A.TAG_CD = C.TAG_CD
+        LEFT OUTER JOIN (SELECT MAX(EQP_CD) AS EQP_CD, TAG_CD FROM COM_EQP_TAG GROUP BY TAG_CD ) D ON A.TAG_CD = D.TAG_CD
+		WHERE A.TAG_CD IN (
+            SELECT
+                TAG_CD
+            FROM (
+                SELECT
+                    TAG_CD
+                FROM COM_EQP_TAG
+                WHERE EQP_CD IN (
+                    SELECT
+                        EQP_CD
+                    FROM COM_EQUIPMENT
+                    WHERE LINE_CD = #{lineCd}
+                )
+            ) GROUP BY TAG_CD
+        )
+	</select>
+
+	<!-- 설비상태모니터링 -->
+	<select id="selectEquipmentState" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT A.EQP_CD
+			 , A.EVENT_TIME
+			 , A.LOT_ID
+			 , A.RUN_YN
+			 , FN_LANG_INP(B.EQP_NM, #{ssUserLang}) AS EQP_NM
+			 , TO_CHAR(A.EVENT_TIME, 'YYYY-MM-DD HH24:MI:SS') AS EVENT_TIME_STR
+			 , A.STATE_CD
+			 , C.STATE_TYPE
+			 , FN_GET_MSG(C.STATE_NM,#{ssUserLang}) AS STATE_NM
+			 , B.DISPLAY_ORDER
+		FROM COM_EQP_STATE A
+		INNER JOIN COM_EQUIPMENT B
+			ON A.EQP_CD = B.EQP_CD
+			AND B.PARENT_EQP_CD = 'ROOT'
+			AND B.LINE_CD =  #{lineCd}
+			AND B.USE_YN = 'Y'
+		INNER JOIN COM_STATE_CODE C
+			ON A.EQP_CD = C.EQP_CD
+			AND A.STATE_CD = C.STATE_CD
+		ORDER BY B.DISPLAY_ORDER
+	</select>
+
+	<!-- 설비알람모니터링 -->
+	<select id="selectEquipmentAlarm" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            A.EQP_CD
+            , FN_GET_MSG(C.EQP_NM,#{ssUserLang}) AS EQP_NM
+            , A.ALARM_CD
+            , FN_GET_MSG(B.ALARM_NM,#{ssUserLang}) AS ALARM_NM
+            , A.EVENT_TIME
+            , TO_CHAR(A.EVENT_TIME, 'YYYY-MM-DD HH24:MI:SS') AS EVENT_TIME_STR
+            , A.SHOW_YN
+        FROM COM_EQP_ALARM A
+        INNER JOIN COM_ALARM_CODE B ON A.ALARM_CD = B.ALARM_CD
+        INNER JOIN COM_EQUIPMENT C ON A.EQP_CD = C.EQP_CD
+        WHERE A.SHOW_YN = 'Y'
+	</select>
+
+	<!-- cip상태조회 <살균, BEV, TFE, CVD> -->
+	<select id="selectCipList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+                'STERILIZER' AS NM,
+                'QD2US1STZ01' AS EQP_CD,
+                CASE WHEN TAG_VALUE > 0 THEN 'Y' ELSE 'N' END CIP_YN
+            FROM COM_TAG_VALUE_CURRENT
+            WHERE TAG_CD = 'US1UHT01ET016'
+            UNION ALL
+            SELECT
+                'BEV1' AS NM,
+                'QD2UC1BCT01' AS EQP_CD,
+                CASE WHEN TAG_VALUE = 3 THEN 'Y'
+                WHEN TAG_VALUE = 4 THEN 'Y'
+                WHEN TAG_VALUE = 5 THEN 'Y'
+                ELSE 'N' END CIP_YN
+            FROM COM_TAG_VALUE_CURRENT
+            WHERE TAG_CD = 'UC1BEV01ET012'
+            UNION ALL
+            SELECT
+                'BEV2' AS NM,
+                'QD2UC1BCT02' AS EQP_CD,
+                CASE WHEN TAG_VALUE = 3 THEN 'Y'
+                WHEN TAG_VALUE = 4 THEN 'Y'
+                WHEN TAG_VALUE = 5 THEN 'Y'
+                ELSE 'N' END CIP_YN
+            FROM COM_TAG_VALUE_CURRENT
+            WHERE TAG_CD = 'UC1BEV02ET011'
+            UNION ALL
+            SELECT
+                'TFE' AS NM,
+                'QD2UC1LCT02' AS EQP_CD,
+                CASE WHEN TAG_VALUE = 3 THEN 'Y'
+                WHEN TAG_VALUE = 4 THEN 'Y'
+                WHEN TAG_VALUE = 5 THEN 'Y'
+                ELSE 'N' END CIP_YN
+            FROM COM_TAG_VALUE_CURRENT
+            WHERE TAG_CD = 'UC1TFE01ET047'
+            UNION ALL
+            SELECT
+                'CVD' AS NM,
+                'QD2UC1VDR02' AS EQP_CD,
+                CASE WHEN SUM(CIP_NUM) > 0 THEN 'Y' ELSE 'N' END CIP_YN
+            FROM (
+                SELECT
+                    CASE WHEN TAG_VALUE = 3 THEN '1'
+                    WHEN TAG_VALUE = 4 THEN '1'
+                    WHEN TAG_VALUE = 5 THEN '1'
+                    ELSE '0' END CIP_NUM
+                FROM COM_TAG_VALUE_CURRENT
+                WHERE TAG_CD IN (
+                    'UC1CVD01ET184',
+                    'UC1CVD01ET185',
+                    'UC1CVD01ET186',
+                    'UC1CVD01ET187',
+                    'UC1CVD01ET188',
+                    'UC1CVD01ET189',
+                    'UC1CVD01ET190',
+                    'UC1CVD01ET191',
+                    'UC1CVD01ET192',
+                    'UC1CVD01ET193',
+                    'UC1CVD01ET194',
+                    'UC1CVD01ET195',
+                    'UC1CVD01ET196',
+                    'UC1CVD01ET197'
+                )
+            )
+	</select>
+
+	<!-- 설비정보조회 -->
+	<select id="selectEquipmentInfo" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			EQP_CD
+			, FN_GET_MSG(EQP_NM, #{ssUserLang}) AS EQP_NM
+		FROM COM_EQUIPMENT
+		WHERE EQP_CD = #{eqpCd}
+	</select>
+
+	<!-- 설비운전조회 -->
+	<select id="selectEquipmentStateInfoOne" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			A.EQP_CD
+			, A.STATE_CD
+			, FN_GET_MSG(B.STATE_NM, #{ssUserLang}) AS STATE_NM
+			, B.STATE_TYPE
+		FROM COM_EQP_STATE A
+		INNER JOIN COM_STATE_CODE B ON A.EQP_CD = B.EQP_CD AND A.STATE_CD = B.STATE_CD
+		WHERE A.EQP_CD =  #{eqpCd}
+	</select>
+
+	<!-- 설비접점조회 -->
+	<select id="selectEquipmentTagList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            A.TAG_CD
+            , A.EVENT_TIME
+            , CASE WHEN TN.VALUE_NM IS NULL THEN  FN_THREECOMMA(RTRIM(TO_CHAR(ROUND(NVL(A.TAG_VALUE,''),1), 'FM9999999990.9'),'.'))
+                   ELSE FN_GET_MSG(TN.VALUE_NM, #{ssUserLang}) END TAG_VALUE
+            , FN_GET_MSG(B.TAG_NM, #{ssUserLang}) AS TAG_NM
+            , B.UNIT
+            , FN_LANG_INP(B.TAG_DESC, #{ssUserLang}) AS TAG_DESC
+        FROM COM_TAG_VALUE_CURRENT A
+        INNER JOIN COM_TAG B ON A.TAG_CD = B.TAG_CD
+        LEFT OUTER JOIN COM_TAG_VALUE_CODE TN
+        ON A.TAG_CD = TN.TAG_CD AND A.TAG_VALUE = TN.VALUE_CD
+        WHERE A.TAG_CD IN
+        (
+        SELECT TAG_CD FROM COM_EQP_TAG
+        WHERE EQP_CD = #{eqpCd} AND COLLECT_TYPE = #{tagType}
+        )
+	</select>
+
+	<!-- 설비알람조회 -->
+	<select id="selectEquipmentAlarmCount" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			COUNT(*) AS ALARM_CNT
+		FROM COM_EQP_ALARM_HIS A, COM_ALARM_CODE B
+		WHERE A.ALARM_CD = B.ALARM_CD
+		AND B.ALARM_LEVEL = 'H'
+		AND EQP_CD = #{eqpCd}
+		AND EVENT_TIME BETWEEN SYSDATE-1 AND SYSDATE
+	</select>
+
+	<!-- 설비 운전정보 차트데이터 조회 -->
+	<select id="selectEquipmentStateInfoList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			EQP_CD
+			, TO_CHAR(X, 'YYYY-MM-DD HH24:MI:SS') AS S_DATE_STR
+			, TO_CHAR(X2, 'YYYY-MM-DD HH24:MI:SS') AS E_DATE_STR
+			, X
+			, X2
+			, STATE_CD
+			, STATE_TYPE
+			, STATE_NM
+			, CASE WHEN STATE_TYPE = 'Y' THEN '#39a45a'
+			WHEN STATE_TYPE = 'N' THEN '#e73f2d'
+			WHEN STATE_TYPE = 'W' THEN '#f3cd35'
+			ELSE '#e73f2d' END COLOR
+			, #{idx} AS Y
+		FROM (
+			SELECT
+				A.EQP_CD
+				, CASE WHEN START_TIME &lt; FN_START_DATE(#{fromDate})
+				THEN FN_START_DATE(#{fromDate})
+				ELSE START_TIME
+				END  AS X
+				, CASE WHEN END_TIME > FN_END_DATE(#{toDate})
+				THEN FN_END_DATE(#{toDate})
+				ELSE END_TIME
+				END  AS X2
+				, A.STATE_CD
+				, B.STATE_TYPE
+				, FN_GET_MSG(B.STATE_NM, #{ssUserLang}) AS STATE_NM
+			FROM COM_EQP_STATE_HIS A
+			INNER JOIN COM_STATE_CODE B
+			ON A.STATE_CD = B.STATE_CD AND A.EQP_CD = B.EQP_CD
+			WHERE A.EQP_CD = #{eqpCd}
+			AND START_TIME &lt; FN_END_DATE(#{toDate})
+			AND END_TIME > FN_START_DATE(#{fromDate})
+		)
+	</select>
+
+	<!-- 시계 정보 조회 -->
+	<select id="selectClock" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT TO_CHAR( SYSDATE, 'YYYY-MM-DD' ) AS DATE_STR
+			   , TO_CHAR( SYSDATE, 'D' ) AS DAY_STR
+			   , TO_CHAR( SYSDATE, 'HH24:MI:SS' ) AS TIME_STR
+			   , SYSDATE AS TIMESTAMP_STR
+		FROM DUAL
+	</select>
+
+	<!-- 상하한값 조회 -->
+	<select id="selectTagCl" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT
+            A.TAG_CD
+            , NVL(TO_CHAR(B.USL),'') AS USL
+            , NVL(TO_CHAR(B.UCL),'') AS UCL
+            , NVL(TO_CHAR(B.CL),'')  AS CL
+            , NVL(TO_CHAR(B.LCL),'') AS LCL
+            , NVL(TO_CHAR(B.LSL),'') AS LSL
+            , FN_GET_MSG(A.TAG_NM, #{ssUserLang}) AS TAG_NM
+            , A.AUTO_LIMIT_YN
+        FROM COM_TAG A
+        LEFT OUTER JOIN ( SELECT * FROM COM_PRODUCT_TAG_CL WHERE TAG_CD = #{tagCd}  AND PROD_CD = #{prodCd}) B
+        ON A.TAG_CD = B.TAG_CD
+        WHERE A.TAG_CD = #{tagCd}
+	</select>
+
+	<!-- 상하한값 수정 -->
+	<update id="updateTagCl" parameterType="HashMap" >
+		MERGE INTO COM_PRODUCT_TAG_CL
+	        USING DUAL
+	        ON ( PROD_CD = #{prodCd} AND TAG_CD = #{tagCd} )
+	        WHEN MATCHED THEN
+				UPDATE SET
+				USL = #{usl}
+				, UCL = #{ucl}
+				, CL = #{cl}
+				, LCL = #{lcl}
+				, LSL = #{lsl}
+				, UPDATED_DT = SYSDATE
+				, UPDATED_USER_ID = #{ssUserId}
+	        WHEN NOT MATCHED THEN
+	            INSERT (PROD_CD, TAG_CD, USL, UCL, CL, LCL, LSL, CREATED_DT, CREATED_USER_ID)
+	            VALUES (#{prodCd}, #{tagCd}, #{usl}, #{ucl}, #{cl}, #{lcl}, #{lsl}, SYSDATE, #{ssUserId})
+	</update>
+
+	<!-- 상하한값 수정 -->
+	<update id="updateTagClAutoLimit" parameterType="HashMap" >
+		UPDATE COM_TAG
+		SET
+		AUTO_LIMIT_YN = #{autoLimitYn}
+		WHERE TAG_CD = #{tagCd}
+	</update>
+
+	<!-- 상하한값 수정 (로그저장) -->
+	<select id="insertTagClLog" parameterType="HashMap" >
+	  	INSERT INTO COM_PRODUCT_TAG_CL_HIS
+	  	(
+	  	PROD_CD
+	  	, TAG_CD
+	  	, CHANGE_TIME
+		, USL
+		, UCL
+		, CL
+		, LCL
+		, LSL
+		, CREATED_DT
+		, CREATED_USER_ID
+		, PROC_TYPE
+	  	)
+	  	VALUES
+	  	(
+	  	#{prodCd}
+	  	, #{tagCd}
+	  	, SYSDATE
+		, #{usl}
+		, #{ucl}
+		, #{cl}
+		, #{lcl}
+		, #{lsl}
+		, SYSDATE
+		, #{ssUserId}
+		, 'USER'
+	  	)
+	</select>
+
+	<!-- 상하한값수정 (제품목록조회) -->
+	<!--TODO : 제품 조회조건 수정해야함-->
+	<select id="selectProdList" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT
+            PROD_CD
+            , FN_GET_MSG(PROD_NM, #{ssUserLang}) AS PROD_NM
+        FROM COM_PRODUCT
+        WHERE PLANT_CD = 'QD2' AND AREA_CD = 'QD2U' AND MTRL_TYPE_CD = 'HALB' AND USE_YN = 'Y'
+	</select>
+
+	<select id="selectProdOne" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT PROD_CD FROM COM_LINE_PRODUCT
+        WHERE
+        LINE_CD = (
+					SELECT
+						LINE_CD
+					FROM COM_EQUIPMENT
+					WHERE EQP_CD = (SELECT EQP_CD FROM COM_EQP_TAG WHERE TAG_CD = #{tagCd})
+					)
+	</select>
+
+
+	<!-- 설비알람 OFF -->
+	<update id="updateEqpAlarmOff" parameterType="HashMap" >
+		UPDATE COM_EQP_ALARM
+		SET SHOW_YN = 'N'
+		WHERE EQP_CD = #{eqpCd}
+	</update>
+
+
+	<select id="selectMoniCondition" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+		TAG_CD, ROUND(TAG_VALUE,1) AS TAG_VALUE, UCL, CL, LCL, SIDE, SIDE_STR, SCORE,
+        (SELECT FN_GET_MSG(TAG_NM, #{ssUserLang}) FROM COM_TAG WHERE TAG_CD = A.TAG_CD) AS TAG_NM,
+        (SELECT DISPLAY_ORDER FROM COM_EQP_CONDITION WHERE TAG_CD = A.TAG_CD) AS DISPLAY_ORDER,
+        (SELECT UNIT FROM COM_TAG WHERE TAG_CD = A.TAG_CD) AS UNIT
+		FROM (
+		SELECT
+		TAG_CD, TAG_VALUE, UCL, CL, LCL, SIDE, SIDE_STR,
+		CASE WHEN SIDE_STR = 'X' THEN 0 WHEN ABS_SCORE &lt; 0 THEN 0 ELSE ABS_SCORE END SCORE
+		FROM (
+		SELECT
+		TAG_CD, TAG_VALUE, UCL, CL, LCL, SIDE, SIDE_STR,
+		(ABS(TAG_VALUE - CL)) / DECODE((ABS(SIDE - CL) / 100),0,1,(ABS(SIDE - CL) / 100)) AS DIFF_SCORE,
+		ROUND(100 - (ABS(TAG_VALUE - CL)) / DECODE((ABS(SIDE - CL) / 100),0,1,(ABS(SIDE - CL) / 100))) AS ABS_SCORE
+		FROM (
+		SELECT
+		A.TAG_CD,
+		A.TAG_VALUE,
+		B.UCL,
+		B.CL,
+		B.LCL,
+		CASE WHEN UCL IS NULL OR CL IS NULL OR LCL IS NULL THEN CL
+		WHEN TAG_VALUE > CL THEN UCL ELSE LCL END SIDE,
+		CASE WHEN UCL IS NULL OR CL IS NULL OR LCL IS NULL THEN 'X'
+		WHEN TAG_VALUE > CL THEN 'U' ELSE 'L' END SIDE_STR
+		FROM COM_TAG_VALUE_CURRENT A,
+		(
+		SELECT
+		TAG_CD,UCL,CL,LCL
+		FROM COM_PRODUCT_TAG_CL
+		WHERE PROD_CD = ( SELECT PROD_CD FROM COM_LINE_PRODUCT WHERE LINE_CD = #{lineCd} )
+		) B
+		WHERE A.TAG_CD = B.TAG_CD
+		AND A.TAG_CD IN (
+		SELECT
+		TAG_CD
+		FROM COM_EQP_CONDITION
+		WHERE EQP_GROUP = #{eqpGroup}
+		)
+		)
+		)
+		) A
+		ORDER BY DISPLAY_ORDER
+	</select>
+
+	<select id="selectMoniConditionAvg" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+    		NVL(ROUND(AVG(SCORE)),'0') AS SCORE_AVG
+		FROM (
+		SELECT
+		TAG_CD, TAG_VALUE, UCL, CL, LCL, SIDE, SIDE_STR,
+		CASE WHEN SIDE_STR = 'X' THEN 0 WHEN ABS_SCORE &lt; 0 THEN 0 ELSE ABS_SCORE END SCORE
+		FROM (
+		SELECT
+		TAG_CD, TAG_VALUE, UCL, CL, LCL, SIDE, SIDE_STR,
+		(ABS(TAG_VALUE - CL)) / DECODE((ABS(SIDE - CL) / 100),0,1,(ABS(SIDE - CL) / 100)) AS DIFF_SCORE,
+		ROUND(100 - (ABS(TAG_VALUE - CL)) / DECODE((ABS(SIDE - CL) / 100),0,1,(ABS(SIDE - CL) / 100))) AS ABS_SCORE
+		FROM (
+		SELECT
+		A.TAG_CD,
+		A.TAG_VALUE,
+		B.UCL,
+		B.CL,
+		B.LCL,
+		CASE WHEN UCL IS NULL OR CL IS NULL OR LCL IS NULL THEN CL
+		WHEN TAG_VALUE > CL THEN UCL ELSE LCL END SIDE,
+		CASE WHEN UCL IS NULL OR CL IS NULL OR LCL IS NULL THEN 'X'
+		WHEN TAG_VALUE > CL THEN 'U' ELSE 'L' END SIDE_STR
+		FROM COM_TAG_VALUE_CURRENT A,
+		(
+		SELECT
+		TAG_CD,UCL,CL,LCL
+		FROM COM_PRODUCT_TAG_CL
+		WHERE PROD_CD = ( SELECT PROD_CD FROM COM_LINE_PRODUCT WHERE LINE_CD = #{lineCd} )
+		) B
+		WHERE A.TAG_CD = B.TAG_CD
+		AND A.TAG_CD IN (
+		SELECT
+		TAG_CD
+		FROM COM_EQP_CONDITION
+		WHERE EQP_GROUP = #{eqpGroup}
+		)
+		)
+		)
+		)
+	</select>
+
+
+	<select id="selectMoniConditionProd" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			PROD_CD
+			, (SELECT FN_GET_MSG(PROD_NM, #{ssUserLang}) FROM COM_PRODUCT WHERE PROD_CD = A.PROD_CD) AS PROD_NM
+		FROM COM_LINE_PRODUCT A
+		WHERE LINE_CD = #{lineCd}
+	</select>
+
+
+	<select id="selectMoniConditionState" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			PARENT_EQP_CD,
+			CASE WHEN SUM(RUN_YN_NO) > 0 THEN 'Y' ELSE 'N' END RUN_YN
+		FROM (
+			SELECT
+				EQP_CD, PARENT_EQP_CD,
+				CASE WHEN RUN_YN = 'Y' THEN 1 ELSE 0 END RUN_YN_NO
+			FROM (
+				SELECT
+					A.EQP_CD, A.RUN_YN, B.PARENT_EQP_CD
+				FROM COM_EQP_STATE A, COM_EQUIPMENT B
+				WHERE A.EQP_CD = B.EQP_CD
+				AND A.EQP_CD IN (
+					SELECT
+						EQP_CD
+					FROM COM_EQUIPMENT
+					WHERE ( PARENT_EQP_CD = #{eqp1} OR PARENT_EQP_CD = #{eqp2} OR EQP_CD = #{eqp3} OR EQP_CD = #{eqp4} )
+				)
+			)
+		)
+		GROUP BY PARENT_EQP_CD
+	</select>
+
+
+	<select id="selectLineMoniProd" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+            A.LINE_CD, A.PROC_CD, TO_CHAR(TO_DATE(B.PLAN_DT, 'YYYYMMDD'), 'YYYY-MM-DD') AS PLAN_DT, B.PROD_CD, FN_GET_MSG(C.PROD_NM, #{ssUserLang}) AS PROD_NM, B.QTY
+        FROM (
+        SELECT 'UC1' AS LINE_CD, '0010' AS PROC_CD FROM DUAL
+        UNION ALL
+        SELECT 'UC1' AS LINE_CD, '0020' AS PROC_CD FROM DUAL
+        UNION ALL
+        SELECT 'US1' AS LINE_CD, '0010' AS PROC_CD FROM DUAL
+        UNION ALL
+        SELECT 'US1' AS LINE_CD, '0020' AS PROC_CD FROM DUAL
+        ) A
+        LEFT OUTER JOIN COM_WORKORDER B
+        ON A.LINE_CD = B.LINE_CD AND A.PROC_CD = B.PROC_CD AND B.STATE = 'Active' AND B.USE_YN = 'Y'
+        LEFT OUTER JOIN COM_PRODUCT C
+        ON B.PROD_CD = C.PROD_CD
+        WHERE A.LINE_CD = #{lineCd}
+	</select>
+
+</mapper>

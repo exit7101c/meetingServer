@@ -1,0 +1,758 @@
+package cronies.meeting.user.service.impl;
+
+import cronies.meeting.user.service.MessageMainService;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+
+import cronies.meeting.user.service.CommonService;
+import cronies.meeting.user.service.PushService;
+import cronies.meeting.user.service.StoreCommonService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.core.MessageSendingOperations;
+import org.springframework.messaging.simp.SimpMessageSendingOperations;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import select.spring.exquery.service.ExqueryService;
+
+@Service("messageMainService")
+@Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
+public class MessageMainServiceImpl implements MessageMainService {
+
+	//private final MessageSendingOperations<String> messagingTemplate;
+	/*private final SimpMessageSendingOperations messagingTemplate;
+	public MessageMainServiceImpl(SimpMessageSendingOperations messagingTemplate) {
+		this.messagingTemplate = messagingTemplate;
+	}*/
+	/*@Autowired
+	public SocketComponent(
+			final MessageSendingOperations<String> messagingTemplate) {
+		this.messagingTemplate = messagingTemplate;
+	}*/
+
+	@Autowired
+	private SimpMessagingTemplate simpMessagingTemplate;
+
+	Logger log = LoggerFactory.getLogger(this.getClass());
+
+	@Autowired
+	private ExqueryService exqueryService;
+
+	@Autowired
+	private CommonService commonService;
+
+	@Autowired
+	private PushService pushService;
+
+	@Autowired
+	private StoreCommonService storeCommonService;
+
+	@Autowired
+	private MessageMainService messageMainService;
+
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public List<HashMap<String, Object>> getMessageMainList(HashMap<String, Object> param) throws Exception {
+		List<HashMap<String, Object>> resultList = new ArrayList<HashMap<String, Object>>();
+		resultList = exqueryService.selectList("cronies.app.messageMain.getMessageMainList", param);
+		return resultList;
+	}
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public HashMap<String, Object> getMessageMainMap(HashMap<String, Object> param) throws Exception {
+		HashMap<String, Object> resultMap = new HashMap<String, Object>();
+		List<HashMap<String, Object>> returnList = new ArrayList<HashMap<String, Object>>();
+		List<HashMap<String, Object>> messageList = new ArrayList<HashMap<String, Object>>();
+
+		returnList = exqueryService.selectList("cronies.app.messageMain.getMessageMainTypeList", param);
+
+			// meesageList.get(i) 에서 java.lang.IndexOutOfBoundsException 발생확인
+//			for(int i = 0; returnList.size() > i; i++){
+//				param.put("chatroomType", returnList.get(i).get("chatroomType"));
+//				messageList = exqueryService.selectList("cronies.app.messageMain.getMessageMainList", param);
+//				if (messageList.get(i).get("chatroomType").equals("openchat")) {
+//					for (int k = 0, size = messageList.size(); k < size; k++) {
+//						messageList.get(k).put("openChatKey", commonService.getEncoding(messageList.get(k).get("openchatId").toString()));
+//					}
+//				}
+//				resultMap.put(returnList.get(i).get("chatroomType").toString(), messageList);
+//			}
+
+		Iterator<HashMap<String, Object>> iterator1 = returnList.iterator();
+		while(iterator1.hasNext()) {
+			HashMap<String, Object> returnMap = iterator1.next();
+			param.put("chatroomType", returnMap.get("chatroomType"));
+			messageList = exqueryService.selectList("cronies.app.messageMain.getMessageMainList", param);
+			if (returnMap.get("chatroomType").equals("openchat")) {
+				Iterator<HashMap<String, Object>> iterator2 = messageList.iterator();
+				while(iterator2.hasNext()) {
+					HashMap<String, Object> messageMap = iterator2.next();
+					messageMap.put("openChatKey", commonService.getEncoding(messageMap.get("openchatId").toString()));
+				}
+			}
+			resultMap.put(returnMap.get("chatroomType").toString(), messageList);
+		}
+		return resultMap;
+	}
+
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public HashMap<String, Object> isOpenChatRoom(HashMap<String, Object> param) throws Exception {
+		HashMap<String, Object> resultMap = new HashMap<String, Object>();
+		HashMap<String, Object> searchMap = new HashMap<String, Object>();
+		HashMap<String, Object> insertChatMap = new HashMap<String, Object>();
+
+		searchMap = exqueryService.selectOne("cronies.app.messageMain.isOpenChatRoom", param);
+		// 존재하지 않을경우 insert
+		if(searchMap == null){
+			// CHATROOM INSERT
+			exqueryService.insert("cronies.app.messageMain.insertChatRoom", param);
+			insertChatMap = exqueryService.selectOne("cronies.app.messageMain.getBeforeOpenChatRoom", param);
+			resultMap.put("chatroomId", insertChatMap.get("chatroomId"));
+			param.put("insertChatroomId", insertChatMap.get("chatroomId"));
+			// CHATROOM_USER INSERT
+			exqueryService.insert("cronies.app.messageMain.insertChatRoomUserLoginSeq", param);
+			exqueryService.insert("cronies.app.messageMain.insertChatRoomUserUserSeq", param);
+			resultMap.put("msg", "미존재/insert");
+		} else {
+			resultMap.put("msg", "존재");
+			resultMap.put("chatroomId", searchMap.get("chatroomId"));
+		}
+
+		return resultMap;
+	}
+
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public List<HashMap<String, Object>> getMessageList(HashMap<String, Object> param) throws Exception {
+		List<HashMap<String, Object>> resultList = new ArrayList<HashMap<String, Object>>();
+		//메시지 날짜별 그룹
+
+		if(param.get("type").equals("first")){
+			resultList = exqueryService.selectList("cronies.app.messageTalk.getMessageListFirst", param);
+		} else {
+			resultList = exqueryService.selectList("cronies.app.messageTalk.getMessageListSecond", param);
+		}
+
+		for(int i = 0; i < resultList.size(); i++){
+			resultList.get(i).put("regUserKey", commonService.getEncoding(resultList.get(i).get("regUserId").toString()));
+		}
+
+		return resultList;
+	}
+
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public HashMap<String, Object> updateMessageRecept(HashMap<String, Object> param) throws Exception {
+		HashMap<String, Object> resultMap = new HashMap<String, Object>();
+		exqueryService.update("cronies.app.messageTalk.updateMessageRecept", param);
+		return resultMap;
+	}
+
+
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public HashMap<String, Object> sendMessageSingle(HashMap<String, Object> param) throws Exception {
+		HashMap<String, Object> resultMap = new HashMap<String, Object>();
+		HashMap<String, Object> returnMap = new HashMap<String, Object>();
+
+		// 채팅방에 포함되어져있는지 여부
+		returnMap = exqueryService.selectOne("cronies.app.messageTalk.getDropOutYn", param);
+		if(returnMap != null){
+
+			//regUserId = 0 일경우 시스템 메시지임.
+			//param이 image일경우 이미지전송, chat일경우 채팅
+			//image일경우 MESSAGE내용을 "이미지 전송" 으로 대체한다.
+			if(param.get("type").equals("image")){
+				param.put("message", "이미지 전송");
+			}
+
+			if(param.get("type").equals("emoticon")){
+				param.put("message", param.get("message").toString() + " 전송");
+			}
+
+			String chatroomId = param.get("chatroomId").toString();
+			if(!param.containsKey("regUserId")){
+				param.put("regUserId", param.get("ssUserId").toString());
+			}
+
+			//시간조회
+			HashMap<String, Object> timeMap = exqueryService.selectOne("cronies.app.messageTalk.selectSysDateTime", param);
+			HashMap<String, Object> timeMmMap = exqueryService.selectOne("cronies.app.messageTalk.selectSysDateTimeMm", param);
+			HashMap<String, Object> seqMap = exqueryService.selectOne("cronies.app.messageTalk.selectMessageIdSeq", param);
+
+			/**
+			 message	    messageId		 regTime		 regUserId
+			 */
+			param.put("sysDateTime", timeMap.get("sysDateTime").toString());
+			param.put("sysDateTimeMm", timeMmMap.get("sysDateTimeMm").toString());
+			param.put("messageId", seqMap.get("messageId").toString());
+
+			if (param.containsKey("type") && param.get("type").equals("openChatMessage")) {
+				param.put("type", "chat");
+				param.put("openChatMessageCheck", "Y");
+			}
+
+			//메세지 마스터 저장
+			exqueryService.insert("cronies.app.messageTalk.sendMessageMasterSingleLoginSeq", param);
+
+			//메시지 수신자별 대상자 조회
+			List<HashMap<String, Object>> userList = new ArrayList<HashMap<String, Object>>();
+			userList = exqueryService.selectList("cronies.app.messageTalk.selectChatroomUserListMulti", param);
+
+			//HashMap<String, Object> socketMap = exqueryService.selectOne("cronies.app.messageTalk.selectChatroomMessageOne", param);
+			HashMap<String, Object> chatroomTypeMap = exqueryService.selectOne("cronies.app.messageTalk.selectChatroomType", param);
+
+			HashMap<String, Object> socketMap = new HashMap<String, Object>();
+
+			if(chatroomTypeMap.get("chatroomType").equals("anonymous")){
+				socketMap = exqueryService.selectOne("cronies.app.messageTalk.selectChatroomUserInfoOneCom", param);
+			} else {
+				socketMap = exqueryService.selectOne("cronies.app.messageTalk.selectChatroomUserInfoOne", param);
+			}
+
+			socketMap.put("chatroomId", param.get("chatroomId").toString());
+			socketMap.put("messageId", param.get("messageId").toString());
+			socketMap.put("regUserId", param.get("regUserId").toString());
+			socketMap.put("regUserKey", commonService.getEncoding(param.get("regUserId").toString()));
+//		socketMap.put("regTime", timeMap.get("sysDateTime").toString());
+			socketMap.put("regTime", timeMmMap.get("sysDateTimeMm").toString());
+			socketMap.put("formatTime", timeMmMap.get("formatTime").toString());
+			socketMap.put("message", param.get("message").toString());
+			socketMap.put("messageType", param.get("type").toString());
+			socketMap.put("imageId", param.get("fileId").toString());
+
+			//image or emoticon 전송이면 이미지로 대체한다.
+			if(param.get("type").equals("image") || param.get("type").equals("emoticon") ){
+				HashMap<String, Object> imageMap = exqueryService.selectOne("cronies.app.messageTalk.selectMessageImageNmCdn", param);
+				socketMap.put("cdnNmImage", imageMap.get("cdnNmImage").toString());
+			} else {
+				socketMap.put("cdnNmImage", "");
+			}
+
+			//socketMap.put("cdnThumbNm", param.get("cdnThumbNm").toString());
+			//이미지 높이 넓이 조회
+//		HashMap<String, Object> sizeMap = exqueryService.selectOne("cronies.app.messageTalk.selectFileSize", socketMap);
+			//같은 소켓접속자에게 메시지를 전송한다.
+			//simpMessagingTemplate.convertAndSend("/channel/"+chatroomId, socketMap);
+
+			//알람수신자 목록(only Token)
+			List<String> tokenList = new ArrayList<>();
+			List<String> tokenList2 = new ArrayList<>();
+			String alarmCd = "AL_C09_01";
+
+			for (int i=0, len=userList.size(); i < len; i++){
+
+				String receptYn = "N";
+
+				//대상자가 소켓에 있다면 소켓으로
+				//대상자가 소켓에 있는지 없는지..?
+				//receptYn = "Y";
+
+				//발송자는 자동읽음처리
+				if(userList.get(i).get("userId").toString().equals(param.get("regUserId").toString())){
+					receptYn = "Y";
+				}
+				//채팅방별 알람수신여부를 조회하고 처리한다
+				HashMap<String, Object> alarmReceiveMap = exqueryService.selectOne("cronies.app.messageTalk.selectChatroomIsReceive", userList.get(i));
+
+
+				userList.get(i).put("alarmCd", alarmCd);
+				//사용자별 알람수신 여부를 조회한다.
+				HashMap<String, Object> userAlarmReceiveMap = exqueryService.selectOne("cronies.app.push.getAlarmInfo", userList.get(i));
+
+				if(alarmReceiveMap.get("isReceive").equals("Y") && userAlarmReceiveMap.get("val").equals("Y")){
+					//발송자는 제외하고 보낸다.  공지는 자기자신도 발송한다.
+					if((!userList.get(i).get("userId").toString().equals(param.get("regUserId").toString())) || param.get("type").equals("Y")){
+						//alarmCd, userId, sendUserId, subMessage를 받아서 메시지 수신여부를 조회한다음, 허용일경우 메시지를 발송한다.
+						//pushService.sendPushMessage(pushMap);
+						if(userList.get(i).get("token") != null){
+							if(i < 490){
+								tokenList.add(userList.get(i).get("token").toString());
+							} else {
+								tokenList2.add(userList.get(i).get("token").toString());
+							}
+						}
+						//메시지 수신자 저장.
+					}
+				}
+
+
+				//대상자가 소켓에 없다면 push메시지를 발송한다.
+				HashMap<String, Object> userParamMap = new HashMap<String, Object>();
+
+				userParamMap.put("messageId", param.get("messageId"));
+				userParamMap.put("receptYn", receptYn);
+				userParamMap.put("chatroomId", chatroomId);
+				userParamMap.put("userId", userList.get(i).get("userId").toString());
+				//대상자별 기록한다.
+				exqueryService.insert("cronies.app.messageTalk.sendMessageDetailSingleUserSeq", userParamMap);
+			}
+
+			//메시지 전송을 위한 맵
+			HashMap<String, Object> pushMap = new HashMap<String, Object>();
+
+			pushMap.put("alarmCd", alarmCd);
+			pushMap.put("sendUserId", param.get("regUserId").toString());
+			pushMap.put("subMessage", param.get("message").toString());
+			pushMap.put("dataMap", socketMap);
+			pushMap.put("chatroomId", chatroomId);
+
+			//채팅방별 알람수신여부를 조회하고 처리한다
+			if(chatroomTypeMap.get("chatroomType").equals("anonymous")){
+				//익명메시지 인지 확인한다.
+				pushMap.put("communityLastNick", "Y");
+				pushMap.put("pushType", "temp");
+			} else if (param.containsKey("openChatMessageCheck") && param.get("openChatMessageCheck").equals("Y")) {
+				pushMap.put("pushType", "openChatMessage");
+			} else {
+				pushMap.put("pushType", "message");
+			}
+
+
+			pushService.sendPushMessageMulti(pushMap, tokenList);
+			if(tokenList2.size() > 0){
+				pushService.sendPushMessageMulti(pushMap, tokenList2);
+			}
+			/*System.out.println("tokenList ::: ");
+			System.out.println(tokenList);*/
+			//메시지를 전송한다.
+
+			//마지막 체팅 기록 업데이트
+			exqueryService.update("cronies.app.messageTalk.updateMessageDetailLastChat", param);
+
+			resultMap = socketMap;
+
+		} else {
+			resultMap.put("successYn", "N");
+			resultMap.put("message", "채팅이 가능하지 않은 채팅방입니다. 방장에 의해 내보내기 되었습니다.");
+		}
+
+		return resultMap;
+	}
+
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public List<HashMap<String, Object>> getRoomUserList(HashMap<String, Object> param) throws Exception {
+		List<HashMap<String, Object>> resultList = new ArrayList<HashMap<String, Object>>();
+
+		resultList = exqueryService.selectList("cronies.app.messageTalk.getRoomUserList", param);
+
+		for (HashMap<String, Object> result : resultList) {
+			result.put("userKey", commonService.getEncoding(String.valueOf(result.get("userId"))));
+			result.put("leaderUserKey", commonService.getEncoding(String.valueOf(result.get("leaderUserId"))));
+		}
+
+		return resultList;
+	}
+
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public List<HashMap<String, Object>> getAttendList(HashMap<String, Object> param) throws Exception {
+		List<HashMap<String, Object>> resultList = new ArrayList<HashMap<String, Object>>();
+		param.put("userId", param.get("ssUserId"));
+
+		resultList = exqueryService.selectList("cronies.app.messageTalk.getAttendList", param);
+
+		for (HashMap<String, Object> result : resultList) {
+			result.put("userKey", commonService.getEncoding(String.valueOf(result.get("userId"))));
+			result.put("openChatKey", commonService.getEncoding(String.valueOf(result.get("openchatId"))));
+		}
+
+		return resultList;
+	}
+
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public HashMap<String, Object> getChatroomTitle(HashMap<String, Object> param) throws Exception {
+		HashMap<String, Object> resultMap = new HashMap<String, Object>();
+		param.put("userId", param.get("ssUserId"));
+
+		resultMap = exqueryService.selectOne("cronies.app.messageTalk.getChatroomTitle", param);
+		if(resultMap != null){
+			resultMap.put("openChatKey", commonService.getEncoding(String.valueOf(resultMap.get("openChatKey"))));
+		}
+
+		return resultMap;
+	}
+
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public HashMap<String, Object> setDropOutUser(HashMap<String, Object> param) throws Exception {
+		HashMap<String, Object> resultMap = new HashMap<String, Object>();
+		List<HashMap<String, Object>> resultList = new ArrayList<HashMap<String, Object>>();
+		param.put("dropUserId", commonService.getDecoding(param.get("userKey").toString()));
+		try {
+			resultMap.put("successYn", "Y");
+			resultMap.put("message", "");
+
+			// 본인이 채팅을 나가는 경우가 아닐경우
+			if(!param.get("type").equals("self") ){
+
+				// 시도하는사람이 방장, 부방장인지 여부조회
+				HashMap<String, Object> leaderYnMap = exqueryService.selectOne("cronies.app.messageTalk.getChatRoomUserLeaderYn", param);
+				if(leaderYnMap.get("leaderYn").toString().equals("Y")){
+
+					//강퇴하려는 대상이 방장, 부방장인지 체크
+					HashMap<String, Object> targetLeaderYnMap = exqueryService.selectOne("cronies.app.messageTalk.getChatRoomUserTargetLeaderYn", param);
+					if(targetLeaderYnMap.get("leaderYn").toString().equals("N")){
+
+						if( param.get("type").equals("kick") ){
+							//기본메시지 처리
+							param.put("userId", param.get("dropUserId"));
+							HashMap<String, Object> nickMap = exqueryService.selectOne("cronies.app.openChat.selectUserInfoNick", param);
+							param.put("userId", param.get("ssUserId"));
+							// 누구누구님이 강제 퇴장 되셨습니다..
+							String msg = nickMap.get("nick").toString()+"님이 강제 퇴장 되셨습니다.";
+							param.put("message", msg);
+							param.put("regUserId", param.get("userId"));
+							param.put("type", "Y");
+							param.put("fileId", 0);
+							sendMessageSingle(param);
+						}
+
+						exqueryService.insert("cronies.app.messageTalk.insertChatroomDropoutHis", param);
+						exqueryService.update("cronies.app.messageTalk.updateOpenChatAttendN", param);
+						exqueryService.delete("cronies.app.messageTalk.deleteChatroomUser", param);
+
+
+						if( param.get("type").equals("kick") ){
+							// 채팅방 유저 리스트 조회
+							resultList = exqueryService.selectList("cronies.app.messageTalk.getRoomUserList", param);
+
+							for (HashMap<String, Object> result : resultList) {
+								result.put("userKey", commonService.getEncoding(String.valueOf(result.get("userId"))));
+							}
+						}
+					} else {
+						resultMap.put("successYn", "N");
+						resultMap.put("message", "방장,부방장은 강퇴할 수 없습니다.");
+					}
+
+				} else {
+					resultMap.put("successYn", "N");
+					resultMap.put("message", "모임장의 경우에만 강퇴가 가능합니다.");
+				}
+
+			} else {
+				exqueryService.insert("cronies.app.messageTalk.insertChatroomDropoutHis", param);
+				exqueryService.update("cronies.app.messageTalk.updateOpenChatAttendN", param);
+				exqueryService.delete("cronies.app.messageTalk.deleteChatroomUser", param);
+			}
+
+		} catch (Exception ex) {
+			resultMap.put("successYn", "N");
+			resultMap.put("message", "강퇴 중 오류가 발생하였습니다. 문의 부탁드립니다.");
+		}
+
+		resultMap.put("roomUserList", resultList);
+
+		return resultMap;
+	}
+
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public HashMap<String, Object> setDropOutLeader(HashMap<String, Object> param) throws Exception {
+		HashMap<String, Object> resultMap = new HashMap<String, Object>();
+		param.put("dropUserId", param.get("ssUserId"));
+		param.put("userId", param.get("ssUserId"));
+
+		try {
+			exqueryService.insert("cronies.app.messageTalk.insertChatroomDropoutHis", param);
+			exqueryService.update("cronies.app.messageTalk.updateOpenChatAttendN", param);
+			exqueryService.delete("cronies.app.messageTalk.deleteChatroomUser", param);
+			exqueryService.update("cronies.app.messageTalk.updateOpenChatRoom", param);
+
+			resultMap.put("successYn", "y");
+			resultMap.put("message", "채팅방에서 나가셧습니다.");
+		} catch (Exception ex) {
+			resultMap.put("successYn", "N");
+			resultMap.put("message", "오류가 발생하였습니다. 문의 부탁드립니다.");
+		}
+
+
+		return resultMap;
+	}
+
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public List<HashMap<String, Object>> getMessageUserAddr(HashMap<String, Object> param) throws Exception {
+		List<HashMap<String, Object>> resultList = new ArrayList<HashMap<String, Object>>();
+		param.put("userId", param.get("ssUserId"));
+		resultList = exqueryService.selectList("cronies.app.messageTalk.getMessageUserAddr", param);
+
+		return resultList;
+	}
+
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public List<HashMap<String, Object>> getRoomUserLocation(HashMap<String, Object> param) throws Exception {
+		List<HashMap<String, Object>> resultList = new ArrayList<HashMap<String, Object>>();
+
+		resultList = exqueryService.selectList("cronies.app.messageTalk.getRoomUserLocation", param);
+
+		for (HashMap<String, Object> result : resultList) {
+			result.put("userKey", commonService.getEncoding(String.valueOf(result.get("userId"))));
+			result.put("regUserKey", commonService.getEncoding(String.valueOf(result.get("userId"))));
+			result.put("leaderUserKey", commonService.getEncoding(String.valueOf(result.get("leaderUserId"))));
+		}
+
+		return resultList;
+	}
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public HashMap<String, Object> getLocationYn(HashMap<String, Object> param) throws Exception {
+		HashMap<String, Object> resultMap = new HashMap<String, Object>();
+		param.put("userId", param.get("ssUserId"));
+		resultMap = exqueryService.selectOne("cronies.app.messageTalk.getLocationCheck", param);
+		return resultMap;
+	}
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public HashMap<String, Object> setLocationYn(HashMap<String, Object> param) throws Exception {
+		HashMap<String, Object> resultMap = new HashMap<String, Object>();
+		HashMap<String, Object> codeTypeMap = new HashMap<String, Object>();
+		param.put("userId", param.get("ssUserId"));
+
+		codeTypeMap = exqueryService.selectOne("cronies.app.messageTalk.getLocationCheck", param);
+
+		String updateValue = "N";
+		if(codeTypeMap != null){
+			if(codeTypeMap.get("locationYn").toString().equals("Y")){
+				updateValue = "N";
+			} else {
+				updateValue = "Y";
+			}
+		} else {
+			updateValue = "N";
+		}
+
+		param.put("updateValue", updateValue);
+
+		if(exqueryService.update("cronies.app.messageTalk.setLocationYn", param) == 1) {
+			resultMap.put("successYn","Y");
+			resultMap.put("message","");
+			resultMap.put("updatedValue", updateValue);
+		} else {
+			resultMap.put("successYn","N");
+			resultMap.put("message","오류가 발생하였습니다. 문의 부탁드립니다");
+		}
+
+		return resultMap;
+	}
+
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public List<HashMap<String, Object>> getLocationListCheck(HashMap<String, Object> param) throws Exception {
+		List<HashMap<String, Object>> resultList = new ArrayList<>();
+		param.put("userId", param.get("ssUserId"));
+
+		resultList = exqueryService.selectList("cronies.app.messageTalk.getLocationListCheck", param);
+
+		for (HashMap<String, Object> result : resultList) {
+			result.put("userKey", commonService.getEncoding(String.valueOf(result.get("userId"))));
+			result.put("leaderUserKey", commonService.getEncoding(String.valueOf(result.get("leaderUserId"))));
+		}
+
+		return resultList;
+	}
+
+
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public HashMap<String, Object> getChatRoomAlarmList(HashMap<String, Object> param) throws Exception {
+		HashMap<String, Object> resultMap = new HashMap<String, Object>();
+		param.put("userId", param.get("ssUserId"));
+		resultMap = exqueryService.selectOne("cronies.app.messageTalk.getChatRoomAlarmList", param);
+		return resultMap;
+	}
+
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public HashMap<String, Object> getChatRoomAlarm(HashMap<String, Object> param) throws Exception {
+		HashMap<String, Object> resultMap = new HashMap<String, Object>();
+		param.put("userId", param.get("ssUserId"));
+
+		try {
+			exqueryService.update("cronies.app.messageTalk.getChatRoomAlarm", param);
+			resultMap.put("successYn","Y");
+			resultMap.put("message","");
+		} catch (Exception ex) {
+			resultMap.put("successYn","N");
+			resultMap.put("message","오류가 발생하였습니다. 문의 부탁드립니다");
+		}
+
+		return resultMap;
+	}
+
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public List<HashMap<String, Object>> getEmoticonList(HashMap<String, Object> param) throws Exception {
+		List<HashMap<String, Object>> resultList = new ArrayList<HashMap<String, Object>>();
+		resultList = exqueryService.selectList("cronies.app.messageTalk.getEmoticonList", param);
+
+		return resultList;
+	}
+
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public List<HashMap<String, Object>> getPartnersMap(HashMap<String, Object> param) throws Exception {
+		return exqueryService.selectList("cronies.app.messageTalk.getPartnersMap", param);
+	}
+
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public HashMap<String, Object> getChatRoomPrivateCheck(HashMap<String, Object> param) throws Exception {
+		param.put("openchatId", commonService.getDecoding(param.get("openchatKey").toString()));
+		return exqueryService.selectOne("cronies.app.messageTalk.getChatRoomPrivateCheck", param);
+	}
+
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public HashMap<String, Object> getChatRoomType(HashMap<String, Object> param) throws Exception {
+		HashMap<String, Object> resultMap = new HashMap<String, Object>();
+		resultMap = exqueryService.selectOne("cronies.app.messageTalk.getChatRoomType", param);
+		return resultMap;
+	}
+
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public HashMap<String, Object> chatBlock(HashMap<String, Object> param) throws Exception {
+		HashMap<String, Object> resultMap = new HashMap<String, Object>();
+		resultMap = exqueryService.selectOne("cronies.app.messageTalk.chatBlock", param);
+		return resultMap;
+	}
+
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public HashMap<String, Object> setRoomMasterChange(HashMap<String, Object> param) throws Exception {
+		HashMap<String, Object> resultMap = new HashMap<String, Object>();
+
+		HashMap<String, Object> count = exqueryService.selectOne("cronies.app.messageTalk.targetUserPrivateCount", param);
+		HashMap<String, Object> subscribeInfoMap = storeCommonService.getTargetUserSubscribeInfo(param);
+
+		int privateCount = Integer.parseInt(count.get("private").toString());
+
+		if(subscribeInfoMap.get("subscribeYn").toString().equals("Y")) {
+			switch(subscribeInfoMap.get("subscribeCd").toString()) {
+				case "NAVY_PLUS":
+					if(privateCount < 3){
+						exqueryService.update("cronies.app.messageTalk.roomMasterChange", param);
+						resultMap.put("message", "방장 위임이 성공적으로 완료되었습니다.");
+						resultMap.put("successYn", "Y");
+					} else {
+						resultMap.put("message", "해당 유저는 활성화된 소모임 방의 최대 허용 수를 초과하여 방장을 위임할 수 없습니다.");
+						resultMap.put("successYn", "N");
+					}
+					break;
+				case "GOLD_PASS":
+					if(privateCount < 5){
+						exqueryService.update("cronies.app.messageTalk.roomMasterChange", param);
+						resultMap.put("message", "방장 위임이 성공적으로 완료되었습니다.");
+						resultMap.put("successYn", "Y");
+					} else {
+						resultMap.put("message", "해당 유저는 활성화된 소모임 방의 최대 허용 수를 초과하여 방장을 위임할 수 없습니다.");
+						resultMap.put("successYn", "N");
+					}
+					break;
+				case "PLATINUM_PASS":
+					break;
+				default:
+					resultMap.put("message", "오류가 발생하였습니다. 문의 부탁드립니다.");
+					break;
+			}
+
+		} else {
+			if(privateCount < 1){
+				exqueryService.update("cronies.app.messageTalk.roomMasterChange", param);
+				resultMap.put("message", "방장 위임이 성공적으로 완료되었습니다.");
+				resultMap.put("successYn", "Y");
+			} else {
+				resultMap.put("message", "해당 유저는 활성화된 소모임 방의 최대 허용 수를 초과하여 방장을 위임할 수 없습니다.");
+				resultMap.put("successYn", "N");
+			}
+		}
+
+		if( resultMap.get("successYn").toString().equals("Y")){
+
+			HashMap<String, Object> pushMap = new HashMap<>();
+
+			// 기본메시지 처리
+			HashMap<String, Object> nickMap = exqueryService.selectOne("cronies.app.messageTalk.selectTargetUserInfoNick", param);
+			// 누구누구님이 방장이 되었습니다.
+			String msg = nickMap.get("nick").toString()+"님이 방장이 되었습니다.";
+
+			param.put("message", msg);
+			param.put("regUserId", param.get("targetUserId"));
+			param.put("type", "Y");
+			param.put("fileId", 0);
+//			sendMessageSingle(param);
+			messageMainService.sendMessageSingle(param);
+		}
+
+		return resultMap;
+	}
+
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public HashMap<String, Object> setSubRoomMasterChange(HashMap<String, Object> param) throws Exception {
+		HashMap<String, Object> resultMap = new HashMap<String, Object>();
+
+		if(param.get("subLeaderYn").toString().equals("N")) {
+			HashMap<String, Object> count = exqueryService.selectOne("cronies.app.messageTalk.targetUserSubLeaderCount", param);
+			/** 부방장 숫자 체크 */
+			int subLeaderCount = Integer.parseInt(count.get("subLeader").toString());
+
+			if(subLeaderCount < 1 ){
+				exqueryService.update("cronies.app.messageTalk.roomAddSubMaster", param);
+				resultMap.put("message", "부방장으로 지정되었습니다.");
+				resultMap.put("successYn", "Y");
+			} else {
+				resultMap.put("message", "부방장의 숫자가 최대 허용 수를 초과하여 더이상 부방장으로 지정할 수 없습니다.");
+				resultMap.put("successYn", "N");
+			}
+
+		} else {
+			resultMap.put("message", "이미 부방장 입니다.");
+			resultMap.put("successYn", "N");
+		}
+
+		if( resultMap.get("successYn").toString().equals("Y")){
+
+			HashMap<String, Object> pushMap = new HashMap<>();
+
+			// 기본메시지 처리
+			HashMap<String, Object> nickMap = exqueryService.selectOne("cronies.app.messageTalk.selectTargetUserInfoNick", param);
+			// 누구누구님이 방장이 되었습니다.
+			String msg = nickMap.get("nick").toString()+"님이 부방장이 되었습니다.";
+
+			param.put("message", msg);
+			param.put("regUserId", param.get("targetUserId"));
+			param.put("type", "Y");
+			param.put("fileId", 0);
+//			sendMessageSingle(param);
+			messageMainService.sendMessageSingle(param);
+		}
+
+		return resultMap;
+	}
+
+	@Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+	public HashMap<String, Object> setSubRoomMasterRemoval(HashMap<String, Object> param) throws Exception {
+		HashMap<String, Object> resultMap = new HashMap<String, Object>();
+
+		if(param.get("subLeaderYn").toString().equals("Y")) {
+
+			if (exqueryService.update("cronies.app.messageTalk.roomMasterRemoval", param) == 1) {
+				resultMap.put("message", "부방장에서 해제되었습니다.");
+				resultMap.put("successYn", "Y");
+			} else {
+				resultMap.put("message", "오류가 발생했습니다.");
+				resultMap.put("successYn", "N");
+			}
+		} else {
+			resultMap.put("message", "부방장이 아닙니다.");
+			resultMap.put("successYn", "N");
+		}
+
+		if( resultMap.get("successYn").toString().equals("Y")){
+
+			HashMap<String, Object> pushMap = new HashMap<>();
+
+			// 기본메시지 처리
+			HashMap<String, Object> nickMap = exqueryService.selectOne("cronies.app.messageTalk.selectTargetUserInfoNick", param);
+			// 누구누구님이 방장이 되었습니다.
+			String msg = nickMap.get("nick").toString()+"님이 부방장에서 해제 되었습니다.";
+
+			param.put("message", msg);
+			param.put("regUserId", param.get("targetUserId"));
+			param.put("type", "Y");
+			param.put("fileId", 0);
+//			sendMessageSingle(param);
+			messageMainService.sendMessageSingle(param);
+		}
+
+		return resultMap;
+	}
+
+}

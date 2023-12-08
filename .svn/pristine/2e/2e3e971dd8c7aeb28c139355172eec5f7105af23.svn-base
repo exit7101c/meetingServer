@@ -1,0 +1,236 @@
+package cronies.meeting.user.controller;
+
+import cronies.meeting.user.service.OpenChatService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.List;
+
+@RestController
+public class OpenChatController {
+
+    @Autowired
+    private OpenChatService openChatService;
+
+    @RequestMapping(value = "getPartitionList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getPartitionList(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+        return openChatService.getPartitionList(param);
+    }
+
+    @RequestMapping(value = "getPartitionSubList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getPartitionSubList(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+        return openChatService.getPartitionSubList(param);
+    }
+    @RequestMapping(value = "getOpenChatList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getOpenChatList(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+        return openChatService.getOpenChatList(param);
+    }
+
+    @RequestMapping(value = "getOpenChatDetail", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getOpenChatDetail(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.getOpenChatDetail(param);
+    }
+
+    @RequestMapping(value = "getAttendInfo", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getAttendInfo(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.getAttendInfo(param);
+    }
+
+    @RequestMapping(value = "getChatRoomUserCountCheck", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getChatRoomUserCountCheck(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.getChatRoomUserCountCheck(param);
+    }
+
+    @RequestMapping(value = "setOpenChatBookmark", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setOpenChatBookmark(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.setOpenChatBookmark(param);
+    }
+
+    @RequestMapping(value = "updateOpenChatAttendYn", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> updateOpenChatAttendYn(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.updateOpenChatAttendYn(param);
+    }
+
+    @RequestMapping(value = "setOpenChatInvite", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setOpenChatInvite(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.setOpenChatInvite(param);
+    }
+
+    @RequestMapping(value = "setOpenChat", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setOpenChat(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.setOpenChat(param);
+    }
+
+    @RequestMapping(value = "setOpenChatDel", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setOpenChatDel(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.setOpenChatDel(param);
+    }
+
+    @RequestMapping(value = "setOpenChatUpdate", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setOpenChatUpdate(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.setOpenChatUpdate(param);
+    }
+
+    @RequestMapping(value = "setOpenChatReport", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setOpenChatReport(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.setOpenChatReport(param);
+    }
+
+    @RequestMapping(value = "getOpenChatMyList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getOpenChatMyList(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+        return openChatService.getOpenChatMyList(param);
+    }
+
+    @RequestMapping(value = "getOpenChatInviteList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getOpenChatInviteList(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+        return openChatService.getOpenChatInviteList(param);
+    }
+
+    @RequestMapping(value = "getOpenChatMyBookmarkList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getOpenChatMyBookmarkList(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+        return openChatService.getOpenChatMyBookmarkList(param);
+    }
+
+    @RequestMapping(value = "getDefaultImgList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getDefaultImgList(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.getDefaultImgList(param);
+    }
+
+    @RequestMapping(value = "setUserLatLon", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setUserLatLon(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+        return openChatService.setUserLatLon(param);
+    }
+
+    @RequestMapping(value = "getOpenChatUserAddr", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getOpenChatUserAddr(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+        return openChatService.getOpenChatUserAddr(param);
+    }
+    @RequestMapping(value = "getOpenChatLatLon", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getOpenChatLatLon(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+        return openChatService.getOpenChatLatLon(param);
+    }
+    @RequestMapping(value = "getPrivateYnCountCheck", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getPrivateYnCountCheck(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.getPrivateYnCountCheck(param);
+    }
+
+    @RequestMapping(value = "setCheckPrivateYn", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setCheckPrivateYn(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.setCheckPrivateYn(param);
+    }
+    @RequestMapping(value = "getOpenchatId", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public int getOpenchatId(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.getOpenchatId(param);
+    }
+
+    @RequestMapping(value = "getOpenChatMeetCategory", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getOpenChatMeetCategory(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.getOpenChatMeetCategory(param);
+    }
+
+    @RequestMapping(value = "getOpenChatMeetList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getOpenChatMeetList(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.getOpenChatMeetList(param);
+    }
+
+    @RequestMapping(value = "createOpenChatMeet", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> createOpenChatMeet(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.createOpenChatMeet(param);
+    }
+
+    @RequestMapping(value = "updateOpenChatMeet", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> updateOpenChatMeet(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.updateOpenChatMeet(param);
+    }
+
+    @RequestMapping(value = "deleteOpenChatMeet", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> deleteOpenChatMeet(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.deleteOpenChatMeet(param);
+    }
+
+    @RequestMapping(value = "getMeetUserList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getMeetUserList(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.getMeetUserList(param);
+    }
+
+    @RequestMapping(value = "getAlbumList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object>getAlbumList(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.getAlbumList(param);
+    }
+
+    @RequestMapping(value = "addMeetUser", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> addMeetUser(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.addMeetUser(param);
+    }
+
+    @RequestMapping(value = "deleteMeetUser", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> deleteMeetUser(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.deleteMeetUser(param);
+    }
+
+    @RequestMapping(value = "getOpenChatCommentList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getOpenChatCommentList(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.getOpenChatCommentList(param);
+    }
+
+    @RequestMapping(value = "addMeetComment", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> addMeetComment(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.addMeetComment(param);
+    }
+
+    @RequestMapping(value = "updateMeetComment", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> updateMeetComment(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.updateMeetComment(param);
+    }
+
+    @RequestMapping(value = "deleteMeetComment", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> deleteMeetComment(@RequestParam HashMap<String, Object> param) throws Exception {
+        return openChatService.deleteMeetComment(param);
+    }
+
+    @RequestMapping(value = "getOpenChatMeetEdit", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getOpenChatMeetEdit(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+        return openChatService.getOpenChatMeetEdit(param);
+    }
+
+
+}

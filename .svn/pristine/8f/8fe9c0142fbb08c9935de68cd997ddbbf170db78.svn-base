@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.basic.sqlShift">
+	
+	<select id="selectShiftList" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT SHIFT_CD
+	         , FN_LANG_INP(SHIFT_NM, #{ssUserLang}) AS SHIFT_NM
+        FROM COM_SHIFT
+		<if test='useYn != null and useYn != ""'>
+			WHERE USE_YN = #{useYn}
+		</if>
+	</select>
+</mapper>

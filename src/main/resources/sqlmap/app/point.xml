@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cronies.app.point">
+
+	<!--
+	Description : 현재 포인트 조회
+	-->
+	<select id="getUserLastPoint" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			ISNULL(B.LAST_POINT, 0) AS LAST_POINT
+		FROM SC_USER A
+		LEFT OUTER JOIN SC_POINT B
+		ON A.USER_ID = B.USER_ID
+		WHERE 1=1
+		AND A.USER_ID = #{userId}
+	</select>
+
+	<select id="selectPackageInfo" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			PRICE_WON
+		FROM SC_STORE_ITEM
+		WHERE ITEM_CD = #{itemCd}
+	</select>
+
+	<!--
+	Description : 하트 이력 INSERT
+	-->
+	<insert id="insertHeartHis" parameterType="HashMap">
+		INSERT INTO SC_POINT_HIS
+			(USER_ID, POINT_CD, REG_TIME, PREV_POINT, PROC_POINT, RESULT_POINT
+		<if test='transactionId != null and transactionId != ""'>
+			, TRANSACTION_ID
+		</if>
+			)
+		VALUES
+			(#{userId}, #{pointCd}, GETDATE(), #{currentHeart}, #{targetHeart}, #{sumHeart}
+		<if test='transactionId != null and transactionId != ""'>
+			, #{transactionId}
+		</if>
+			)
+	</insert>
+
+	<!--
+    Description : 하트 CURRENT UPDATE
+    -->
+	<update id="mergeHeartCurrent" parameterType="HashMap">
+		MERGE INTO SC_POINT AS A
+			USING (SELECT 1 AS DUAL) AS B
+			ON (A.USER_ID = #{userId})
+			WHEN MATCHED THEN
+				UPDATE SET
+					LAST_POINT = #{sumHeart}
+					, UPD_TIME = GETDATE()
+			WHEN NOT MATCHED THEN
+				INSERT
+					(USER_ID, LAST_POINT, UPD_TIME)
+				VALUES
+					(#{userId}, #{sumHeart}, GETDATE());
+	</update>
+
+</mapper>

@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.basic.sqlSite">
+	
+	<!--
+	QueryID     : selectSiteList
+	Description : SITE 정보 결과 조회
+	-->
+	<select id="selectSiteList" parameterType="HashMap" resultType="ExqueryMap" >
+       SELECT SITE_CD
+		     , SITE_NM
+		     , SITE_DESC		     
+			 , USE_YN
+			 , CREATED_DT
+			 , CREATED_USER_ID
+			 , UPDATED_DT
+			 , UPDATED_USER_ID
+			 , ROWNUM AS NO
+          FROM( SELECT SITE_CD
+				     , FN_GET_MSG(SITE_NM, #{lang}) AS SITE_NM
+				     , SITE_DESC		     
+					 , FN_GET_COMMCODE_NAME(#{lang}, 'USE_YN', USE_YN) AS USE_YN
+					 , TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+					 , FN_GET_USER_NAME(CREATED_USER_ID) AS CREATED_USER_ID
+					 , TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+					 , FN_GET_USER_NAME(UPDATED_USER_ID) UPDATED_USER_ID
+				  FROM COM_SITE		
+			   <where>
+					<if test='searchStr1 != null and  searchStr1 != ""'>
+						AND (SITE_CD LIKE '%${searchStr1}%' OR FN_GET_MSG(SITE_NM, #{lang}) LIKE '%${searchStr1}%')
+					</if>
+					<if test='useYn != null and  useYn != ""'>
+						AND USE_YN = #{useYn}
+					</if>
+				</where>
+				     ORDER BY SITE_CD ASC)
+	</select>
+	
+	<!--
+	QueryID     : selectSiteOne
+	Description : SITE 정보 상세 단건 조회
+	-->	
+	<select id="selectSiteOne" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT SITE_CD
+		     , FN_LANG_INP(SITE_NM,'en') AS SITE_NM_EN 	-- 영어
+		  	 , FN_LANG_INP(SITE_NM,'ko') AS SITE_NM_KO 	-- 영어
+          	 , FN_LANG_INP(SITE_NM,'cn') AS SITE_NM_CN 	-- 중국어
+		     , SITE_DESC		     
+			 , USE_YN
+			 , CREATED_DT
+			 , CREATED_USER_ID
+			 , UPDATED_DT
+			 , UPDATED_USER_ID			 
+		  FROM COM_SITE
+		 WHERE SITE_CD =  #{selectKey}
+	</select>
+		
+	<!--
+	QueryID     : insertSite
+	Description : SITE 정보 등록
+	-->	
+	<insert id="insertSite" parameterType="HashMap" >
+		INSERT INTO COM_SITE (
+								SITE_CD
+							  , SITE_NM
+							  , SITE_DESC
+							  , USE_YN
+							  , CREATED_DT
+							  , CREATED_USER_ID
+							  , UPDATED_DT
+							  , UPDATED_USER_ID
+							) VALUES (
+								#{siteCd}
+							  , #{siteNm}
+							  , #{siteDesc}
+							  , #{useYn}
+							  , SYSDATE
+							  , #{ssUserId}
+					          , SYSDATE
+					          , #{ssUserId}
+							)
+	</insert>
+	
+	<!--
+	QueryID     : updateSite
+	Description : SITE 정보 수정
+	-->	
+	<update id="updateSite" parameterType="HashMap" >
+		UPDATE COM_SITE
+		<set>
+			  SITE_NM = #{siteNm} 
+			, SITE_DESC = #{siteDesc}
+			, USE_YN = #{useYn}
+			, UPDATED_DT = SYSDATE
+			, UPDATED_USER_ID = #{ssUserId}
+		</set>
+		WHERE SITE_CD = #{siteCd}
+	</update>
+	
+	<!--
+	QueryID     : updateSite
+	Description : SITE 정보 삭제
+	-->	
+	<update id="deleteSite" parameterType="HashMap" >
+		UPDATE COM_SITE
+		<set>
+			  USE_YN = 'N'
+			, UPDATED_DT = SYSDATE
+			, UPDATED_USER_ID = #{ssUserId}
+		</set>
+		WHERE SITE_CD = #{siteCd}
+	</update>
+</mapper>

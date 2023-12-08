@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.basic.sqlEquipCode">
+
+    <!--
+        QueryID     : selectEquipmentList
+        Description :
+    -->
+    <select id="selectEquipCodeList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT CE.EQP_CD
+        , FN_GET_MSG(CE.EQP_NM, #{ssUserLang}) AS EQP_NM
+        , CE.PARENT_EQP_CD
+        , CE.EQP_DESC
+        , CE.EQP_LEVEL
+        , CE.EQP_TYPE
+        , CE.EQP_GROUP
+        , CE.LINE_CD
+        , CE.DISPLAY_ORDER
+        , CE.USE_YN
+        , CE.CREATED_USER_ID
+        , FN_GET_DATE_STR(CE.CREATED_DT) AS CREATED_DT
+        , CE.UPDATED_USER_ID
+        , FN_GET_DATE_STR(CE.UPDATED_DT) AS UPDATED_DT
+        FROM COM_EQUIPMENT CE
+        <if test='lineCd != null and lineCd !=""'>
+            INNER JOIN COM_LINE CL
+            ON CE.LINE_CD = CL.LINE_CD
+        </if>
+        <where>
+            <if test='useYn != null and useYn !=""'>
+                AND CE.USE_YN = #{useYn}
+            </if>
+            <if test='searchStr1 != null and searchStr1 !=""'>
+                AND (CE.EQP_NM LIKE '%${searchStr1}%' OR CE.EQP_CD LIKE '%${searchStr1}%')
+            </if>
+        </where>
+        START WITH CE.PARENT_EQP_CD = 'ROOT'
+        CONNECT BY PRIOR CE.EQP_CD = CE.PARENT_EQP_CD
+        ORDER BY CE.DISPLAY_ORDER
+    </select>
+
+    <select id="selectEquipCodeList2" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT CE.EQP_CD
+        , FN_GET_MSG(CE.EQP_NM, #{ssUserLang}) AS EQP_NM
+        , CE.PARENT_EQP_CD
+        , CE.EQP_DESC
+        , CE.EQP_LEVEL
+        , CE.EQP_TYPE
+        , CE.EQP_GROUP
+        , CE.LINE_CD
+        , CE.DISPLAY_ORDER
+        , CE.USE_YN
+        , CE.CREATED_USER_ID
+        , FN_GET_DATE_STR(CE.CREATED_DT) AS CREATED_DT
+        , CE.UPDATED_USER_ID
+        , FN_GET_DATE_STR(CE.UPDATED_DT) AS UPDATED_DT
+        FROM COM_EQUIPMENT CE
+        <if test='lineCd != null and lineCd !=""'>
+            INNER JOIN COM_LINE CL
+            ON CE.LINE_CD = CL.LINE_CD
+        </if>
+        WHERE CE.USE_YN = 'Y'
+        START WITH CE.PARENT_EQP_CD = 'ROOT'
+        CONNECT BY PRIOR CE.EQP_CD = CE.PARENT_EQP_CD
+        ORDER BY CE.DISPLAY_ORDER
+    </select>
+
+    <select id="selectEquipCodeOne" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT EQP_CD
+				, FN_LANG_INP(EQP_NM,'en')  AS EQP_NM_EN 	-- 영어
+				, FN_LANG_INP(EQP_NM,'ko')  AS EQP_NM_KO 	-- 한국어
+				, FN_LANG_INP(EQP_NM,'cn')  AS EQP_NM_CN 	-- 중국어
+				, PARENT_EQP_CD
+				, EQP_DESC
+				, EQP_LEVEL
+				, EQP_TYPE
+				, EQP_GROUP
+				, LINE_CD
+				, DISPLAY_ORDER
+				, USE_YN
+				, CREATED_DT
+				, CREATED_USER_ID
+				, UPDATED_DT
+				, UPDATED_USER_ID
+		FROM COM_EQUIPMENT
+		WHERE EQP_CD = #{selectKey}
+	</select>
+
+    <!--
+         설비 코드 Insert
+     -->
+    <insert id="insertEquipCode" parameterType="HashMap">
+		INSERT INTO COM_EQUIPMENT (
+			EQP_CD
+			, PARENT_EQP_CD
+			, EQP_NM
+			, EQP_DESC
+			, EQP_LEVEL
+			, EQP_TYPE
+			, EQP_GROUP
+			, LINE_CD
+			, DISPLAY_ORDER
+			, USE_YN
+			, CREATED_DT
+			, CREATED_USER_ID
+			, UPDATED_DT
+			, UPDATED_USER_ID
+		) VALUES (
+					 #{eqpCd}
+					 , #{parentEqpCd}
+					 , #{eqpNm}
+					 , #{eqpDesc}
+					 , #{eqpLevel}
+					 , #{eqpType}
+					 , #{eqpGroup}
+					 , #{lineCd}
+					 , #{displayOrder}
+					 , #{useYn}
+					 , SYSDATE
+					 , #{ssUserId}
+					 , SYSDATE
+					 , #{ssUserId}
+				 )
+	</insert>
+
+
+    <update id="updateEquipCode" parameterType="HashMap">
+        UPDATE COM_EQUIPMENT
+        SET
+        EQP_NM = #{eqpNm}
+        <if test='parentEqpCd != null and parentEqpCd !=""'>
+            , PARENT_EQP_CD = #{parentEqpCd}
+        </if>
+        , EQP_DESC = #{eqpDesc}
+        , EQP_LEVEL = #{eqpLevel}
+        , EQP_TYPE = #{eqpType}
+        , EQP_GROUP = #{eqpGroup}
+        , LINE_CD = #{lineCd}
+        , DISPLAY_ORDER = #{displayOrder}
+        , USE_YN = #{useYn}
+        , UPDATED_DT = SYSDATE
+        , UPDATED_USER_ID = #{ssUserId}
+        WHERE EQP_CD = #{eqpCd}
+    </update>
+
+    <update id="disableEquipCode" parameterType="HashMap">
+        UPDATE COM_EQUIPMENT
+        <set>
+            USE_YN = 'N'
+            , UPDATED_USER_ID = #{ssUserId}
+            , UPDATED_DT = SYSDATE
+        </set>
+        WHERE EQP_CD = #{stateCd}
+    </update>
+
+    <select id="selectProcEquipList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT EQP.EQP_CD
+        , FN_GET_MSG(EQP.EQP_NM, #{ssUserLang}) AS EQP_NM
+        , EQP.EQP_TYPE
+        , CASE WHEN PROCEQP.DISPLAY_ORDER IS NULL THEN 0 ELSE PROCEQP.DISPLAY_ORDER END AS DISPLAY_ORDER
+        , CASE WHEN PROCEQP.EQP_CD IS NOT NULL THEN 'Y'
+        ELSE 'N' END AS chked
+        FROM COM_EQUIPMENT EQP
+        LEFT OUTER JOIN COM_PROCESS_EQP PROCEQP
+        ON EQP.EQP_CD = PROCEQP.EQP_CD
+        AND PROCEQP.PROC_CD = #{procCd}
+        WHERE EQP.USE_YN = 'Y'
+        <if test='searchStr1 != null and searchStr1 !=""'>
+            AND (EQP.EQP_NM LIKE '%${searchStr1}%' OR EQP.EQP_CD LIKE '%${searchStr1}%')
+        </if>
+        ORDER BY EQP.DISPLAY_ORDER ASC
+    </select>
+
+    <select id="selectProcEquipList2" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+            A.PROC_CD
+            , A.EQP_CD
+            , A.DISPLAY_ORDER
+            , FN_GET_MSG(B.EQP_NM,#{ssUserLang}) AS EQP_NM
+            , (SELECT COUNT(*) FROM COM_EQP_TAG WHERE EQP_CD = A.EQP_CD) TAG_CNT
+        FROM COM_PROCESS_EQP A
+        INNER JOIN COM_EQUIPMENT B
+        ON A.EQP_CD = B.EQP_CD
+        WHERE A.PROC_CD = #{procCd}
+        ORDER BY A.DISPLAY_ORDER
+	</select>
+
+
+    <!-- [설비별 접점매핑] 접점 리스트 조회 -->
+    <select id="selectTagList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+            A.TAG_CD
+            ,FN_GET_MSG(A.TAG_NM, #{ssUserLang})   AS TAG_NM
+            ,A.UNIT
+            ,FN_GET_MSG(A.TAG_NM, #{ssUserLang}) || ' (' || A.UNIT || ')' AS TAG_STR
+            ,B.EQP_CD
+            , CASE WHEN B.EQP_CD IS NOT NULL THEN 'Y'
+                ELSE 'N' END IS_EXIST
+            ,B.COLLECT_TYPE
+            ,B.COLLECT_YN
+            ,TO_CHAR(B.CREATED_DT, 'YYYY-MM-DD HH24:MI') AS CREATED_DT
+            ,B.CREATED_USER_ID
+        FROM COM_TAG A
+        LEFT OUTER JOIN ( SELECT * FROM COM_EQP_TAG WHERE EQP_CD = #{eqpCd}) B ON A.TAG_CD = B.TAG_CD
+        WHERE A.AREA_CD = #{ssUserAreaCd}
+        ORDER BY IS_EXIST DESC, TAG_CD
+	</select>
+
+
+    <!-- [설비별 접점매핑] Delete -->
+    <delete id="deleteEqpTag" parameterType="Hashmap">
+		DELETE
+		FROM COM_EQP_TAG
+		WHERE EQP_CD = #{eqpCd}
+	</delete>
+
+    <!-- [설비별 접점매핑] Insert -->
+    <insert id="insertEqpTag" parameterType="Hashmap">
+		INSERT INTO COM_EQP_TAG
+		(EQP_CD, TAG_CD, COLLECT_TYPE, COLLECT_YN, CREATED_DT, CREATED_USER_ID)
+		VALUES
+		(#{eqpCd}, #{tagCd}, #{collectType}, #{collectYn}, SYSDATE, #{ssUserId})
+	</insert>
+
+</mapper>

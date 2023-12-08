@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cronies.app.invite">
+
+	<select id="getUserInviteCode" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			A.INVITE_CODE
+			, A.INVITE_POINT
+			, A.INVITE_CNT
+			, CASE WHEN B.TARGET_USER_ID IS NULL
+				   		THEN 'N'
+			   		ELSE 'Y'
+			END IS_INPUT_INVITE
+		FROM SC_INVITE_POINT A
+		LEFT OUTER JOIN SC_INVITE_HIS B
+			ON A.USER_ID = B.USER_ID
+		WHERE 1=1
+			AND A.USER_ID = #{userId}
+	</select>
+
+	<select id="getUserInviteCodeByPhone" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			A.INVITE_CODE
+			, A.INVITE_POINT
+			, A.INVITE_CNT
+			, CASE WHEN B.TARGET_USER_ID IS NULL
+						THEN 'N'
+					ELSE 'Y'
+			END IS_INPUT_INVITE
+		FROM SC_INVITE_POINT A
+		LEFT OUTER JOIN SC_INVITE_HIS B
+			ON A.USER_ID = B.USER_ID
+		WHERE 1=1
+			AND A.USER_ID = (SELECT USER_ID FROM SC_USER WHERE PHON = #{phone} AND JOIN_FINISH_YN = 'Y')
+	</select>
+
+    <select id="checkNanoId" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			USER_ID
+		FROM SC_INVITE_POINT
+		WHERE 1=1
+		  AND INVITE_CODE = #{nanoId}
+    </select>
+
+	<select id="checkTargetUserInviteCode" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			USER_ID
+		FROM SC_INVITE_POINT
+		WHERE 1=1
+			AND INVITE_CODE = #{inviteCode}
+			AND USER_ID != #{userId}
+	</select>
+
+	<select id="checkInviteHis" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			USER_ID
+		FROM SC_INVITE_HIS
+		WHERE 1=1
+		  AND USER_ID = #{userId}
+	</select>
+
+	<insert id="insertInviteInfo" parameterType="HashMap">
+		INSERT INTO SC_INVITE_POINT
+			(USER_ID, INVITE_CODE, INVITE_CNT, UPD_TIME)
+		VALUES
+			(#{userId}, #{nanoId}, 0, GETDATE())
+	</insert>
+
+	<insert id="insertInviteCode" parameterType="HashMap">
+		INSERT INTO SC_INVITE_HIS
+			(USER_ID, TARGET_USER_ID, REG_TIME)
+		VALUES
+			(#{userId}, #{targetUserId}, GETDATE())
+	</insert>
+
+	<insert id="insertInvitePointHis" parameterType="HashMap">
+		INSERT INTO SC_INVITE_POINT_HIS
+			(USER_ID, POINT_CD, CHANGE_POINT
+			, BEFORE_POINT
+			, AFTER_POINT
+			, UPD_TIME
+		<if test='inviteUserId != null and inviteUserId != ""'>
+			, INVITE_USER_ID
+		</if>
+		<if test='placeCd != null and placeCd != ""'>
+			, PLACE_CD
+		</if>
+			)
+		VALUES
+			(#{targetUserId}, #{pointCd}, #{changePoint}
+			, (SELECT INVITE_POINT FROM SC_INVITE_POINT WHERE USER_ID = #{targetUserId})
+			, CONVERT(NUMERIC, (SELECT INVITE_POINT FROM SC_INVITE_POINT WHERE USER_ID = #{targetUserId})) + CONVERT(FLOAT, #{changePoint})
+			, GETDATE()
+		<if test='inviteUserId != null and inviteUserId != ""'>
+			, #{inviteUserId}
+		</if>
+		<if test='placeCd != null and placeCd != ""'>
+			, #{placeCd}
+		</if>
+			)
+	</insert>
+
+	<update id="updateInvitePoint" parameterType="HashMap">
+		UPDATE SC_INVITE_POINT
+			SET INVITE_POINT = CONVERT(NUMERIC, INVITE_POINT) + CONVERT(FLOAT, #{changePoint})
+				, INVITE_CNT = INVITE_CNT + 1
+				, UPD_TIME = GETDATE()
+		WHERE 1=1
+		AND USER_ID = #{targetUserId}
+	</update>
+
+<!--	<update id="updateInvitePoint2" parameterType="HashMap">-->
+<!--		UPDATE SC_INVITE_POINT-->
+<!--		SET INVITE_POINT = CONVERT(NUMERIC, INVITE_POINT) + CONVERT(FLOAT, #{changePoint})-->
+<!--			, UPD_TIME = GETDATE()-->
+<!--		WHERE 1=1-->
+<!--		  AND USER_ID = #{inviteUserId}-->
+<!--	</update>-->
+
+	<select id="isAskMeCode" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			USER_ID
+		FROM SC_ASKME_USER
+		WHERE 1=1
+		AND ASK_ME_CODE = #{askMeCode}
+	</select>
+
+	<select id="getAskMeUserInfo" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			A.USER_ID AS USER_KEY
+			, A.NICK
+			, D.SERVER_IP + '/' + D.FILE_PATH + D.SERVER_FILE_NM AS CDN_NM
+			, D.SERVER_IP + '/' + D.FILE_PATH + D.THUMB_FILE_NM AS CDN_THUMB_NM
+		FROM SC_USER A
+		INNER JOIN SC_ASKME_USER B
+		ON A.USER_ID = B.USER_ID
+		AND B.ASK_ME_CODE = #{askMeCode}
+	   	LEFT OUTER JOIN SC_USER_PIC C
+	   	ON A.USER_ID = C.USER_ID
+	   	LEFT OUTER JOIN SC_ATTACH_FILE D
+	   	ON C.PHOTO1 = D.ATTACH_FILE_ID
+	</select>
+
+	<update id="mergeUserAskMeCode" parameterType="HashMap">
+		MERGE INTO SC_ASKME_USER AS A
+		USING (SELECT 1 AS DUAL) AS B
+		ON (A.USER_ID = #{userId})
+		WHEN MATCHED THEN
+			UPDATE SET
+				ASK_ME_CODE = #{askMeCode}
+				, UPD_TIME = GETDATE()
+		WHEN NOT MATCHED THEN
+			INSERT
+				(USER_ID
+				, ASK_ME_CODE
+				, VIEW_CNT
+				, RECEIVED_CNT
+				, SCORE_SUM
+				, SCORE_AVG
+				, TODAY_CNT
+				, UPD_TIME
+				)
+			VALUES
+				(#{userId}
+				, #{askMeCode}
+				, 0
+				, 0
+				, 0
+				, 0
+				, 0
+				, GETDATE()
+				);
+	</update>
+
+	<update id="updateAskMeUserCurrentInfo" parameterType="HashMap">
+		UPDATE SC_ASKME_USER
+			SET RECEIVED_CNT = RECEIVED_CNT + 1
+				, SCORE_SUM = SCORE_SUM + CONVERT(NUMERIC, #{score})
+				, SCORE_AVG = (SCORE_SUM + CONVERT(NUMERIC, #{score})) / (RECEIVED_CNT + 1)
+				, UPD_TIME = GETDATE()
+		WHERE USER_ID = #{userId}
+	</update>
+
+
+	<select id="getUserInviteCodeByPhone2" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			A.USER_ID
+			, A.INVITE_CODE
+			, FORMAT(A.INVITE_POINT, '#,#') AS INVITE_POINT
+			, FORMAT(A.INVITE_CNT, '#,#') AS INVITE_CNT
+			, CASE WHEN B.TARGET_USER_ID IS NULL
+						THEN 'N'
+					ELSE 'Y'
+			END IS_INPUT_INVITE
+		FROM SC_INVITE_POINT A
+		LEFT OUTER JOIN SC_INVITE_HIS B
+			ON A.USER_ID = B.USER_ID
+		WHERE 1=1
+		  AND A.USER_ID = (SELECT USER_ID FROM SC_USER WHERE PHON = #{phone})
+	</select>
+
+	<select id="checkUserInviteCode" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			USER_ID
+			 , INVITE_CODE
+		FROM SC_INVITE_POINT
+		WHERE 1=1
+		  AND USER_ID != #{userId}
+	</select>
+
+</mapper>

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.smartmes.mesPlant">
+
+	<!--
+	QueryID     : insertPlantByJoin
+	Description : 회원가입 시 사업장 신규등록
+	-->
+	<insert id="insertPlantByJoin" parameterType="HashMap">
+		<selectKey resultType="int" keyProperty="plantSeq" order="BEFORE">
+			SELECT  SEQ_PLANT_ID.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO COM_PLANT
+		(PLANT_CD, ENTERPRISE_CD, PLANT_NM, USE_YN, CREATED_DT, CREATED_USER_ID, UPDATED_DT, UPDATED_USER_ID)
+		VALUES
+		(#{plantSeq}, #{enterSeq}, #{enterpriseNm}, 'Y', SYSDATE, 'admin', SYSDATE, 'admin')
+	</insert>
+
+	<!--
+	QueryID     : selectPlantOneByEnterCd
+	Description : Plant 정보 법인코드로 불러오기
+	-->
+	<select id="selectPlantOneByEnterCd" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			PLANT_CD
+			, PLANT_NM
+			, ENTERPRISE_CD
+			, IF_YN
+			, USE_YN
+			, CREATED_DT
+			, CREATED_USER_ID
+			, UPDATED_DT
+			, UPDATED_USER_ID
+		FROM COM_PLANT
+		WHERE ENTERPRISE_CD = #{ssCustomerEnterCd}
+	</select>
+
+</mapper>

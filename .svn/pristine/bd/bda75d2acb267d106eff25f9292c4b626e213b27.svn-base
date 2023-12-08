@@ -1,0 +1,149 @@
+package cronies.meeting.user.controller;
+
+import cronies.meeting.user.service.MessageMainService;
+import java.util.HashMap;
+import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping(value = "messageMain")
+public class MessageMainController {
+
+  @Autowired
+  private MessageMainService messageMainService;
+
+  @RequestMapping(value = "getMessageMainList", method = { RequestMethod.GET, RequestMethod.POST })
+  @ResponseBody
+  public List<HashMap<String, Object>> getMessageMainList(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+    return messageMainService.getMessageMainList(param);
+  }
+  @RequestMapping(value = "getMessageMainMap", method = { RequestMethod.GET, RequestMethod.POST })
+  public HashMap<String, Object> getMessageMainMap(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+    return messageMainService.getMessageMainMap(param);
+  }
+
+  @RequestMapping(value = "isOpenChatRoom", method = { RequestMethod.GET, RequestMethod.POST })
+  public HashMap<String, Object> isOpenChatRoom(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+    return messageMainService.isOpenChatRoom(param);
+  }
+
+  @RequestMapping(value = "getMessageList", method = { RequestMethod.GET, RequestMethod.POST })
+  @ResponseBody
+  public List<HashMap<String, Object>> getMessageList(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+    return messageMainService.getMessageList(param);
+  }
+
+  @RequestMapping(value = "updateMessageRecept", method = { RequestMethod.GET, RequestMethod.POST })
+  public HashMap<String, Object> updateMessageRecept(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+    return messageMainService.updateMessageRecept(param);
+  }
+
+  @RequestMapping(value = "sendMessageSingle", method = { RequestMethod.GET, RequestMethod.POST })
+  public HashMap<String, Object> sendMessageSingle(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+    return messageMainService.sendMessageSingle(param);
+  }
+
+  @RequestMapping(value = "getChatroomTitle", method = { RequestMethod.GET, RequestMethod.POST })
+  public HashMap<String, Object> getChatroomTitle(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+    return messageMainService.getChatroomTitle(param);
+  }
+
+  @RequestMapping(value = "getRoomUserList", method = { RequestMethod.GET, RequestMethod.POST })
+  @ResponseBody
+  public List<HashMap<String, Object>> getRoomUserList(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+    return messageMainService.getRoomUserList(param);
+  }
+
+  @RequestMapping(value = "getAttendList", method = { RequestMethod.GET, RequestMethod.POST })
+  @ResponseBody
+  public List<HashMap<String, Object>> getAttendList(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+    return messageMainService.getAttendList(param);
+  }
+
+  @RequestMapping(value = "setDropOutUser", method = { RequestMethod.GET, RequestMethod.POST })
+  public HashMap<String, Object> setDropOutUser(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+    return messageMainService.setDropOutUser(param);
+  }
+
+  @RequestMapping(value = "setDropOutLeader", method = { RequestMethod.GET, RequestMethod.POST })
+  public HashMap<String, Object> setDropOutLeader(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+    return messageMainService.setDropOutLeader(param);
+  }
+
+  @RequestMapping(value = "getMessageUserAddr", method = { RequestMethod.GET, RequestMethod.POST })
+  @ResponseBody
+  public List<HashMap<String, Object>> getOpenChatUserAddr(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+    return messageMainService.getMessageUserAddr(param);
+  }
+
+  @RequestMapping(value = "getRoomUserLocation", method = { RequestMethod.GET, RequestMethod.POST })
+  @ResponseBody
+  public List<HashMap<String, Object>> getRoomUserLocation(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+    return messageMainService.getRoomUserLocation(param);
+  }
+
+  @RequestMapping(value = "getLocationYn", method = { RequestMethod.GET, RequestMethod.POST })
+  public HashMap<String, Object> getLocationYn(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+    return messageMainService.getLocationYn(param);
+  }
+  @RequestMapping(value = "setLocationYn", method = { RequestMethod.GET, RequestMethod.POST })
+  public HashMap<String, Object> setLocationYn(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+    return messageMainService.setLocationYn(param);
+  }
+
+  @RequestMapping(value = "getLocationListCheck", method = { RequestMethod.GET, RequestMethod.POST })
+  @ResponseBody
+  public List<HashMap<String, Object>> getLocationListCheck(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+    return messageMainService.getLocationListCheck(param);
+  }
+
+
+  @RequestMapping(value = "getChatRoomAlarmList", method = { RequestMethod.GET, RequestMethod.POST })
+  public HashMap<String, Object> getChatRoomAlarmList(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+    return messageMainService.getChatRoomAlarmList(param);
+  }
+  @RequestMapping(value = "getChatRoomAlarm", method = { RequestMethod.GET, RequestMethod.POST })
+  public HashMap<String, Object> getChatRoomAlarm(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+    return messageMainService.getChatRoomAlarm(param);
+  }
+
+  @RequestMapping(value = "getEmoticonList", method = { RequestMethod.GET, RequestMethod.POST })
+  @ResponseBody
+  public List<HashMap<String, Object>> getDefaultImgList(@RequestParam HashMap<String, Object> param) throws Exception {
+    return messageMainService.getEmoticonList(param);
+  }
+
+  @RequestMapping(value = "getPartnersMap", method = { RequestMethod.GET, RequestMethod.POST })
+  @ResponseBody
+  public List<HashMap<String, Object>> getPartnersMap(@RequestParam HashMap<String, Object> param) throws Exception {
+    return messageMainService.getPartnersMap(param);
+  }
+
+  @RequestMapping(value = "getChatRoomPrivateCheck", method = { RequestMethod.GET, RequestMethod.POST })
+  @ResponseBody
+  public HashMap<String, Object> getChatRoomPrivateCheck(@RequestParam HashMap<String, Object> param) throws Exception {
+    return messageMainService.getChatRoomPrivateCheck(param);
+  }
+
+  @RequestMapping(value = "getChatRoomType", method = { RequestMethod.GET, RequestMethod.POST })
+  public HashMap<String, Object> getChatRoomType(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+    return messageMainService.getChatRoomType(param);
+  }
+
+  @RequestMapping(value = "chatBlock", method = { RequestMethod.GET, RequestMethod.POST })
+  public HashMap<String, Object> chatBlock(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+    return messageMainService.chatBlock(param);
+  }
+
+  @RequestMapping(value = "setRoomMasterChange", method = { RequestMethod.GET, RequestMethod.POST })
+  public HashMap<String, Object> setRoomMasterChange(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+    return messageMainService.setRoomMasterChange(param);
+  }
+
+}

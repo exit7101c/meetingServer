@@ -1,0 +1,359 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cronies.app.contest">
+
+    <!--
+    Description : 콘테스트 참가인원
+    -->
+    <select id="contestSelectOne" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            CONTEST_TYPE AS CONTEST_KEY
+            , USER_ID AS USER_KEY
+        FROM SC_CONTEST_SUPPORT
+        WHERE USER_ID = #{userId}
+        AND CONTEST_TYPE = #{contestType}
+    </select>
+
+    <!--
+    Description : 콘테스트 참가신청
+    -->
+    <insert id="getContestSupport" parameterType="HashMap">
+        INSERT INTO
+        SC_CONTEST_SUPPORT
+        (
+        CONTEST_TYPE
+        , USER_ID
+        , RESOLUTION
+        , PHOTO2
+        , PHOTO3
+        , PHOTO4
+        , PHOTO5
+        , REG_TIME
+        , CONFIRM_YN
+        )
+        VALUES
+        (
+        #{contestType}
+        , #{userId}
+        <if test='resolution != null and resolution != ""'>, #{resolution}</if>
+        <if test='resolution == null or resolution == ""'>, NULL</if>
+        , #{photo2}
+        , #{photo3}
+        <if test='photo4 != null and photo4 != ""'>, #{photo4}</if>
+        <if test='photo4 == null or photo4 == ""'>, NULL</if>
+        <if test='photo5 != null and photo5 != ""'>, #{photo5}</if>
+        <if test='photo5 == null or photo5 == ""'>, NULL</if>
+        , GETDATE()
+        <if test='confirmYn != null and confirmYn != ""'>, #{confirmYn}</if>
+        <if test='confirmYn == null or confirmYn == ""'>, NULL</if>
+        )
+    </insert>
+
+    <!--
+    Description : 콘테스트 참여중인 인원
+    -->
+    <select id="getContestUserList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            A.USER_ID AS USER_KEY
+            , A.ARTICLE_ID AS ARTICLE_KEY
+            , F.NICK
+            , RESOLUTION
+            , A.VOTES_CNT
+            , B.SERVER_IP + '/' + B.FILE_PATH + B.SERVER_FILE_NM AS PHOTO2
+            , C.SERVER_IP + '/' + B.FILE_PATH + C.SERVER_FILE_NM AS PHOTO3
+            , D.SERVER_IP + '/' + B.FILE_PATH + D.SERVER_FILE_NM AS PHOTO4
+            , E.SERVER_IP + '/' + B.FILE_PATH + E.SERVER_FILE_NM AS PHOTO5
+        FROM SC_CONTEST_USER A
+        LEFT OUTER JOIN SC_ATTACH_FILE B
+        ON A.PHOTO2 = B.ATTACH_FILE_ID
+        LEFT OUTER JOIN SC_ATTACH_FILE C
+        ON A.PHOTO3 = C.ATTACH_FILE_ID
+        LEFT OUTER JOIN SC_ATTACH_FILE D
+        ON A.PHOTO4 = D.ATTACH_FILE_ID
+        LEFT OUTER JOIN SC_ATTACH_FILE E
+        ON A.PHOTO5 = E.ATTACH_FILE_ID
+        LEFT OUTER JOIN SC_USER F
+        ON A.USER_ID = F.USER_ID
+        WHERE CONTEST_TYPE = #{contestType}
+        ORDER BY VOTES_CNT DESC
+    </select>
+
+    <!--
+    Description : 콘테스트 상세 페이지 조회
+    -->
+    <select id="getContestDetail" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            CASE
+                WHEN A.DEL_YN = 'N' THEN A.TITLE
+                ELSE '삭제된 글입니다.'
+            END TITLE
+            , A.CONTENT
+            , A.BOARD_ID
+            , CASE
+                WHEN A.CREATED_USER_ID = #{userId} THEN 'Y'
+                ELSE 'N'
+            END IS_REG_YN
+            , B.NICK
+            , CONVERT(CHAR (10), A.CREATED_DT, 23) AS CREATED_DT_STR
+            , dbo.FN_GET_DATE_STR(A.CREATED_DT) AS CREATED_DT_MM
+            , A.DEL_YN
+            , CASE
+                WHEN E.USER_ID IS NOT NULL THEN 'Y'
+                ELSE 'N'
+            END BOOKMARK_YN
+            , A.VIEW_CNT
+            , A.LIKE_CNT
+            , A.BAD_CNT
+            , A.COMMENT_CNT
+            , (SELECT COUNT(*) FROM SC_ARTICLE_BOOKMARK WHERE ARTICLE_ID = #{articleId}) AS BOOKMARK_CNT
+            , C.BOARD_NM
+            , D.ATTACH_FILE_ID AS ATTACH_FILE_KEY
+            , A.ATTR1
+            , A.ATTR2
+            , A.ATTR3
+            , A.ATTR4
+            , G.SERVER_IP + '/' + G.FILE_PATH + G.SERVER_FILE_NM AS ATTR1_CDN_NM
+            , G.SERVER_IP + '/' + G.FILE_PATH + G.THUMB_FILE_NM AS ATTR1_CDN_THUMB_NM
+            , H.SERVER_IP + '/' + H.FILE_PATH + H.SERVER_FILE_NM AS ATTR2_CDN_NM
+            , H.SERVER_IP + '/' + H.FILE_PATH + H.THUMB_FILE_NM AS ATTR2_CDN_THUMB_NM
+            , I.SERVER_IP + '/' + I.FILE_PATH + I.SERVER_FILE_NM AS ATTR3_CDN_NM
+            , I.SERVER_IP + '/' + I.FILE_PATH + I.THUMB_FILE_NM AS ATTR3_CDN_THUMB_NM
+            , J.SERVER_IP + '/' + J.FILE_PATH + J.SERVER_FILE_NM AS ATTR4_CDN_NM
+            , J.SERVER_IP + '/' + J.FILE_PATH + J.THUMB_FILE_NM AS ATTR4_CDN_THUMB_NM
+            , B.DROP_YN
+            , A.ARTICLE_ID
+            , L.VOTES_CNT
+            , B.USER_ID AS TARGET_USER_ID
+        FROM SC_ARTICLE A
+        LEFT OUTER JOIN SC_USER B
+        ON A.CREATED_USER_ID = B.USER_ID
+        LEFT OUTER JOIN SC_BOARD C
+        ON A.BOARD_ID = C.BOARD_ID
+        LEFT OUTER JOIN SC_ARTICLE_FILE D
+        ON A.ARTICLE_ID = D.ARTICLE_ID
+        LEFT OUTER JOIN SC_ARTICLE_BOOKMARK E
+        ON A.ARTICLE_ID = E.ARTICLE_ID
+        AND E.USER_ID = #{userId}
+        LEFT OUTER JOIN SC_ICON_CODE F
+        ON A.COMMUNITY_ICON = F.ICON_CD
+        LEFT JOIN SC_ATTACH_FILE G
+        ON A.ATTR1 = G.ATTACH_FILE_ID
+        LEFT JOIN SC_ATTACH_FILE H
+        ON A.ATTR2 = H.ATTACH_FILE_ID
+        LEFT JOIN SC_ATTACH_FILE I
+        ON A.ATTR3 = I.ATTACH_FILE_ID
+        LEFT JOIN SC_ATTACH_FILE J
+        ON A.ATTR4 = J.ATTACH_FILE_ID
+        LEFT OUTER JOIN SC_BOARD_SUB K
+        ON A.SUB_BOARD_CD = K.SUB_BOARD_CD
+        LEFT OUTER JOIN SC_CONTEST_USER L
+        ON A.ARTICLE_ID = L.ARTICLE_ID
+        WHERE 1 = 1
+        AND A.ARTICLE_ID = #{articleId}
+    </select>
+
+    <!--
+    Description : 콘테스트 게시글 댓글 조회(parent)
+    -->
+    <select id="getContestParentCommentList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT TOP 20
+            A.COMMENT_ID AS COMMENT_KEY
+            , A.PARENT_COMMENT_ID AS PARENT_COMMENT_KEY
+            , CASE
+               WHEN A.DEL_YN = 'N' THEN A.CONTENTS
+               ELSE '삭제된 댓글입니다.' END CONTENTS
+            , CASE
+               WHEN A.REG_USER_ID = B.CREATED_USER_ID THEN '작성자'
+               ELSE '익명' END NAME
+            , CASE
+               WHEN A.REG_USER_ID = B.CREATED_USER_ID THEN '작성자'
+               ELSE '익명' END NICK
+            , CONVERT(CHAR (10), A.REG_TIME, 23) AS REG_TIME_STR
+            , A.DEL_YN
+            , CASE
+               WHEN A.UPD_TIME IS NULL THEN 'N'
+               ELSE 'Y' END UPDATE_YN
+            , A.LIKE_CNT
+            , A.BAD_CNT
+            , D.ATTACH_FILE_ID
+            , CASE
+               WHEN A.REG_USER_ID = #{userId} THEN 'Y'
+               ELSE 'N' END IS_REG_YN
+            , dbo.FN_GET_DATE_STR(A.REG_TIME) AS REG_TIME_MM
+            , F.SERVER_IP + '/' + F.FILE_PATH + F.SERVER_FILE_NM AS CDN_NM
+            , F.SERVER_IP + '/' + F.FILE_PATH + F.THUMB_FILE_NM AS CDN_THUMB_NM
+            , CASE WHEN A.REG_USER_ID = '2'
+                    THEN
+                    ( SELECT SERVER_IP + '/' + FILE_PATH + THUMB_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = '11729' )
+                ELSE
+                    G.SERVER_IP + '/' + G.FILE_PATH + G.THUMB_FILE_NM
+            END CDN_THUMB_NM_ICON
+            , Z.NICK AS COMMENT_NICK
+        FROM SC_COMMENT A
+        LEFT OUTER JOIN SC_USER Z
+            ON A.REG_USER_ID = Z.USER_ID
+        LEFT OUTER JOIN SC_ARTICLE B
+            ON A.ARTICLE_ID = B.ARTICLE_ID
+        LEFT OUTER JOIN SC_COMMENT_FILE D
+            ON A.COMMENT_ID = D.COMMENT_ID
+        LEFT OUTER JOIN SC_ICON_CODE E
+            ON Z.ICON_CD = E.ICON_CD
+        LEFT OUTER JOIN SC_ATTACH_FILE F
+            ON D.ATTACH_FILE_ID = F.ATTACH_FILE_ID
+        LEFT OUTER JOIN SC_ATTACH_FILE G
+            ON E.FILE_ID = G.ATTACH_FILE_ID
+        WHERE 1 = 1
+            AND A.ARTICLE_ID = #{articleId}
+            AND A.PARENT_COMMENT_ID IS NULL
+        ORDER BY A.REG_TIME DESC
+    </select>
+
+    <!--
+    Description : 콘테스트 게시글 댓글 조회(child)
+    -->
+    <select id="getContestChildCommentList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            A.COMMENT_ID AS COMMENT_KEY
+             , A.PARENT_COMMENT_ID AS PARENT_COMMENT_KEY
+             , CASE
+                   WHEN A.DEL_YN = 'N' THEN A.CONTENTS
+                   ELSE '삭제된 댓글입니다.' END CONTENTS
+             , CASE
+                   WHEN A.REG_USER_ID = B.CREATED_USER_ID THEN '작성자'
+                   ELSE '익명' END NAME
+             , CASE
+                   WHEN A.REG_USER_ID = B.CREATED_USER_ID THEN '작성자'
+                   ELSE '익명' END NICK
+             , CONVERT(CHAR (10), A.REG_TIME, 23) AS REG_TIME_STR
+             , A.DEL_YN
+             , CASE
+                   WHEN A.UPD_TIME IS NULL THEN 'N'
+                   ELSE 'Y' END UPDATE_YN
+             , A.LIKE_CNT
+             , D.ATTACH_FILE_ID
+             , CASE
+                   WHEN A.REG_USER_ID = #{ssUserId} THEN 'Y'
+                   ELSE 'N' END IS_REG_YN
+             , dbo.FN_GET_DATE_STR(A.REG_TIME) AS REG_TIME_MM
+             , E.FILE_NM
+             , E.FILE_ID
+             , A.LIKE_CNT
+             , A.BAD_CNT
+             , F.SERVER_IP + '/' + F.FILE_PATH + F.SERVER_FILE_NM AS CDN_NM
+             , F.SERVER_IP + '/' + F.FILE_PATH + F.THUMB_FILE_NM AS CDN_THUMB_NM
+             , CASE WHEN A.REG_USER_ID = '2'
+                        THEN
+                        ( SELECT SERVER_IP + '/' + FILE_PATH + THUMB_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = '11729' )
+                    ELSE
+                        G.SERVER_IP + '/' + G.FILE_PATH + G.THUMB_FILE_NM
+            END CDN_THUMB_NM_ICON
+             --, A.COMMENT_NICK
+             , Z.NICK AS COMMENT_NICK
+        FROM SC_COMMENT A
+        LEFT OUTER JOIN SC_USER Z
+            ON A.REG_USER_ID = Z.USER_ID
+        LEFT OUTER JOIN SC_ARTICLE B
+            ON A.ARTICLE_ID = B.ARTICLE_ID
+        LEFT OUTER JOIN SC_COMMENT_FILE D
+            ON A.COMMENT_ID = D.COMMENT_ID
+        LEFT OUTER JOIN SC_ICON_CODE E
+            ON Z.ICON_CD = E.ICON_CD
+        LEFT OUTER JOIN SC_ATTACH_FILE F
+            ON D.ATTACH_FILE_ID = F.ATTACH_FILE_ID
+        LEFT OUTER JOIN SC_ATTACH_FILE G
+            ON E.FILE_ID = G.ATTACH_FILE_ID
+        WHERE 1 = 1
+          AND A.ARTICLE_ID = #{articleId}
+          AND A.PARENT_COMMENT_ID = #{commentId}
+        ORDER BY A.REG_TIME
+    </select>
+
+    <!--
+    Description : 콘테스트 게시글 댓글 조회 INFINITE
+    -->
+    <select id="getContestReplyInfinite" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT TOP 20
+            A.COMMENT_ID AS COMMENT_KEY
+            , A.PARENT_COMMENT_ID AS PARENT_COMMENT_KEY
+             , CASE
+                   WHEN A.DEL_YN = 'N' THEN A.CONTENTS
+                   ELSE '삭제된 댓글입니다.' END CONTENTS
+             , CASE
+                   WHEN A.REG_USER_ID = B.CREATED_USER_ID THEN '작성자'
+                   ELSE '익명' END NAME
+             , CASE
+                   WHEN A.REG_USER_ID = B.CREATED_USER_ID THEN '작성자'
+                   ELSE '익명' END NICK
+             , CONVERT(CHAR (10), A.REG_TIME, 23) AS REG_TIME_STR
+             , A.DEL_YN
+             , CASE
+                   WHEN A.UPD_TIME IS NULL THEN 'N'
+                   ELSE 'Y' END UPDATE_YN
+             , A.LIKE_CNT
+             , A.BAD_CNT
+             , D.ATTACH_FILE_ID
+             , CASE
+                   WHEN A.REG_USER_ID = #{ssUserId} THEN 'Y'
+                   ELSE 'N' END IS_REG_YN
+             , dbo.FN_GET_DATE_STR(A.REG_TIME) AS REG_TIME_MM
+             , F.SERVER_IP + '/' + F.FILE_PATH + F.SERVER_FILE_NM AS CDN_NM
+             , F.SERVER_IP + '/' + F.FILE_PATH + F.THUMB_FILE_NM AS CDN_THUMB_NM
+             , CASE WHEN A.REG_USER_ID = '2'
+                        THEN
+                        ( SELECT SERVER_IP + '/' + FILE_PATH + THUMB_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = '11729' )
+                    ELSE
+                        G.SERVER_IP + '/' + G.FILE_PATH + G.THUMB_FILE_NM
+            END CDN_THUMB_NM_ICON
+             , Z.NICK AS COMMENT_NICK
+        FROM SC_COMMENT A
+        LEFT OUTER JOIN SC_USER Z
+            ON A.REG_USER_ID = Z.USER_ID
+        LEFT OUTER JOIN SC_ARTICLE B
+            ON A.ARTICLE_ID = B.ARTICLE_ID
+        LEFT OUTER JOIN SC_COMMENT_FILE D
+            ON A.COMMENT_ID = D.COMMENT_ID
+        LEFT OUTER JOIN SC_ICON_CODE E
+            ON Z.ICON_CD = E.ICON_CD
+        LEFT OUTER JOIN SC_ATTACH_FILE F
+            ON D.ATTACH_FILE_ID = F.ATTACH_FILE_ID
+        LEFT OUTER JOIN SC_ATTACH_FILE G
+            ON E.FILE_ID = G.ATTACH_FILE_ID
+        WHERE 1 = 1
+          AND A.ARTICLE_ID = #{articleId}
+          AND A.COMMENT_ID &lt; #{commentId}
+          AND A.PARENT_COMMENT_ID IS NULL
+        ORDER BY A.REG_TIME DESC
+    </select>
+
+    <update id="updateContestVotesCount" parameterType="HashMap">
+        UPDATE SC_CONTEST_USER
+        SET
+            VOTES_CNT = VOTES_CNT+1
+        WHERE USER_ID = #{targetUserId}
+        AND CONTEST_TYPE =#{contestType}
+    </update>
+
+    <insert id="insertContestVoteHis" parameterType="HashMap">
+        INSERT INTO
+        SC_CONTEST_VOTE_HIS
+            ( CONTEST_TYPE, USER_ID, TARGET_USER_ID, REG_TIME )
+        VALUES
+            ( #{contestType}, #{ssUserId}, #{targetUserId}, GETDATE() )
+    </insert>
+
+    <select id="getVoteHisList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT * FROM (
+            SELECT TOP 100 PERCENT
+                CASE WHEN #{ssUserId} = #{targetUserId} THEN B.NICK ELSE '****' END NICK
+                , CONVERT(VARCHAR, A.REG_TIME, 120) AS REG_TIME_STR
+                , ROW_NUMBER() OVER(ORDER BY A.REG_TIME DESC) AS ROWNUM
+            FROM SC_CONTEST_VOTE_HIS A
+            LEFT OUTER JOIN SC_USER B
+            ON A.USER_ID = B.USER_ID
+            WHERE TARGET_USER_ID = #{targetUserId}
+            AND CONTEST_TYPE = #{contestType}
+        ) A
+    </select>
+
+</mapper>

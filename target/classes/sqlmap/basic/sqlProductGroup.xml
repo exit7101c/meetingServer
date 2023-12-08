@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.basic.sqlProductGroup">
+
+	<!--
+	QueryID     : selectProductGroupList
+	Description : ProductGroup 정보 조회
+	-->	
+	<select id="selectProductGroupList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT PROD_GROUP_CD
+		     , PROD_GROUP_NM 
+		     , PROD_GROUP_DESC
+		     , USE_YN
+		     , REMARKS
+			 , CREATED_DT
+			 , CREATED_USER_ID
+			 , UPDATED_DT
+			 , UPDATED_USER_ID
+			 , ROWNUM AS NO 
+		  FROM (	 
+				SELECT PROD_GROUP_CD
+				     , FN_GET_MSG(PROD_GROUP_NM, #{ssUserLang}) AS PROD_GROUP_NM 
+				     , PROD_GROUP_DESC
+				     , FN_GET_COMMCODE_NAME(#{ssUserLang}, 'USE_YN', USE_YN) AS USE_YN
+				     , REMARKS
+					 , TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+					 , CREATED_USER_ID
+					 , TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+					 , UPDATED_USER_ID
+				  FROM COM_PRODUCT_GROUP
+				<where>
+					<if test='searchStr1 != null and  searchStr1 != ""'>
+						AND (PROD_GROUP_CD LIKE '%${searchStr1}%'
+						 OR PROD_GROUP_NM LIKE '%${searchStr1}%')
+					</if>
+					<if test='useYn != null and  useYn != ""'>
+						AND USE_YN = #{useYn}
+					</if>
+				</where>
+		ORDER BY PROD_GROUP_CD ASC)
+	</select>
+	
+	<!--
+	QueryID     : selectPlantOne
+	Description :ProductGroup 상세 단건 조회
+	-->	        
+	<select id="selectProductGroupOne" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT PROD_GROUP_CD
+		     , FN_LANG_INP(PROD_GROUP_NM,'en') AS PROD_GROUP_NM_EN 	-- 영어 변경해야됨 수정 요청
+		  	 , FN_LANG_INP(PROD_GROUP_NM,'ko') AS PROD_GROUP_NM_KO 	-- 영어
+          	 , FN_LANG_INP(PROD_GROUP_NM,'cn') AS PROD_GROUP_NM_CN 	-- 중국어
+		     , PROD_GROUP_DESC
+		     , USE_YN
+		     , REMARKS
+			 , TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+			 , CREATED_USER_ID
+			 , TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+			 , UPDATED_USER_ID	
+		  FROM COM_PRODUCT_GROUP
+		 WHERE PROD_GROUP_CD = #{selectKey}
+	</select>
+		
+	<!--
+	QueryID     : insertProductGroup
+	Description : ProductGroup 정보 등록
+	-->	
+	<insert id="insertProductGroup" parameterType="HashMap" >
+		INSERT INTO COM_PRODUCT_GROUP (  
+									  PROD_GROUP_CD
+							        , PROD_GROUP_NM
+							        , PROD_GROUP_DESC
+							        , USE_YN
+							        , CREATED_DT
+							        , CREATED_USER_ID
+							        , UPDATED_DT
+							        , UPDATED_USER_ID
+								    ) 
+								    VALUES ( #{prodGroupCd}
+									       , #{prodGroupNm}
+									       , #{prodGroupDesc}
+									       , #{useYn}
+									       , SYSDATE
+									       , #{ssUserId}
+							               , SYSDATE
+							               , #{ssUserId}
+									       )
+	</insert>
+	
+	<!--
+	QueryID     : updateProductGroup
+	Description : ProductGroup 정보 수정
+	-->	
+	<update id="updateProductGroup" parameterType="HashMap" >
+		UPDATE COM_PRODUCT_GROUP
+		<set>
+			  PROD_GROUP_CD   = #{prodGroupCd}
+	        , PROD_GROUP_NM   = #{prodGroupNm}
+	        , PROD_GROUP_DESC = #{prodGroupDesc}
+	        , USE_YN          = #{useYn}
+	        , CREATED_DT      = SYSDATE
+	        , CREATED_USER_ID = #{ssUserId}
+	        , UPDATED_DT      = SYSDATE
+	        , UPDATED_USER_ID = #{ssUserId}
+		</set>
+		WHERE PROD_GROUP_CD = #{prodGroupCd}
+	</update>
+	
+	<!--
+	QueryID     : deleteProductGroup
+	Description : ProductGroup 정보 삭제
+	-->	
+	<update id="deleteProductGroup" parameterType="HashMap" >
+		UPDATE COM_PRODUCT_GROUP
+		<set>
+			  USE_YN = 'N'
+			, UPDATED_DT = SYSDATE
+			, UPDATED_USER_ID = #{ssUserId}
+		</set>
+		WHERE PROD_GROUP_CD = #{prodGroupCd}
+	</update>	
+</mapper>

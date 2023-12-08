@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.common.sqlLogin">
+	
+	<!-- 로그인정보 조회 -->
+	<select id="selectUserLoginInfo" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			USER_ID
+			, USER_PWD
+			, USER_NM
+			, CHANGE_PWD_DT
+			, TRUNC(SYSDATE-CHANGE_PWD_DT) AS CHANGED_DAY
+			, USE_YN
+			, LOGIN_DT
+			, LOGIN_FAIL_CNT
+			, PLANT_CD
+            , CASE WHEN AREA_CD IS NULL THEN (SELECT CODE_VALUE FROM COM_COMMONCODE WHERE CODE_CD = 'DEFAULT_AREA_CD')
+                ELSE AREA_CD END AREA_CD
+            , CASE WHEN MAIN_MENU_CD IS NULL THEN (SELECT CODE_VALUE FROM COM_COMMONCODE WHERE CODE_CD = 'DEFAULT_MAIN_MENU_CD')
+                ELSE MAIN_MENU_CD END MAIN_MENU_CD
+		FROM SC_USER
+		WHERE USER_ID = #{id}
+	</select>
+
+	<!-- 로그인 이력 저장 -->
+	<insert id="insertLoginHis" parameterType="HashMap" >
+		<selectKey resultType="int" keyProperty="newId" order="BEFORE">
+			SELECT  SEQ_LOGIN_HIS_ID.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO LOG_LOGIN_HIS (
+			LOGIN_HIS_ID
+			, USER_ID
+			, LOGIN_DT
+			, IP_ADDRESS
+			, CREATED_DT
+		) VALUES (
+			 #{newId}
+			, #{userId}
+			, SYSDATE
+			, #{userIp}
+			, SYSDATE
+		)
+	</insert>
+
+	<!-- 로그아웃 업데이트 -->
+	<select id="updateLogout" parameterType="HashMap" resultType="ExqueryMap" >
+		UPDATE LOG_LOGIN_HIS
+		SET LOGOUT_DT = SYSDATE
+		WHERE LOGIN_HIS_ID = #{logId}
+	</select>
+
+	<!-- 로그인정보 조회 -->
+	<select id="updateUserLogin" parameterType="HashMap" resultType="ExqueryMap" >
+		UPDATE COM_USER
+		SET LOGIN_IP = #{userIp}, LOGIN_FAIL_CNT = 0, LOGIN_DT = SYSDATE
+		WHERE USER_ID = #{userId}
+	</select>
+
+	<!-- 메뉴조회 조회 -->
+	<select id="selectMenuDept" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+            A.MENU_CD
+            , FN_GET_MSG(B.MENU_NM, #{ssUserLang}) AS MENU_NM
+            , B.MENU_URL
+        FROM (
+            SELECT
+                MENU_CD, SORTER
+            FROM (
+                SELECT
+                    MENU_CD, PARENT_MENU_CD, DISPLAY_ORDER AS SORTER
+                FROM COM_MENU
+                START WITH MENU_CD IN (
+                    SELECT A.MENU_CD
+                    FROM COM_MENU A
+                    INNER JOIN ( SELECT MENU_CD FROM COM_MENU_AREA WHERE AREA_CD = #{ssUserAreaCd} ) B ON A.MENU_CD = B.MENU_CD
+                    WHERE A.USE_YN = 'Y'
+                    AND A.MENU_CD IN (
+                        SELECT MENU_CD
+                        FROM COM_AUTHORITY_MENU
+                        WHERE AUTH_CD IN (
+                            SELECT AUTH_CD
+                            FROM COM_AUTHORITY
+                            WHERE USE_YN = 'Y'
+                            AND AUTH_CD IN ( SELECT AUTH_CD FROM  COM_USER_AUTH WHERE USER_ID = #{ssUserId} )
+                        )
+                    )
+                )
+                CONNECT BY MENU_CD = PRIOR PARENT_MENU_CD
+                ORDER BY SORTER
+            )
+            WHERE PARENT_MENU_CD = #{startMenuCd}
+            GROUP BY MENU_CD, SORTER
+            ORDER BY SORTER
+        ) A
+        INNER JOIN COM_MENU B ON A.MENU_CD = B.MENU_CD 
+        AND B.USE_YN = 'Y'
+        ORDER BY SORTER
+	</select>
+
+	<!-- 구역명 조회 -->
+	<select id="selectAreaName" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+            FN_GET_MSG(B.PLANT_NM, #{ssUserLang}) ||' '|| FN_GET_MSG(A.AREA_NM, #{ssUserLang}) AS AREA_NM
+        FROM COM_AREA A
+        INNER JOIN COM_PLANT B ON A.PLANT_CD = B.PLANT_CD
+        WHERE AREA_CD = #{ssUserAreaCd}
+	</select>
+
+	<!-- 사용자별 즐겨찾기 메뉴 조회 -->
+	<select id="selectUserFavorit" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+            A.MENU_CD
+            , FN_GET_MSG(B.MENU_NM, #{ssUserLang}) AS MENU_NM
+            , B.MENU_URL
+        FROM COM_USER_FAVORIT A
+        INNER JOIN COM_MENU B ON A.MENU_CD = B.MENU_CD
+        WHERE A.USER_ID = #{ssUserId}
+        AND B.USE_YN = 'Y'
+        ORDER BY A.DISPLAY_ORDER
+	</select>
+
+	<!-- 메인화면 URL조회 -->
+	<select id="selectUserMainMenuUrl" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+            NVL(MENU_URL, '/') AS MENU_URL,
+            FN_GET_MSG(MENU_NM, #{ssUserLang}) AS MENU_NM
+        FROM COM_MENU
+        WHERE MENU_CD = #{ssUserMainMenuCd}
+	</select>
+
+	<!-- 사업장 구역 목록 조회 -->
+	<select id="selectAreaList" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT
+            A.AREA_CD
+            , FN_GET_MSG(A.AREA_NM, #{ssUserLang}) AS AREA_NM
+            , A.AREA_DESC
+            , A.PLANT_CD
+            , FN_GET_MSG(B.PLANT_NM, #{ssUserLang}) AS PLANT_NM
+            , FN_GET_MSG(B.PLANT_NM, #{ssUserLang}) ||' '|| FN_GET_MSG(A.AREA_NM, #{ssUserLang}) AS AREA_FULL_NM
+        FROM COM_AREA A
+        INNER JOIN COM_PLANT B ON A.PLANT_CD = B.PLANT_CD
+        WHERE A.PLANT_CD = 'AS'
+        AND A.USE_YN = 'Y'
+	</select>
+
+	<!-- 날씨정보 조회 -->
+	<select id="selectWeatherInfo" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+             ROUND(TEMP,1) AS TEMP
+            , HUMIDITY
+            , PRESSURE
+            , TO_CHAR(MEASURE_TIME, 'YYYY.MM.DD HH24:MI') AS MEASURE_TIME_STR
+            , NVL(SUBSTR(ICON,0,2), '01') AS ICON
+        FROM COM_WEATHER
+        WHERE LAST_YN = 'Y'
+	</select>
+
+	<!-- 현재서버시간 조회 -->
+	<select id="selectCurrentTime" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+            SYSDATE AS NOW_TIME_TIMESTAMP
+            , TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') AS NOW_TIME_STRING
+            , TO_CHAR(SYSDATE, 'YYYY.MM.DD HH24:MI:SS') AS NOW_TIME_CHAR
+            , TO_CHAR(SYSDATE, 'YYYYMMDD') AS NOW_TIME_TODAY
+        FROM DUAL
+	</select>
+
+	<!-- 메뉴별 사용자 권한 조회 -->
+	<select id="selectMenuOneAuth" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			A.AUTH_CD
+			, A.MENU_CD
+			, A.AUTH_ROLE
+			, NVL(B.SEARCH_DAY, 1) AS SEARCH_DAY
+    		, TO_CHAR(SYSDATE, 'YYYYMMDD') AS SERVER_TIME
+    		, TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI:SS') AS SERVER_DATE_TIME
+		FROM COM_AUTHORITY_MENU A
+		INNER JOIN COM_MENU B ON A.MENU_CD = B.MENU_CD
+		WHERE AUTH_CD IN (
+		SELECT
+			AUTH_CD
+		FROM COM_USER_AUTH
+		WHERE USER_ID = #{userId}
+		)
+		AND A.MENU_CD = #{menuCd}
+	</select>
+
+	<!-- 메뉴 네비게이션 조회 -->
+	<select id="selectMenuNavi" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			MENU_CD,
+			PARENT_MENU_CD,
+			FN_GET_MSG(MENU_NM , #{ssUserLang}) as MENU_NM,
+			LEVEL
+		FROM COM_MENU
+		START WITH MENU_CD = #{menuCd}
+		CONNECT BY MENU_CD = PRIOR PARENT_MENU_CD
+		ORDER BY LEVEL DESC
+	</select>
+
+	<!-- 메뉴접속이력 저장 -->
+	<insert id="insertMenuAccessLog" parameterType="HashMap" >
+		<selectKey resultType="int" keyProperty="newId" order="BEFORE">
+			SELECT  SEQ_MENU_ACCESS_ID.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO LOG_MENU_ACCESS_HIS
+		(LOG_ID, MENU_CD, USER_ID, ACC_TIME)
+		VALUES
+		(
+		#{newId},
+		#{menuCd},
+		#{userId},
+		SYSDATE
+		)
+	</insert>
+
+	<!-- 오늘날짜조회 조회 -->
+	<select id="selectNowDay" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI:SS') AS SERVER_DATE_TIME,
+			TO_CHAR(TRUNC(SYSDATE), 'YYYY-MM-DD HH24:MI:SS') AS TO_DAY_START,
+			TO_CHAR(TRUNC(SYSDATE, 'D'), 'YYYY-MM-DD HH24:MI:SS') AS THIS_WEEK_START
+		FROM DUAL
+	</select>
+
+	<!-- 메뉴별 즐겨찾기 여부 조회 -->
+	<select id="selectUserFavoriteYn" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT
+            USER_ID
+            , MENU_CD
+            , CREATED_DT
+            , CREATED_USER_ID
+        FROM COM_USER_FAVORIT
+        WHERE USER_ID = #{userId}
+        AND MENU_CD = #{menuCd}
+	</select>
+
+	<!-- 즐겨찾기 메뉴 count 조회 -->
+	<select id="selectFavMenu" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT COUNT(*) AS CNT FROM COM_USER_FAVORIT
+	</select>
+
+	<!-- 메뉴별 즐겨찾기 추가 -->
+	<insert id="insertFavorite" parameterType="HashMap" >
+		INSERT INTO COM_USER_FAVORIT (
+            USER_ID
+            , MENU_CD
+            , CREATED_DT
+            , CREATED_USER_ID
+            , DISPLAY_ORDER
+		) VALUES (
+			#{ssUserId}
+			, #{menuCd}
+			, SYSDATE
+			, #{ssUserId}
+		<if test='cnt == "0"'>
+			, '1'
+		</if>
+		<if test='cnt != "0"'>
+			, (SELECT MAX(DISPLAY_ORDER)+1 FROM COM_USER_FAVORIT WHERE USER_ID = #{ssUserId})
+		</if>
+		)
+	</insert>
+
+	<!-- 메뉴별 즐겨찾기 삭제 -->
+	<delete id="deleteFavorite" parameterType="HashMap" >
+		DELETE FROM COM_USER_FAVORIT
+        WHERE USER_ID = #{ssUserId}
+        AND MENU_CD = #{menuCd}
+	</delete>
+
+	<select id="selectFavDisplay1" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			DISPLAY_ORDER
+		FROM COM_USER_FAVORIT
+        WHERE USER_ID = #{ssUserId}
+        AND MENU_CD = #{menuCd}
+	</select>
+
+	<select id="selectFavDisplay2" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			USER_ID
+			, MENU_CD
+			, DISPLAY_ORDER
+		FROM COM_USER_FAVORIT
+		WHERE USER_ID = #{ssUserId}
+		AND DISPLAY_ORDER > #{displayOrder}
+	</select>
+
+	<select id="updateFavDisplay" parameterType="HashMap" resultType="ExqueryMap" >
+		UPDATE COM_USER_FAVORIT
+		SET DISPLAY_ORDER = ${displayOrder}-1
+        WHERE USER_ID = #{userId}
+        AND MENU_CD = #{menuCd}
+	</select>
+</mapper>

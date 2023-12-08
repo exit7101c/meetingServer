@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.eng.sqlEng">
+
+	<select id="selectEnergyList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			ENG_CD
+			, FN_GET_MSG(ENG_NM, #{ssUserLang}) AS NAME
+			, FN_GET_MSG(ENG_NM, #{ssUserLang}) AS ENG_NM
+			, UNIT
+		FROM COM_ENERGY
+		ORDER BY ENG_CD
+	</select>
+
+	<select id="selectMeterList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			METER_CD
+			, FN_GET_MSG(METER_NM, #{ssUserLang}) AS NAME
+			, FN_GET_MSG(METER_NM, #{ssUserLang}) AS METER_NM
+		FROM COM_METER
+		WHERE ENG_CD = 'POWER'
+		AND USE_YN = 'Y'
+		ORDER BY METER_CD
+	</select>
+
+	<!-- 접점 리스트 : 계량기-태그 Tree 구조에 사용 -->
+	<select id="selectMeterTagList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT TAG.TAG_CD
+			, TAG.TAG_CD  AS CODE
+			, TAG.UNIT  AS UNIT
+			, FN_GET_MSG(TAG.TAG_NM, #{ssUserLang}) AS NAME
+			, FN_GET_MSG(TAG.TAG_NM, #{ssUserLang}) AS CTQ_NM
+			, TAG.CHART_TYPE
+			, TAG.FILL_YN
+        FROM COM_METER_TAG             CQT
+        INNER JOIN COM_TAG             TAG
+        ON CQT.TAG_CD = TAG.TAG_CD
+        AND CQT.METER_CD = #{meterCd}
+        AND TAG.USE_YN = 'Y'
+        ORDER BY TAG_CD
+	</select>
+
+</mapper>

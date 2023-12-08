@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.smartmes.mesProcess">
+
+	<!--
+	QueryID     : selectProcessList
+	Description : Process 정보 결과 조회
+	-->
+	<select id="selectProcessList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			CP.PROC_CD
+			, CP.PROC_NM
+			, CP.PROC_DESC
+			, CP.PROC_TYPE
+			, CP.RESULT_PROC_YN
+			, CP.USE_YN
+			, CP.REMARKS
+			, TO_CHAR(CP.CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+			, CP.CREATED_USER_ID
+			, TO_CHAR(CP.UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+			, CP.UPDATED_USER_ID
+			, CP.MAPPED_CD
+			, CP.LINE_CD
+			, CP.DISPLAY_ORDER
+			, CL.AREA_CD
+			, CL.LINE_NM
+			, ROWNUM AS NO
+		FROM COM_PROCESS CP
+		LEFT OUTER JOIN COM_LINE CL
+		ON CP.LINE_CD = CL.LINE_CD
+		WHERE CL.AREA_CD = #{ssCustomerAreaCd} AND CP.USE_YN = #{useYn}
+		<if test="searchStr != '' and searchStr != null">
+			AND (CP.PROC_NM LIKE '%${searchStr}%')
+		</if>
+		<if test="searchStr2 != '' and searchStr2 != null">
+			AND (CL.LINE_CD = #{searchStr2})
+		</if>
+		ORDER BY CP.DISPLAY_ORDER
+	</select>
+	<!--
+	WHERE AREA_CD 포함 LINE_CD 포함
+	-->
+
+	<!--
+	QueryID     : selectProcessOne
+	Description : Process 정보 상세 단건 조회
+	-->
+	<select id="selectProcessOne" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			PROC_CD
+			, PROC_NM
+			, USE_YN
+			, TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+			, CREATED_USER_ID
+			, TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+			, UPDATED_USER_ID
+			, LINE_CD
+			, DISPLAY_ORDER
+			, ENTERPRISE_CD
+		FROM COM_PROCESS
+		WHERE PROC_CD = #{procCd}
+	</select>
+
+	<!--
+	QueryID     : insertProcessByJoin
+	Description : 회원가입 시 공정 신규등록
+	-->
+	<insert id="insertProcessByJoin" parameterType="HashMap">
+		<selectKey resultType="int" keyProperty="procSeq" order="BEFORE">
+			SELECT  SEQ_PROCESS_ID.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO COM_PROCESS
+		(PROC_CD, PROC_NM, PROC_TYPE, RESULT_PROC_YN, USE_YN, CREATED_DT, CREATED_USER_ID, UPDATED_DT, UPDATED_USER_ID, LINE_CD, DISPLAY_ORDER, ENTERPRISE_CD)
+		VALUES
+		(#{procSeq}, '기본공정', 'R', 'N', 'Y', SYSDATE, 'admin', SYSDATE, 'admin', #{lineSeq}, 1, #{enterSeq})
+	</insert>
+
+	<!--
+	QueryID     : insertProcess
+	Description : 공정 등록하기
+	-->
+	<insert id="insertProcess" parameterType="HashMap">
+		<selectKey resultType="int" keyProperty="procSeq" order="BEFORE">
+			SELECT  SEQ_PROCESS_ID.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO COM_PROCESS
+		(PROC_CD, PROC_NM, PROC_TYPE, RESULT_PROC_YN, USE_YN, CREATED_DT, CREATED_USER_ID, UPDATED_DT, UPDATED_USER_ID, LINE_CD, DISPLAY_ORDER, ENTERPRISE_CD)
+		VALUES
+		(#{procSeq}, #{procNm}, 'R', 'N', 'Y', SYSDATE, #{ssCustomerId}, SYSDATE, #{ssCustomerId}, #{lineCd}, #{displayOrder}, #{ssCustomerEnterCd})
+	</insert>
+
+	<!--
+	QueryID     : updateProcess
+	Description : Process 정보 수정
+	-->
+	<update id="updateProcess" parameterType="HashMap" >
+		UPDATE COM_PROCESS
+		<set>
+			UPDATED_DT = SYSDATE
+			, UPDATED_USER_ID = #{ssCustomerId}
+			<if test="procNm != null">
+				, PROC_NM = #{procNm}
+			</if>
+			<if test="lineCd != null">
+				, LINE_CD = #{lineCd}
+			</if>
+			<if test="displayOrder != null">
+				, DISPLAY_ORDER = #{displayOrder}
+			</if>
+			<if test="useYn != null">
+				, USE_YN = #{useYn}
+			</if>
+		</set>
+		WHERE PROC_CD = #{procCd}
+	</update>
+
+	<!--
+	QueryID     : deleteProcess
+	Description : Process 정보 삭제
+	-->
+	<update id="deleteProcess" parameterType="HashMap" >
+		UPDATE COM_PROCESS
+		<set>
+			USE_YN = 'N'
+			, UPDATED_DT = SYSDATE
+			, UPDATED_USER_ID = #{ssCustomerId}
+		</set>
+		WHERE PROC_CD = #{procCd}
+	</update>
+
+	<!--
+	QueryID     : deleteProcessByLine
+	Description : Line에 해당하는 Process 정보 삭제 (수정해야되는부분)
+	-->
+	<update id="deleteProcessByLine" parameterType="HashMap" >
+		UPDATE COM_PROCESS
+		<set>
+			USE_YN = 'N'
+			, UPDATED_DT = SYSDATE
+			, UPDATED_USER_ID = #{ssCustomerId}
+		</set>
+		WHERE LINE_CD = #{lineCd}
+	</update>
+
+	<!--
+	QueryID     : selectProcListByLineCd
+	Description : 라인코드로 Process 리스트 조회
+	-->
+	<select id="selectProcListByLineCd" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+            CP.PROC_CD
+            , CP.PROC_NM
+            , CP.CREATED_DT
+            , CP.CREATED_USER_ID
+            , CP.UPDATED_DT
+            , CP.UPDATED_USER_ID
+            , CP.LINE_CD
+            , CP.DISPLAY_ORDER
+            , CP.ENTERPRISE_CD
+            , CSC.STATE_NM
+        FROM COM_PROCESS CP
+        LEFT OUTER JOIN COM_EQUIPMENT CE
+        ON CP.PROC_CD = CE.PROC_CD
+        LEFT OUTER JOIN COM_EQP_STATE CES
+        ON CE.EQP_CD = CES.EQP_CD
+        LEFT OUTER JOIN COM_STATE_CODE CSC
+        ON CES.STATE_CD = CSC.STATE_CD
+        WHERE CP.LINE_CD = #{lineCd} AND CP.USE_YN = 'Y'
+        ORDER BY CP.DISPLAY_ORDER
+	</select>
+
+	<!--
+	QueryID     : selectProcListByEnterCd
+	Description : 법인코드로 Process 리스트 조회
+	-->
+	<select id="selectProcListByEnterCd" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			PROC_CD
+			, PROC_NM
+			, CREATED_DT
+			, CREATED_USER_ID
+			, UPDATED_DT
+			, UPDATED_USER_ID
+			, LINE_CD
+			, DISPLAY_ORDER
+			, ENTERPRISE_CD
+		FROM COM_PROCESS
+		WHERE ENTERPRISE_CD = #{enterpriseCd} AND USE_YN = 'Y'
+	</select>
+
+	<!--
+	QueryID     : selectProcEquipRunList
+	Description : 공정가동정보 조회
+	-->
+	<select id="selectProcEquipRunList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			(END_TIME - START_TIME)*24*60*60 * 0.027777777777777777778 AS WIDTH_PX,
+			(START_TIME - TO_DATE(TO_CHAR(SYSDATE-1, 'YYYYMMDD')||'000000', 'YYYYMMDDHH24MISS'))*24*60*60 * 0.027777777777777777778 AS LEFT_PX,
+			RUN_YN,
+			TO_CHAR(START_TIME, 'YYYY-MM-DD HH24:MI:SS') AS START_TIME_STR,
+			TO_CHAR(END_TIME, 'YYYY-MM-DD HH24:MI:SS') AS END_TIME_STR
+		FROM (
+			SELECT
+				CASE WHEN START_TIME &lt; TO_DATE(TO_CHAR(SYSDATE-1, 'YYYYMMDD')||'000000', 'YYYYMMDDHH24MISS') THEN TO_DATE(TO_CHAR(SYSDATE-1, 'YYYYMMDD')||'000000', 'YYYYMMDDHH24MISS') ELSE START_TIME END START_TIME,
+				CASE WHEN END_TIME > TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDD')||'235959', 'YYYYMMDDHH24MISS') THEN SYSDATE ELSE END_TIME END END_TIME,
+				RUN_YN
+			FROM COM_EQP_STATE_HIS
+			WHERE EQP_CD = (SELECT EQP_CD FROM COM_EQUIPMENT WHERE PROC_CD = #{procCd})
+			AND START_TIME &lt; TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDD')||'235959', 'YYYYMMDDHH24MISS')
+			AND END_TIME > TO_DATE(TO_CHAR(SYSDATE-1, 'YYYYMMDD')||'000000', 'YYYYMMDDHH24MISS')
+			ORDER BY START_TIME
+		)
+	</select>
+
+	<!--
+	QueryID     : selectProcEquipProdList
+	Description : 공정 생산정보 조회
+	-->
+	<select id="selectProcEquipProdList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+            A.PROD_CNT,
+            A.BAD_CNT,
+            (A.PROD_CNT + A.BAD_CNT) * 0.5 AS TOTAL_CNT,
+            B.PROD_NM,
+            A.CREATED_DT,
+            (A.CREATED_DT - TO_DATE(TO_CHAR(SYSDATE-1, 'YYYYMMDD')||'000000', 'YYYYMMDDHH24MISS'))*24*60*60 * 0.027777777777777777778 AS LEFT_PX
+        FROM COM_PROC_INPUT A, COM_PRODUCT B
+        WHERE A.PROD_ID = B.PROD_ID
+        AND A.PROC_CD = #{procCd}
+        AND A.CREATED_DT BETWEEN TO_DATE(TO_CHAR(SYSDATE-1, 'YYYYMMDD')||'000000', 'YYYYMMDDHH24MISS') AND TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDD')||'235959', 'YYYYMMDDHH24MISS')
+        AND (A.PROD_CNT != 0 OR A.BAD_CNT != 0)
+        ORDER BY A.CREATED_DT
+	</select>
+
+	<!--
+	QueryID     : selectProcCurruntTime
+	Description : 현제시간기준 left조회
+	-->
+	<select id="selectProcCurruntTime" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+            (SYSDATE - TO_DATE(TO_CHAR(SYSDATE-1, 'YYYYMMDD')||'000000', 'YYYYMMDDHH24MISS'))*24*60*60 * 0.027777777777777777778 AS LEFT_PX
+        FROM DUAL
+	</select>
+
+	<!--
+	QueryID     : selectLineProcManagerList
+	Description : 라인공정의 담당자명을 조회한다.
+	-->
+	<select id="selectLineProcManagerList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			MANAGER_NM,
+			MANAGER_KEY
+		FROM COM_MANAGER
+		WHERE LINE_CD = #{lineCd}
+		AND PROC_CD = #{procCd}
+	</select>
+
+</mapper>

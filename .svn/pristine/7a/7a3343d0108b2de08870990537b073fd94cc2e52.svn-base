@@ -1,0 +1,173 @@
+package cronies.meeting.user.controller;
+
+import cronies.meeting.user.service.CommonService;
+import cronies.meeting.user.service.CommunityService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.*;
+import select.spring.exquery.service.ExqueryService;
+
+import java.util.HashMap;
+import java.util.List;
+
+@RestController
+public class CommunityController {
+
+    @Autowired
+    private CommunityService communityService;
+
+    @Autowired
+    private ExqueryService exqueryService;
+
+    @Autowired
+    private CommonService commonService;
+
+    @RequestMapping(value = "getCommunityList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getCommunityList(@RequestParam HashMap<String, Object> param) throws Exception {
+        return communityService.getCommunityList(param);
+    }
+
+    @RequestMapping(value = "getCommunityDetail", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getCommunityDetail(@RequestParam HashMap<String, Object> param) throws Exception {
+        return communityService.getCommunityDetail(param);
+    }
+
+    @RequestMapping(value = "setCommunityInsert", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setCommunityInsert(@RequestParam HashMap<String, Object> param) throws Exception {
+        return communityService.setCommunityInsert(param);
+    }
+
+    @RequestMapping(value = "setCommunityUpdate", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setCommunityUpdate(@RequestParam HashMap<String, Object> param) throws Exception {
+        return communityService.setCommunityUpdate(param);
+    }
+
+    @RequestMapping(value = "setCommunityBookmark", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setCommunityBookmark(@RequestParam HashMap<String, Object> param) throws Exception {
+        return communityService.setCommunityBookmark(param);
+    }
+
+    @RequestMapping(value = "setCommunityComment", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setCommunityComment(@RequestParam HashMap<String, Object> param) throws Exception {
+        return communityService.setCommunityComment(param);
+    }
+
+    @RequestMapping(value = "setCommunityCommentUpdate", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setCommunityCommentUpdate(@RequestParam HashMap<String, Object> param) throws Exception {
+        return communityService.setCommunityCommentUpdate(param);
+    }
+
+    @RequestMapping(value = "getCategoryList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getCategoryList(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+        return communityService.getCategoryList(param);
+    }
+
+    @RequestMapping(value = "getSubCategoryList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getSubCategoryList(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+        return communityService.getSubCategoryList(param);
+    }
+
+    @RequestMapping(value = "setCommunityCommentDel", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setCommunityCommentDel(@RequestParam HashMap<String, Object> param) throws Exception {
+        return communityService.setCommunityCommentDel(param);
+    }
+
+    @RequestMapping(value = "setCommunityDel", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setCommunityDel(@RequestParam HashMap<String, Object> param) throws Exception {
+        return communityService.setCommunityDel(param);
+    }
+
+    @RequestMapping(value = "setThumbsUpDown", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setThumbsUpDown(@RequestParam HashMap<String, Object> param) throws Exception {
+        return communityService.setThumbsUpDown(param);
+    }
+    @RequestMapping(value = "setThumbsUpDown2", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setThumbsUpDown2(@RequestParam HashMap<String, Object> param) throws Exception {
+        return communityService.setThumbsUpDown2(param);
+    }
+
+    @RequestMapping(value = "getCommunityMyList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getCommunityMyList(@RequestParam HashMap<String, Object> param) throws Exception {
+        return communityService.getCommunityMyList(param);
+    }
+
+    @RequestMapping(value = "getCommunityCommentList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getCommunityCommentList(@RequestParam HashMap<String, Object> param) throws Exception {
+        return communityService.getCommunityCommentList(param);
+    }
+
+    @RequestMapping(value = "getCommunityMyBookmarkList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getCommunityMyBookmarkList(@RequestParam HashMap<String, Object> param) throws Exception {
+        return communityService.getCommunityMyBookmarkList(param);
+    }
+
+    @RequestMapping(value = "getCommunityUserNick", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getCommunityUserNick(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+        return communityService.getCommunityUserNick(param);
+    }
+
+    @RequestMapping(value = "getCommunityNickCheck", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getCommunityNickCheck(@RequestParam HashMap<String, Object> param) throws Exception {
+        return communityService.getCommunityNickCheck(param);
+    }
+
+    @RequestMapping(value = "setSaveCommunityNickname", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setSaveCommunityNickname(@RequestParam HashMap<String, Object> param) throws Exception {
+        return communityService.setSaveCommunityNickname(param);
+    }
+
+    @RequestMapping(value = "setCommunityChatRoom", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setCommunityChatRoom(@RequestParam HashMap<String, Object> param) throws Exception {
+        return communityService.setCommunityChatRoom(param);
+    }
+
+
+    @RequestMapping(value = "getPopList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getPopList(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+        return communityService.getPopList(param);
+    }
+
+    @RequestMapping(value = "getSelectUserIcon", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getSelectUserIcon(@RequestParam HashMap<String, Object> param) throws Exception {
+        return communityService.getSelectUserIcon(param);
+    }
+
+    @RequestMapping(value = "communityDropCheck", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> communityDropCheck(@RequestParam HashMap<String, Object> param) throws Exception {
+        int articleId = 0;
+        // Homepage.vue 에서 best topic 클릭 시 500에러 발생확인
+        // Homepage.vue 에서는 articleId, community.vue에서는 articleKey로 받아서 int파싱할 때 에러나면 decoding하도록 수정
+        try {
+            articleId = Integer.parseInt(param.get("articleKey").toString());
+        } catch (NumberFormatException e) {
+            articleId = Integer.parseInt(commonService.getDecoding(param.get("articleKey").toString()));
+        }
+
+        param.put("articleId", articleId);
+        return exqueryService.selectOne("cronies.app.community.communityDropCheck", param);
+    }
+
+}

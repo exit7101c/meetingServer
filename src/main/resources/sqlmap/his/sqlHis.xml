@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.his.sqlHis">
+
+	<!-- 날씨이력 차트조회 (온도) -->
+	<select id="selectHisWeatherChartListT" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            TO_CHAR(MEASURE_TIME, 'YYYY-MM-DD HH24:MI:SS') AS NAME
+            , MEASURE_TIME AS X
+            , ROUND(MAX(TEMP), 1)  AS Y
+            , 'TAG_ID' AS TAG_ID
+            , '온도' AS TAG_NAME
+            , 'T' AS TAG_CD
+            , '˚' AS UNIT
+        FROM COM_WEATHER
+        WHERE MEASURE_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+        GROUP BY MEASURE_TIME
+        ORDER BY MEASURE_TIME
+	</select>
+
+	<!-- 날씨이력 차트조회 (습도) -->
+	<select id="selectHisWeatherChartListH" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            TO_CHAR(MEASURE_TIME, 'YYYY-MM-DD HH24:MI:SS') AS NAME
+            , MEASURE_TIME AS X
+            , ROUND(MAX(HUMIDITY), 1)  AS Y
+            , 'TAG_ID' AS TAG_ID
+			, '습도' AS TAG_NAME
+			, 'H' AS TAG_CD
+			, '%' AS UNIT
+        FROM COM_WEATHER
+        WHERE MEASURE_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+        GROUP BY MEASURE_TIME
+        ORDER BY MEASURE_TIME
+	</select>
+
+	<!-- 날씨이력 차트조회 (기압) -->
+	<select id="selectHisWeatherChartListP" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            TO_CHAR(MEASURE_TIME, 'YYYY-MM-DD HH24:MI:SS') AS NAME
+            , MEASURE_TIME AS X
+            , ROUND(MAX(PRESSURE), 1)  AS Y
+            , 'TAG_ID' AS TAG_ID
+			, '기압' AS TAG_NAME
+			, 'P' AS TAG_CD
+			, 'hPa' AS UNIT
+        FROM COM_WEATHER
+        WHERE MEASURE_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+        GROUP BY MEASURE_TIME
+        ORDER BY MEASURE_TIME
+	</select>
+
+</mapper>

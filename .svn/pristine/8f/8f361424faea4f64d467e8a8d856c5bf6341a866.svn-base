@@ -1,0 +1,163 @@
+package cronies.meeting.user.controller;
+
+import cronies.meeting.user.service.CommonService;
+import org.apache.commons.collections.MapUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+import select.spring.exquery.service.ExqueryService;
+
+import java.util.*;
+
+@RestController
+public class PartnersController {
+
+    @Autowired
+    private ExqueryService exqueryService;
+
+    @Autowired
+    private CommonService commonService;
+
+    @ResponseBody
+    @RequestMapping(value = "partnersCheck", method = { RequestMethod.GET, RequestMethod.POST })
+    public HashMap<String, Object> partnersCheck(@RequestParam HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<>();
+        if (!param.containsKey("userId") || !param.containsKey("userKey")) {
+            if(param.containsKey("userKey")){
+                param.put("userId", commonService.getDecoding(param.get("userKey").toString()));
+            } else {
+                param.put("userId", param.get("ssUserId"));
+            }
+        }
+        HashMap<String, Object> partnersCheckMap = exqueryService.selectOne("cronies.app.partners.partnersCheck", param);
+        if (!MapUtils.isEmpty(partnersCheckMap)) {
+            resultMap.put("isPartner", "Y");
+            if (partnersCheckMap.containsKey("partnersCode")) {
+                resultMap.put("partnersCode", partnersCheckMap.get("partnersCode").toString());
+            } else {
+                resultMap.put("isPartner", "N");
+            }
+        } else {
+            resultMap.put("isPartner", "N");
+        }
+        return resultMap;
+    }
+
+    @ResponseBody
+    @RequestMapping(value = "partnersInfo", method = { RequestMethod.GET, RequestMethod.POST })
+    public HashMap<String, Object> partnersInfo(@RequestParam HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<>();
+        if (!param.containsKey("partnersCode") || param.get("partnersCode").toString().isEmpty()) {
+            if (!param.containsKey("userId") && !param.containsKey("userKey")) {
+                param.put("userId", param.get("ssUserId"));
+            } else if (param.containsKey("userKey")){
+                param.put("userId", commonService.getDecoding(param.get("userKey").toString()));
+            }
+        }
+
+        HashMap<String, Object> partnersInfoMap = exqueryService.selectOne("cronies.app.partners.partnersInfo", param);
+        if (!MapUtils.isEmpty(partnersInfoMap)) {
+            resultMap.put("successYn", "Y");
+            resultMap.put("result", partnersInfoMap);
+        } else {
+            resultMap.put("successYn", "N");
+        }
+        return resultMap;
+    }
+
+    @ResponseBody
+    @RequestMapping(value = "partnersInfoSave", method = { RequestMethod.GET, RequestMethod.POST })
+    public HashMap<String, Object> partnersInfoSave(@RequestParam HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<>();
+        if (exqueryService.update("cronies.app.partners.partnersInfoSave", param) > 0) {
+            resultMap.put("message", "저장되었습니다.");
+        } else {
+            resultMap.put("message", "저장에 실패했습니다. 다시 시도해 주세요.");
+        }
+        return resultMap;
+    }
+    
+    @ResponseBody
+    @RequestMapping(value = "partnersPhotoUpdate", method = { RequestMethod.GET, RequestMethod.POST })
+    public HashMap<String, Object> partnersPhotoUpdate(@RequestParam HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<>();
+        if (exqueryService.update("cronies.app.partners.partnersPhotoUpdate", param) > 0) {
+            resultMap.put("message", "저장되었습니다.");
+            resultMap.put("isUpdate", true);
+        } else {
+            resultMap.put("message", "저장에 실패했습니다. 다시 시도해 주세요.");
+            resultMap.put("isUpdate", false);
+        }
+        return resultMap;
+    }
+
+    @ResponseBody
+    @RequestMapping(value = "partnersPhotoDelete", method = { RequestMethod.GET, RequestMethod.POST })
+    public HashMap<String, Object> partnersPhotoDelete(@RequestParam HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<>();
+        if (exqueryService.update("cronies.app.partners.partnersPhotoDelete", param) > 0) {
+            resultMap.put("successYn", "Y");
+            resultMap.put("message", "사진삭제 성공");
+        } else {
+            resultMap.put("successYn", "N");
+            resultMap.put("message", "에러가 발생하였습니다. 다시 시도해 주세요.");
+        }
+        return resultMap;
+    }
+
+    @ResponseBody
+    @RequestMapping(value = "partnerChartData", method = { RequestMethod.GET, RequestMethod.POST })
+    public List<HashMap<String, Object>> partnerChartData(@RequestParam HashMap<String, Object> param) throws Exception {
+        List<HashMap<String, Object>> resultList = new ArrayList<>();
+        List<HashMap<String, Object>> chartData = exqueryService.selectList("cronies.app.partners.partnerChartData", param);
+        Iterator<HashMap<String, Object>> _chart1 = chartData.iterator();
+
+        List<HashMap<String, Object>> dataList = new ArrayList<>();
+        while(_chart1.hasNext()) {
+            HashMap<String, Object> item = _chart1.next();
+            
+            HashMap<String, Object> dataMap = new HashMap<>();
+            dataMap.put("x", item.get("x"));
+            dataMap.put("y", item.get("y"));
+            dataList.add(dataMap);
+        }
+
+        HashMap<String, Object> map = new HashMap<>();
+        switch (param.get("timeType").toString()) {
+            case "DAY": map.put("name", "일 노출 수"); break; 
+            case "HOUR": map.put("name", "시간별 노출 수"); break;
+            case "MONTH": map.put("name", "월 노출 수"); break; 
+            default: break; 
+        }
+        map.put("data", dataList);
+        map.put("yAxis", 1);
+
+        resultList.add(map);
+        
+        param.put("total", "Y");
+        List<HashMap<String, Object>> totalChartData = exqueryService.selectList("cronies.app.partners.partnerChartData", param);
+        Iterator<HashMap<String, Object>> _chart2 = totalChartData.iterator();
+        dataList = new ArrayList<>();
+        while(_chart2.hasNext()) {
+            HashMap<String, Object> item = _chart2.next();
+
+            HashMap<String, Object> dataMap = new HashMap<>();
+            dataMap.put("x", item.get("x"));
+            dataMap.put("y", item.get("y"));
+            dataList.add(dataMap);
+        }
+        map = new HashMap<>();
+        map.put("name", "총 노출 수");
+        map.put("data", dataList);
+        map.put("yAxis", 0);
+
+        resultList.add(map);
+
+        return resultList;
+    }
+
+    @ResponseBody
+    @RequestMapping(value = "partnerExposureData", method = { RequestMethod.GET, RequestMethod.POST })
+    public HashMap<String, Object> partnerExposureData(@RequestParam HashMap<String, Object> param) throws Exception {
+        return exqueryService.selectOne("cronies.app.partners.partnerExposureData", param);
+    }
+}

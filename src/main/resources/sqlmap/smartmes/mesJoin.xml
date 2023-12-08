@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.smartmes.mesJoin">
+	
+	<!--
+	QueryID     : selectPlantList
+	Description : Line 정보 결과 조회r
+	-->
+	<select id="selectEnterpriseOneByName" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			ENTERPRISE_CD
+			, ENTERPRISE_NM
+			, REMARKS
+			, USE_YN
+			, CREATED_DT
+			, CREATED_USER_ID
+			, UPDATED_DT
+			, UPDATED_USER_ID
+		FROM COM_ENTERPRISE
+        WHERE ENTERPRISE_NM = #{enterpriseNm}
+	</select>
+
+</mapper>

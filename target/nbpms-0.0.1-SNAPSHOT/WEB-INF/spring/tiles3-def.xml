@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE tiles-definitions 
+	PUBLIC "-//Apache Software Foundation//DTD Tiles Configuration 3.0//EN" 
+	"http://tiles.apache.org/dtds/tiles-config_3_0.dtd">
+
+<tiles-definitions>
+
+	<!-- Default Main Template -->
+	<definition name="f:**" template="/WEB-INF/view/layout/default.jsp" >
+		<put-attribute name="top" 	value="/WEB-INF/view/layout/top.jsp" />
+		<put-attribute name="left" 	value="/WEB-INF/view/layout/left.jsp" />
+		<put-attribute name="body" 	value="/WEB-INF/view/pages/{1}.jsp"  />
+	</definition>
+
+	<!-- Monitering Template -->
+	<definition name="m:**" template="/WEB-INF/view/layout/moniterDefault.jsp" >
+		<put-attribute name="top" 	value="/WEB-INF/view/layout/top.jsp" />
+		<put-attribute name="left" 	value="/WEB-INF/view/layout/left.jsp" />
+		<put-attribute name="body" 	value="/WEB-INF/view/pages/{1}.jsp"  />
+	</definition>
+	
+	<!-- tablet Template -->
+	<definition name="t:**" template="/WEB-INF/view/layout/frame.jsp" >
+	</definition>
+
+	<!-- Default POP Template -->
+	<definition name="p:**" template="/WEB-INF/view/layout/popup.jsp" >
+		<put-attribute name="body" value="/WEB-INF/view/pages/{1}.jsp"  />
+	</definition>
+	
+	<!-- Login Template -->
+	<definition name="g:**" template="/WEB-INF/view/layout/login.jsp" >
+	</definition>
+
+	<!-- Reject Template -->
+	<definition name="r:**" template="/WEB-INF/view/layout/reject.jsp" >
+	</definition>
+
+	<!-- Login Template -->
+	<definition name="e:**" template="/WEB-INF/view/layout/error.jsp" >
+	</definition>
+
+	<!-- Default windowPOP Template -->
+	<definition name="wp:**" template="/WEB-INF/view/pages/{1}.jsp" >
+	</definition>
+
+	<!-- NICE API Template -->
+	<definition name="n:**" template="/WEB-INF/view/{1}.jsp" >
+	</definition>
+
+</tiles-definitions>

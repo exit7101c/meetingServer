@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.smartmes.mesArea">
+
+	<!--
+	QueryID     : selectAreaOne
+	Description : 구역 등록하기
+	-->
+	<select id="selectAreaOneByEnterCd" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			AREA_CD
+			, AREA_NM
+			, PLANT_CD
+			, SITE_CD
+			, DISPLAY_ORDER
+			, USE_YN
+			, CREATED_DT
+			, CREATED_USER_ID
+			, UPDATED_DT
+			, UPDATED_USER_ID
+		FROM COM_AREA
+		WHERE PLANT_CD = #{ssCustomerPlantCd}
+	</select>
+
+	<!--
+	QueryID     : insertAreaByJoin
+	Description : 회원가입시 구역 신규등록
+	-->
+	<insert id="insertAreaByJoin" parameterType="HashMap">
+		<selectKey resultType="int" keyProperty="areaSeq" order="BEFORE">
+			SELECT  SEQ_AREA_ID.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO COM_AREA
+		(AREA_CD, AREA_NM, PLANT_CD, USE_YN, CREATED_DT, CREATED_USER_ID, UPDATED_DT, UPDATED_USER_ID)
+		VALUES
+		(#{areaSeq}, '기본구역', #{areaSeq}, 'Y', SYSDATE, 'admin', SYSDATE, 'admin')
+	</insert>
+
+	<!--
+	QueryID     : selectAreaList
+	Description : 회원가입시 구역 신규등록
+	-->
+	<select id="selectAreaList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			AREA_CD
+			, AREA_NM
+			, PLANT_CD
+			, DISPLAY_ORDER
+			, USE_YN
+			, CREATED_DT
+			, CREATED_USER_ID
+			, UPDATED_DT
+			, UPDATED_USER_ID
+		FROM COM_AREA
+		WHERE PLANT_CD = #{ssCustomerPlantCd} AND USE_YN = #{useYn}
+	</select>
+
+</mapper>

@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.smartmes.mesCustomer">
+
+	<!--
+	QueryID     : insertCustomerByJoin
+	Description : 회원가입 시 사용자 신규등록
+	-->
+	<insert id="insertCustomerByJoin" parameterType="HashMap">
+		INSERT INTO COM_CUSTOMER
+		(CUSTOMER_ID, CUSTOMER_NM, PASSWORD, PHONE, ENTERPRISE_CD, CREATED_DT, CREATED_USER_ID, UPDATED_DT, UPDATED_USER_ID, TERM_YN, MARKETING_YN, MESSAGE_YN, ACCESS_YN)
+		VALUES
+		(#{id}, #{userNm}, #{pw}, #{phone}, #{enterSeq}, SYSDATE, 'admin', SYSDATE, 'admin', 'Y', 'Y', 'Y', 'Y')
+	</insert>
+
+	<!--
+	QueryID     : selectCustomerOneById
+	Description : 사용자 중복체크
+	-->
+	<select id="selectCustomerOneById" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			CUSTOMER_ID
+			, CUSTOMER_NM
+			, PHONE
+			, ENTERPRISE_CD
+			, CREATED_DT
+			, CREATED_USER_ID
+			, UPDATED_DT
+			, UPDATED_USER_ID
+			, TERM_YN
+			, MARKETING_YN
+			, MESSAGE_YN
+			, ACCESS_YN
+		FROM COM_CUSTOMER
+		WHERE CUSTOMER_ID = #{id}
+	</select>
+
+	<!--
+	QueryID     : selectUserIdFromJoin
+	Description : 사용자 아이디찾기
+	-->
+	<select id="selectUserIdFromJoin" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			CUSTOMER_ID, CUSTOMER_NM
+		FROM COM_CUSTOMER
+		WHERE PHONE = #{phone}
+	</select>
+
+	<!--
+	QueryID     : selectUserIdFromFindPw
+	Description : 사용자 아이디찾기
+	-->
+	<select id="selectUserIdFromFindPw" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			CUSTOMER_ID, CUSTOMER_NM
+		FROM COM_CUSTOMER
+		WHERE CUSTOMER_ID = #{id}
+		AND PHONE = #{phone}
+	</select>
+
+	<!--
+	QueryID     : updatePasswordFromFindPw
+	Description : 비밀번호변경(비밀번호찾기)
+	-->
+	<select id="updatePasswordFromFindPw" parameterType="HashMap" resultType="ExqueryMap" >
+		UPDATE COM_CUSTOMER
+		SET PASSWORD = #{newPw}
+		WHERE CUSTOMER_ID = #{id}
+		AND PHONE = #{phone}
+	</select>
+
+	<!--
+	QueryID     : updatePasswordFromSetting
+	Description : 비밀번호변경(설정)
+	-->
+	<select id="updatePasswordFromSetting" parameterType="HashMap" resultType="ExqueryMap" >
+		UPDATE COM_CUSTOMER
+		SET PASSWORD = #{newPw}
+		WHERE CUSTOMER_ID = #{id}
+	</select>
+
+	<!--
+	QueryID     : selectCustomerOneByIdBeforePw
+	Description : 이전 비밀번호 체크
+	-->
+	<select id="selectCustomerOneByIdBeforePw" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			CUSTOMER_ID
+			, CUSTOMER_NM
+			, PHONE
+			, ENTERPRISE_CD
+			, CREATED_DT
+			, CREATED_USER_ID
+			, UPDATED_DT
+			, UPDATED_USER_ID
+			, TERM_YN
+			, MARKETING_YN
+			, MESSAGE_YN
+			, ACCESS_YN
+		FROM COM_CUSTOMER
+		WHERE CUSTOMER_ID = #{id} AND PASSWORD = #{beforePw}
+	</select>
+
+</mapper>

@@ -1,0 +1,182 @@
+package cronies.meeting.user.controller;
+
+import cronies.meeting.user.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+import select.spring.exquery.service.ExqueryService;
+
+import javax.servlet.http.HttpServletRequest;
+import java.util.HashMap;
+import java.util.List;
+
+@RestController
+public class UserController {
+
+    private static final String HEADER_X_FORWARDED_FOR = "X-FORWARDED-FOR";
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private ExqueryService exqueryService;
+
+    @RequestMapping(value = "setLogin", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setLogin(@RequestParam HashMap<String, Object> param, HttpServletRequest request) throws Exception {
+        return userService.setLogin(param, request);
+    }
+
+    @RequestMapping(value = "sessionCheck", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> sessionCheck(@RequestParam HashMap<String, Object> param, HttpServletRequest request) throws Exception {
+        HashMap<String, Object> selectMap = new HashMap<String, Object>();
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+        HashMap<String, Object> countMap = new HashMap<String, Object>();
+        HashMap<String, Object> adSecondInfoMap = new HashMap<String, Object>();
+        HashMap<String, Object> adLogHisMap = new HashMap<String, Object>();
+
+        //세션키가 유효한지 체크 후 유효하지 않는다면 N을 반환한다.
+        if(!param.get("ssUserId").equals("0")){
+            selectMap = exqueryService.selectOne("cronies.app.setting.sessionCheck", param);
+            exqueryService.update("cronies.app.setting.updateLastConnect", param);
+            //기본정보 업데이트
+            resultMap.put("communityNick", selectMap.get("communityLastnick").toString());
+            resultMap.put("communityIcon", selectMap.get("communityLasticon").toString());
+            resultMap.put("subscribeYn", selectMap.get("subscribeYn").toString());
+        } else {
+            selectMap = null;
+        }
+
+
+        if(selectMap != null){
+
+            if(selectMap.get("dropYn").equals("Y")){
+                resultMap.put("successYn", "N");
+                resultMap.put("type", "ban");
+                resultMap.put("message", "삭제된 사용자 입니다.");
+            } else if(selectMap.get("connectYn").equals("N")){
+                resultMap.put("successYn", "N");
+                resultMap.put("type", "ban");
+                resultMap.put("message", "접근이 금지된 사용자 입니다.");
+            } else if(selectMap.get("dayBanYn").equals("Y")){
+                resultMap.put("successYn", "N");
+                resultMap.put("type", "dayBan");
+                resultMap.put("message", "사유: "+selectMap.get("banMessage").toString()+"\n"
+                                        +"기간: " +selectMap.get("banEndTime") + " 까지");
+            } else if(selectMap.get("maintainanceYn").equals("Y")){
+
+                if(param.get("fromAddr").toString().equals("/")){
+                    resultMap.put("successYn", "Y");
+                    resultMap.put("type", "good");
+                    resultMap.put("message", "정상사용자");
+                } else if(param.get("fromAddr").toString().equals("/home")) {
+                    //token이 null인데도 불구하고 home에서 이동할때 여기에 걸렸다면 무한 로그인 팅김을 막기위해 temp를 입력한다.
+                    exqueryService.update("cronies.app.setting.updateTokenTemp", param);
+                    resultMap.put("successYn", "N");
+                    resultMap.put("type", "maintainance");
+//                resultMap.put("message", selectMap.get("maintainanceMessage"));
+                    resultMap.put("message", "푸시알림 설정이 정상적이지 않아 다시 로그인하면 푸시알림을 정상적으로 받을 수 있습니다. 다시 로그인 부탁드립니다.");
+                } else {
+                    //임시처리!!!
+                    //exqueryService.update("cronies.app.setting.updateTokenTemp", param);
+                    resultMap.put("successYn", "N");
+                    resultMap.put("type", "maintainance");
+//                resultMap.put("message", selectMap.get("maintainanceMessage"));
+                    resultMap.put("message", "푸시알림 설정이 정상적이지 않아 다시 로그인하면 푸시알림을 정상적으로 받을 수 있습니다. 다시 로그인 부탁드립니다.");
+                }
+            } else {
+
+                //버전정보 조회
+                HashMap<String, Object> verChkMap = exqueryService.selectOne("cronies.app.setting.selectSystemVersionCheck", param);
+                if(verChkMap.get("sysValue").equals("Y") || param.get("toAddr").toString().equals("/contestHot")){
+                    // 버전체크가 필수일 경우
+                    HashMap<String, Object> verMap = exqueryService.selectOne("cronies.app.setting.selectSystemVersion", param);
+
+                    //클라이언트 버전정보와 비교
+                    if(verMap.get("sysValue").equals(param.get("version"))){
+                        resultMap.put("successYn", "Y");
+                        resultMap.put("type", "good");
+                        resultMap.put("message", "정상사용자");
+                    } else {
+                        resultMap.put("successYn", "N");
+                        resultMap.put("type", "connect");
+                        resultMap.put("message", "최신버전이 아닙니다. 최신버전으로 업데이트해 주시기 바랍니다.");
+                    }
+                } else {
+                    // 버전체크를 하지 않아도 될 경우
+                    resultMap.put("successYn", "Y");
+                    resultMap.put("type", "good");
+                    resultMap.put("message", "정상사용자");
+                }
+
+            }
+
+
+            //사용이력 저장
+            String clientIp = request.getHeader(HEADER_X_FORWARDED_FOR);
+            if(null == clientIp || clientIp.length() == 0 || clientIp.toLowerCase().equals("unknown")){
+                clientIp = request.getRemoteAddr();
+            }
+            param.put("ipAddr", clientIp);
+            exqueryService.insert("cronies.app.setting.insertUserLog", param);
+
+            // 알람 count 계산
+            countMap = exqueryService.selectOne("cronies.app.alarm.getAlarmNewReceivedCount", param);
+            resultMap.put("alarmCount", countMap.get("alarmCount"));
+
+
+            //전면광고 여부 처리
+            if(selectMap.get("subscribeYn").toString().equals("N")){
+                //구독상태가 아닐 시에만 전면광고 처리
+
+                //지정된 라우터로 이동 할 때에만 처리
+                if(param.get("toAddr").toString().equals("/home")
+                    || param.get("toAddr").toString().equals("/community")
+                    || param.get("toAddr").toString().equals("/feed")
+                    || param.get("toAddr").toString().equals("/communityView")
+                    || param.get("toAddr").toString().equals("/openChat")
+                    || param.get("toAddr").toString().equals("/openChatMeet")
+                    || param.get("toAddr").toString().equals("/ImsiTap")
+                    || param.get("toAddr").toString().equals("/imsiTapCardDetail")
+                    || param.get("toAddr").toString().equals("/dailyCardInfo")
+                ){
+                    //AD 재노출 지정시간 조회
+                    adSecondInfoMap = exqueryService.selectOne("cronies.app.setting.selectSysInfoAdSecond", param);
+                    param.put("adSecond", adSecondInfoMap.get("sysValue"));
+                    //해당 시간 내에 광고 본 이력이 있는지 조회
+                    adLogHisMap = exqueryService.selectOne("cronies.app.setting.selectAdLogHisOne", param);
+
+                    if(adLogHisMap == null){
+                        // 광고를 본 최근이력 없음. 광고 가능 + 현재시간 광고 수신한것으로 처리
+                        exqueryService.insert("cronies.app.setting.insertAdLogHis", param);
+                        resultMap.put("adPopYn", "Y");
+                    } else {
+                        // 광고를 본 이력이 있음 pass
+                        resultMap.put("adPopYn", "N");
+                    }
+
+                } else {
+                    // 지정 라우터가 아닐경우 처리하지 않음
+                    resultMap.put("adPopYn", "N");
+                }
+
+            } else {
+                //구독상태일 경우 광고처리하지 않음
+                resultMap.put("adPopYn", "N");
+            }
+
+        } else {
+            resultMap.put("successYn", "N");
+            resultMap.put("type", "update");
+            resultMap.put("message", "업데이트되어 접속이 만료되었습니다. 다시 로그인 해 주세요.");
+        }
+
+        return resultMap;
+    }
+
+    @RequestMapping(value = "setUserToken", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setUserToken(@RequestParam HashMap<String, Object> param) throws Exception {
+        return userService.setUserToken(param);
+    }
+}

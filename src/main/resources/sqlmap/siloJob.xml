@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="silo.siloJob">
+
+    <!-- 생산량 조회 -->
+    <select id="selectBatchInfo" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT TOP 1000
+          [OrderId]
+          ,[BatchNo]
+           ,[ScaleID]
+           ,[SiloNo]
+           ,[Lines]
+          ,[ProdStartDateTime]
+          ,[ProdEndDateTime]
+          ,[RCPID]
+          ,[RCPName]
+          ,[SetWeight]
+          ,[ActualWeight]
+          ,[ConsumerID]
+          ,[LogDate]
+          ,[IngID]
+          ,[IngName]
+      FROM [NSE].[dbo].[LogBatch]
+      WHERE LogDate BETWEEN DATEADD(d,-1,GETDATE()) AND GETDATE()
+      ORDER BY LogDate DESC
+    </select>
+
+    <!-- 생산량 조회 -->
+    <select id="mergeBatchInfo" parameterType="HashMap" resultType="ExqueryMap" >
+        MERGE INTO IFR_LOGBATCH
+      USING DUAL
+      ON (BATCHNO = #{batchno} AND SILONO = #{silono})
+        WHEN MATCHED THEN
+            UPDATE SET
+                ORDERID            = #{orderid},
+                  SCALEID            = #{scaleid},
+                  LINES              = #{lines},
+                  PRODSTARTDATETIME  = #{prodstartdatetime},
+                  PRODENDDATETIME    = #{prodenddatetime},
+                  RCPID              = #{rcpid},
+                  RCPNAME            = #{rcpname},
+                  SETWEIGHT          = #{setweight},
+                  ACTUALWEIGHT       = #{actualweight},
+                  CONSUMERID        = #{consumerid},
+                  LOGDATE            = #{logdate},
+                  INGID              = #{ingid},
+                  INGNAME           = #{ingname},
+                  IF_UPD_DATE = SYSDATE
+        WHEN NOT MATCHED THEN
+            INSERT  (BATCHNO, SILONO, ORDERID,SCALEID,LINES,PRODSTARTDATETIME,PRODENDDATETIME,RCPID,RCPNAME,SETWEIGHT,ACTUALWEIGHT,CONSUMERID,LOGDATE,INGID,INGNAME, IF_REG_DATE)
+            VALUES  (#{batchno}, #{silono},#{orderid},#{scaleid},#{lines},#{prodstartdatetime},#{prodenddatetime},#{rcpid},#{rcpname},#{setweight},#{actualweight},#{consumerid},#{logdate},#{ingid},#{ingname}, SYSDATE)
+    </select>
+
+    <!-- 조회 -->
+    <select id="selectBatchInfo_logordering" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT TOP 1000
+        [Lines]
+              ,[MixerHopper]
+              ,[LogOrder]
+              ,[EndBatch]
+              ,[ChangeDateTime]
+              ,[RcpId]
+              ,[RcpName]
+          FROM [NSE].[dbo].[LogOrderIng]
+    </select>
+
+    <select id="mergeBatchInfo_logordering" parameterType="HashMap" resultType="ExqueryMap" >
+        MERGE INTO IFR_LOGORDERING
+      USING DUAL
+      ON (LINES = #{lines} AND MIXERHOPER = #{mixerhopper} AND RCPID = #{rcpid})
+        WHEN MATCHED THEN
+            UPDATE SET
+                LOGORDER            = #{logorder},
+              ENDBATCH            = #{endbatch},
+              CHANGEDATETIME              = #{changedatetime},
+                  RCPNAME  = #{rcpname},
+                  IF_UPD_DATE = SYSDATE
+        WHEN NOT MATCHED THEN
+            INSERT  (LINES, MIXERHOPER, RCPID,LOGORDER,ENDBATCH,CHANGEDATETIME,RCPNAME, IF_REG_DATE)
+            VALUES  (#{lines}, #{mixerhopper},#{rcpid},#{logorder},#{endbatch},#{changedatetime},#{rcpname},SYSDATE)
+    </select>
+
+
+    <!-- 조회 -->
+    <select id="selectBatchInfo_rcpmain" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT [RCPID]
+          ,[RCPName]
+          ,[BatchSize]
+          ,[CreateDateTime]
+          ,[ChangeDateTime]
+          ,[Lines]
+      FROM [dbo].[RCPMain]
+    </select>
+
+    <select id="mergeBatchInfo_rcpmain" parameterType="HashMap" resultType="ExqueryMap" >
+        MERGE INTO IFR_RCPMAIN
+        USING DUAL
+        ON (LINES = #{lines} AND RCPID = #{rcpid})
+        WHEN MATCHED THEN
+        UPDATE SET
+        RCPNAME            = #{rcpname},
+        BATCHSIZE            = #{batchsize},
+        CREATEDATETIME              = #{createdatetime},
+        CHANGEDATETIME  = #{changedatetime},
+        IF_UPD_DATE = SYSDATE
+        WHEN NOT MATCHED THEN
+        INSERT  (LINES, RCPID,RCPNAME,BATCHSIZE,CREATEDATETIME,CHANGEDATETIME, IF_REG_DATE)
+        VALUES  (#{lines},#{rcpid},#{rcpname},#{batchsize},#{createdatetime},#{changedatetime},SYSDATE)
+    </select>
+
+
+    <!-- 조회 -->
+    <select id="selectBatchInfo_rcpxing" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT [RCPID]
+              ,[IngID]
+              ,[SetWeight]
+              ,[IngTypeID]
+              ,[SiloNo]
+              ,[Lines]
+              ,[RCPName]
+              ,[LoadSequence]
+              ,[ScaleType]
+              ,[Update_Time]
+          FROM [dbo].[RCPXing]
+    </select>
+
+    <select id="mergeBatchInfo_rcpxing" parameterType="HashMap" resultType="ExqueryMap" >
+        MERGE INTO IFR_RCPXING
+        USING DUAL
+        ON (RCPID = #{rcpid} AND INGID = #{ingid})
+        WHEN MATCHED THEN
+        UPDATE SET
+        SETWEIGHT            = #{setweight},
+        INGTYPEID            = #{ingtypeid},
+        SILONO              = #{silono},
+        LINES  = #{lines},
+        RCPNAME = #{rcpname},
+        LOADSEQUENCE = #{loadsequence},
+        SCALETYPE = #{scaletype},
+        UPDATE_TIME = #{updateTime},
+        IF_UPD_DATE = SYSDATE
+        WHEN NOT MATCHED THEN
+        INSERT  (RCPID, INGID,SETWEIGHT,INGTYPEID,SILONO,LINES,RCPNAME,LOADSEQUENCE,SCALETYPE,UPDATE_TIME, IF_REG_DATE)
+        VALUES  (#{rcpid},#{ingid},#{setweight},#{ingtypeid},#{silono},#{lines},#{rcpname},#{loadsequence},#{scaletype},#{updateTime}, SYSDATE)
+    </select>
+
+</mapper>

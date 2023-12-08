@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cronies.app.reservation">
+
+	<select id="setMergeUser" parameterType="HashMap" resultType="ExqueryMap">
+		INSERT INTO SC_USER (PHON, JOIN_FINISH_YN)
+		VALUES (#{phone}, 'N')
+		SELECT @@IDENTITY AS CUR_ID
+	</select>
+
+	<select id="getIsReservation" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			REG_USER_ID
+			, PLATFORM
+			, RESERVATION_TIME
+			, AUTH_TIME
+			, AUTH_CODE
+			, CASE WHEN DATEDIFF(MI, AUTH_TIME, GETDATE()) &lt; 5
+			    		THEN 'Y'
+			    	ELSE 'N'
+		   	END IS_COMPLETE
+		FROM SC_PRE_RESERVATION
+		WHERE 1=1
+			AND PHONE = #{phone}
+	</select>
+
+	<insert id="insertReservation" parameterType="HashMap">
+		INSERT INTO SC_PRE_RESERVATION (REG_USER_ID, PHONE, PLATFORM, AUTH_TIME, AUTH_CODE)
+		VALUES (#{userId}, #{phone}, #{platform}, GETDATE(), #{authCode})
+	</insert>
+
+	<update id="completeReservation" parameterType="HashMap">
+		UPDATE SC_PRE_RESERVATION
+		SET RESERVATION_TIME = GETDATE()
+			, INVITER_USER_ID = #{targetUserId}
+		WHERE 1=1
+		AND PHONE = #{phone}
+	</update>
+
+	<update id="completeReservationNoTarget" parameterType="HashMap">
+		UPDATE SC_PRE_RESERVATION
+		SET RESERVATION_TIME = GETDATE()
+		WHERE 1=1
+		  AND PHONE = #{phone}
+	</update>
+
+	<update id="updateReservationAuthCode" parameterType="HashMap">
+		UPDATE SC_PRE_RESERVATION
+		SET	AUTH_TIME = GETDATE()
+			, AUTH_CODE = #{authCode}
+			, PLATFORM = #{platform}
+		WHERE PHONE = #{phone}
+	</update>
+
+	<update id="mergeVerification" parameterType="HashMap">
+		MERGE INTO SC_VERIFICATION AS A
+			USING (SELECT 1 AS DUAL) AS B
+			ON (A.USER_ID = #{userId})
+			WHEN MATCHED THEN
+				UPDATE SET
+					VERIFICATION_CODE = #{verificationCode}
+					, VERIFICATION_TIME = GETDATE()
+			WHEN NOT MATCHED THEN
+				INSERT
+					(USER_ID
+					, VERIFICATION_CODE
+					, VERIFICATION_TIME
+					)
+				VALUES
+					(#{userId}
+					, #{verificationCode}
+					, GETDATE()
+					);
+	</update>
+
+	<select id="getUserByPhone" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			USER_ID
+		FROM SC_USER
+		WHERE 1=1
+		  AND PHON = #{phone}
+	</select>
+
+	<select id="getUserVerificationInfo" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			VERIFICATION_CODE
+			, CASE WHEN DATEDIFF(MI, VERIFICATION_TIME, GETDATE()) &lt; 5
+						THEN 'Y'
+				ELSE 'N'
+			END IS_COMPLETE
+		FROM SC_VERIFICATION
+		WHERE 1=1
+		  AND USER_ID = #{userId}
+	</select>
+
+</mapper>

@@ -1,0 +1,744 @@
+package cronies.meeting.user.service.impl;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import cronies.meeting.user.service.*;
+import io.lettuce.core.ScriptOutputType;
+import org.apache.commons.collections.MapUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import select.spring.exquery.service.ExqueryService;
+
+import java.util.*;
+
+@Service("ChoiceService")
+@Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
+public class ChoiceServiceImpl implements ChoiceService {
+
+    Logger log = LoggerFactory.getLogger(this.getClass());
+
+    @Autowired
+    private ExqueryService exqueryService;
+
+    @Autowired
+    private CommonService commonService;
+
+    @Autowired
+    private PushService pushService;
+
+    @Autowired
+    private StoreCommonService storeCommonService;
+
+    @Autowired
+    private StoreProcessService storeProcessService;
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public List<HashMap<String, Object>> getChoice(HashMap<String, Object> param) throws Exception {
+        param.put("userId", param.get("ssUserId"));
+
+        // 조회쿼리에 SC_LIKE, SC_NOPE, SC_SKIP 테이블에 있는 사용자는 제외하고 조회
+        // 각 테이블 별 기준?? ex. 한 번 skip하면 일주일동안 미조회, 랜덤유저 조건(평점순위 등, 일단 보류, 전체조회로 갑시당)
+//        List<HashMap<String, Object>> resultList = exqueryService.selectList("cronies.app.choice.userInfo", param);
+        List<HashMap<String, Object>> resultList = exqueryService.selectList("cronies.app.choice.callChoiceProcedure", param);
+        Iterator<HashMap<String, Object>> iterator = resultList.iterator();
+        while (iterator.hasNext()) {
+            HashMap<String, Object> iter = iterator.next();
+            // badge list 보류
+//            List<HashMap<String, Object>> badgeList = exqueryService.selectList("cronies.app.choice.getBadgeList", iter);
+//            iter.put("badgeList", badgeList);
+
+            // 파트너 데이터 일 시 조회쿼리 수정
+            // _TEST 프로시저 내 조회 쿼리에 'A.PARTNERS_CODE AS USER_KEY' 라서 SC_PARTNERS_COMPANY에 있는 사업장 사진으로 조회
+            HashMap<String, Object> files = null;
+            if (iter.containsKey("isPartner") && iter.get("isPartner").equals("Y")) {
+                files = exqueryService.selectOne("cronies.app.choice.getFileListPartner", iter);
+            } else {
+                files = exqueryService.selectOne("cronies.app.choice.getFileListFirst", iter);
+            }
+
+            List<HashMap<String, Object>> fileList = new ArrayList<>();
+            int fileNo = 0;
+            for (String key : files.keySet()) {
+                if(files.get(key) != null){
+                    HashMap<String, Object> fileMap = new HashMap<String, Object>();
+                    String getFileKey = String.valueOf(files.get(key));
+                    fileMap.put("cdnNm", getFileKey);
+//                fileMap.put("fileKey", commonService.getEncoding(getFileKey));
+                    fileMap.put("fileNo", fileNo);
+                    fileNo++;
+                    fileList.add(fileMap);
+                }
+            }
+            iter.put("fileList", fileList);
+        }
+
+        for(int i = 0; i < resultList.size(); i++){
+            String userKey = "";
+            // partnersCode는 인코딩 안함
+            if (!resultList.get(i).get("isPartner").equals("Y")) {
+                userKey = commonService.getEncoding(resultList.get(i).get("userKey").toString());
+            } else {
+                userKey = resultList.get(i).get("userKey").toString();
+            }
+            resultList.get(i).put("userKey", userKey);
+        }
+        return resultList;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public List<HashMap<String, Object>> getChoiceOne(HashMap<String, Object> param) throws Exception {
+        param.put("userId", param.get("ssUserId"));
+        param.put("targetUserId", commonService.getDecoding(param.get("targetUserId").toString()));
+
+//        exqueryService.update("cronies.app.choice.setUserConfirm", param);
+
+        // 조회쿼리에 SC_LIKE, SC_NOPE, SC_SKIP 테이블에 있는 사용자는 제외하고 조회
+        // 각 테이블 별 기준?? ex. 한 번 skip하면 일주일동안 미조회, 랜덤유저 조건(평점순위 등, 일단 보류, 전체조회로 갑시당)
+//        List<HashMap<String, Object>> resultList = exqueryService.selectList("cronies.app.choice.userInfo", param);
+        List<HashMap<String, Object>> resultList = exqueryService.selectList("cronies.app.choice.callChoiceOneProcedure", param);
+        Iterator<HashMap<String, Object>> iterator = resultList.iterator();
+        while (iterator.hasNext()) {
+            HashMap<String, Object> iter = iterator.next();
+
+            // badge list 보류
+//            List<HashMap<String, Object>> badgeList = exqueryService.selectList("cronies.app.choice.getBadgeList", iter);
+//            iter.put("badgeList", badgeList);
+
+            HashMap<String, Object> files = exqueryService.selectOne("cronies.app.choice.getFileListFirst", iter);
+            List<HashMap<String, Object>> fileList = new ArrayList<>();
+
+            int fileNo = 0;
+            for (String key : files.keySet()) {
+                if(files.get(key) != null){
+                    HashMap<String, Object> fileMap = new HashMap<String, Object>();
+                    String getFileKey = String.valueOf(files.get(key));
+                    fileMap.put("cdnNm", getFileKey);
+                    fileMap.put("fileNo", fileNo);
+                    fileNo++;
+                    fileList.add(fileMap);
+                }
+            }
+            iter.put("fileList", fileList);
+        }
+
+        for(int i = 0; i < resultList.size(); i++){
+            String userKey = commonService.getEncoding(resultList.get(i).get("userKey").toString());
+            resultList.get(i).put("userKey", userKey);
+        }
+
+        return resultList;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> getChoiceLeftRightSwiper(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<>();
+        param.put("connectUserId", commonService.getDecoding(String.valueOf(param.get("connectUserKey"))));
+        String userId = String.valueOf(param.get("ssUserId"));
+        param.put("userId", userId);
+        if(param.get("leftRightType").equals("RIGHT")){
+            param.put("photoNo", Integer.parseInt(param.get("fileNo").toString())+1);
+        } else {
+            param.put("photoNo", Integer.parseInt(param.get("fileNo").toString())-1);
+        }
+
+        resultMap = exqueryService.selectOne("cronies.app.choice.getFileLeftRightSwiper", param);
+
+        if(resultMap != null){
+//            resultMap.put("fileId", resultMap.get("fileKey"));
+//            resultMap.put("fileKey", commonService.getEncoding(String.valueOf(resultMap.get("fileKey"))));
+            resultMap.put("fileNo", Integer.parseInt(param.get("photoNo").toString()));
+        }
+
+        return resultMap;
+    }
+
+    public HashMap<String, Object> setLike(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<>();
+        HashMap<String, Object> likeMap = new HashMap<>();
+        HashMap<String, Object> returnMap = new HashMap<>();
+        HashMap<String, Object> subscribeInfoMap = new HashMap<>();
+
+        String userId = String.valueOf(param.get("ssUserId"));
+        String targetUserId = commonService.getDecoding(String.valueOf(param.get("userId")));
+        param.put("userId", userId);
+        param.put("targetUserId", targetUserId);
+
+        HashMap<String, Object> cntMap = exqueryService.selectOne("cronies.app.storeCommon.selectSwiperCnt", param);
+        try {
+            likeMap = exqueryService.selectOne("cronies.app.choice.getLastLike", param);
+            if(likeMap == null && MapUtils.isEmpty(likeMap)){
+                // 구독정보 조회
+                param.put("infiniteActionCd", "LIKE");
+                subscribeInfoMap = storeCommonService.getUserSubscribeInfo(param);
+
+                // 구독 사용자가 아니고 무료 좋아요 갯수를 다 소진한 사용자 중 추가 라이크 아이템이 없는 유저
+                if (!subscribeInfoMap.get("isActionInfinite").toString().equals("Y") && Integer.parseInt(cntMap.get("freeCnt").toString()) < 1
+                    && param.get("buyAfterUse") == null) {
+                    if (Integer.parseInt(cntMap.get("plusCnt").toString()) > 0) {
+                        resultMap.put("successYn", "NI_HI");    // have item
+                        resultMap.put("message", "무료 좋아요를 다 소진했습니다. <br />추가라이크 아이템을 사용하시겠습니까?");
+                    } else {
+                        resultMap.put("successYn", "NI_NHI");   // non have item
+                        resultMap.put("message", "추가라이크 아이템이 부족합니다.<br />스토어로 이동하시겠습니까?");
+                    }
+                } else {
+
+                    // 좋아요 insert
+                    exqueryService.insert("cronies.app.choice.setLike", param);
+                    // ACTION TIME insert
+                    param.put("actionType", "like");
+                    param.put("actionTypeUpper", "LIKE");
+                    exqueryService.update("cronies.app.choice.setActionLastTime", param);
+
+                    // SWIPER CNT LAST ACTION UPDATE
+                    exqueryService.update("cronies.app.choice.updateSwiperLastAction", param);
+
+                    if(param.get("likeType").equals("daily")) {
+                        exqueryService.update("cronies.app.choice.setUserConfirm", param);
+                    }
+
+                    resultMap.put("successYn", "Y");
+                    resultMap.put("message", "좋아요를 전송했습니다.");
+
+                    // 구독이 아닐경우만 수량 처리함
+                    if(!subscribeInfoMap.get("isActionInfinite").toString().equals("Y")){
+                        if(Integer.parseInt(cntMap.get("freeCnt").toString()) > 0){
+                            // free 사용
+                            param.put("freeCnt", Integer.parseInt(cntMap.get("freeCnt").toString()) - 1);
+                            cntMap.put("freeCnt", Integer.parseInt(cntMap.get("freeCnt").toString()) - 1);
+                            exqueryService.update("cronies.app.storeProcess.updateSwiperFreeCnt", param);
+                        }
+//                        else if (Integer.parseInt(cntMap.get("plusCnt").toString()) > 0){
+//                            // plus 사용
+//                            param.put("plusCnt", Integer.parseInt(cntMap.get("plusCnt").toString()) - 1);
+//                            cntMap.put("plusCnt", Integer.parseInt(cntMap.get("plusCnt").toString()) - 1);
+//                            exqueryService.update("cronies.app.storeProcess.updateSwiperPlusCnt", param);
+//                        }
+                    }
+
+                    //상대방이 차단했는지 조회
+                    HashMap<String, Object> blockMap = new HashMap<String, Object>();
+                    blockMap = exqueryService.selectOne("cronies.app.setting.getTargetUserMeBlockOne", param);
+                    if(blockMap == null){
+                        //차단하지 않았을 경우에 푸쉬발송 및 매칭처리
+
+                        //대상에게 푸쉬메시지 발송
+                        //alarmCd, userId, sendUserId, subMessage를 받아서 메시지 수신여부를 조회한다음, 허용일경우 메시지를 발송한다.
+                        HashMap<String, Object> pushMap = new HashMap<String, Object>();
+                        String alarmCd = "AL_C03_01";
+                        pushMap.put("alarmCd", alarmCd);
+                        pushMap.put("userId", param.get("targetUserId").toString());
+                        pushMap.put("sendUserId", "");
+                        pushMap.put("subMessage", "");
+                        pushMap.put("pushType", "myLike");
+                        pushService.sendPushMessage(pushMap);
+
+                        // 매치여부 확인 후 채팅방생성
+                        returnMap = setMatchChatRoom(param);
+                        if(!returnMap.get("successYn").toString().equals("N")){
+                            resultMap = returnMap;
+                        }
+
+                    }
+
+                }
+
+            } else {
+                resultMap.put("successYn", "N");
+                resultMap.put("message", "대상을 5분 이내 좋아요 하였습니다.");
+            }
+        } catch (DuplicateKeyException dke) {
+            resultMap.put("successYn", "N");
+            resultMap.put("message", "좋아요 중 에러가 발생하였습니다. 다시 시도해주시기 바랍니다.");
+        }
+
+        resultMap.put("cntMap", cntMap);
+        return resultMap;
+    }
+
+    public HashMap<String, Object> setNope(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<>();
+        HashMap<String, Object> nopeMap = new HashMap<>();
+
+        String userId = String.valueOf(param.get("ssUserId"));
+        String targetUserId = commonService.getDecoding(String.valueOf(param.get("userId")));
+        param.put("userId", userId);
+        param.put("targetUserId", targetUserId);
+        try {
+            nopeMap = exqueryService.selectOne("cronies.app.choice.getLastNope", param);
+            if(nopeMap == null){
+                exqueryService.insert("cronies.app.choice.setNope", param);
+                // ACTION TIME insert
+                param.put("actionType", "nope");
+                param.put("actionTypeUpper", "NOPE");
+                exqueryService.update("cronies.app.choice.setActionLastTime", param);
+
+                // SWIPER CNT LAST ACTION UPDATE
+                exqueryService.update("cronies.app.choice.updateSwiperLastAction", param);
+
+                if(param.get("likeType").equals("daily")) {
+                    exqueryService.update("cronies.app.choice.setUserConfirm", param);
+                }
+                resultMap.put("successYn", "Y");
+                resultMap.put("message", "싫어요를 선택했습니다.");
+            } else {
+                resultMap.put("successYn", "N");
+                resultMap.put("message", "대상을 5분 이내 싫어요 하였습니다.");
+            }
+        } catch (DuplicateKeyException dke) {
+            resultMap.put("successYn", "N");
+            resultMap.put("message", "이미 싫어요를 선택했습니다.");
+        }
+        return resultMap;
+    }
+
+    public HashMap<String, Object> setSkip(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<>();
+        HashMap<String, Object> skipMap = new HashMap<>();
+
+        String userId = String.valueOf(param.get("ssUserId"));
+        String targetUserId = commonService.getDecoding(String.valueOf(param.get("userId")));
+        param.put("userId", userId);
+        param.put("targetUserId", targetUserId);
+        try {
+            skipMap = exqueryService.selectOne("cronies.app.choice.getLastSkip", param);
+            if(skipMap == null){
+                exqueryService.insert("cronies.app.choice.setSkip", param);
+                // ACTION TIME insert
+                param.put("actionType", "skip");
+                param.put("actionTypeUpper", "SKIP");
+                exqueryService.update("cronies.app.choice.setActionLastTime", param);
+
+                // SWIPER CNT LAST ACTION UPDATE
+                exqueryService.update("cronies.app.choice.updateSwiperLastAction", param);
+
+                if(param.get("likeType").equals("daily")) {
+                    exqueryService.update("cronies.app.choice.setUserConfirm", param);
+                }
+                resultMap.put("successYn", "Y");
+                resultMap.put("message", "스킵을 선택했습니다.");
+            } else {
+                resultMap.put("successYn", "N");
+                resultMap.put("message", "대상을 5분 이내 스킵 하였습니다.");
+            }
+        } catch (DuplicateKeyException dke) {
+            resultMap.put("successYn", "N");
+            resultMap.put("message", "이미 스킵을 선택했습니다.");
+        }
+        return resultMap;
+    }
+
+    public HashMap<String, Object> setPartnerSkip(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<>();
+
+        if (param.containsKey("partnersCode") && !param.get("partnersCode").toString().isEmpty()) {
+            HashMap<String, Object> partnersUserInfo = exqueryService.selectOne("cronies.app.partners.partnersUserInfo", param);
+            String targetUserId = "";
+            if (!MapUtils.isEmpty(partnersUserInfo)) {
+                targetUserId = partnersUserInfo.get("userId").toString();
+                param.put("targetUserId", targetUserId);
+                param.put("userId", param.get("ssUserId").toString());
+                param.put("actionTypeUpper", "PARTNER_SKIP");
+
+                // SWIPER CNT LAST ACTION UPDATE
+                exqueryService.update("cronies.app.choice.updateSwiperLastAction", param);
+            }
+            exqueryService.insert("cronies.app.choice.partnerSkip", param);
+        } else {
+            resultMap.put("message", "에러가 발생했습니다. 초이스 화면을 나간 후 다시 시도해주세요.");
+        }
+
+        return resultMap;
+    }
+
+    public List<HashMap<String, Object>> getSendLike(HashMap<String, Object> param) throws Exception {
+        List<HashMap<String, Object>> resultList = new ArrayList<>();
+
+        String userId = String.valueOf(param.get("ssUserId"));
+
+        // 한 페이지에 몇개씩 표시할 것인지
+        final int PAGE_ROW_COUNT = 10;
+
+        // 보여줄 페이지의 번호를 일단 1이라고 초기값 지정
+        int pageNo = 0;
+        // 페이지 번호가 파라미터로 전달되는지 읽어와 본다.
+        String strPageNum = String.valueOf(param.get("pageNo"));
+        // 만일 페이지 번호가 파라미터로 넘어 온다면
+        if (strPageNum != null) {
+            // 숫자로 바꿔서 보여줄 페이지 번호로 지정한다.
+            pageNo = Integer.parseInt(strPageNum);
+        }
+
+        // 보여줄 마지막 ROWNUM
+        int startRowNum = (pageNo) * PAGE_ROW_COUNT;
+        int endRowNum = (++pageNo) * PAGE_ROW_COUNT;
+
+        // startRowNum 과 rowCount 를 pageMap에 담기
+        HashMap<String, Object> pageMap = new HashMap<>();
+        pageMap.put("userId", userId);
+        pageMap.put("startRowNum", startRowNum);
+        pageMap.put("endRowNum", endRowNum);
+        pageMap.put("pageNo", pageNo);
+
+        resultList = exqueryService.selectList("cronies.app.choice.getSendLike", pageMap);
+
+        for (Map<String, Object> result : resultList) {
+            result.put("userKey", commonService.getEncoding(result.get("userKey").toString()));
+        }
+
+        return resultList;
+    }
+
+    public List<HashMap<String, Object>> getReceiveLike(HashMap<String, Object> param) throws Exception {
+        List<HashMap<String, Object>> resultList = new ArrayList<>();
+
+        String userId = String.valueOf(param.get("ssUserId"));
+
+        // 한 페이지에 몇개씩 표시할 것인지
+        final int PAGE_ROW_COUNT = 10;
+
+        // 보여줄 페이지의 번호를 일단 1이라고 초기값 지정
+        int pageNo = 0;
+        // 페이지 번호가 파라미터로 전달되는지 읽어와 본다.
+        String strPageNum = String.valueOf(param.get("pageNo"));
+        // 만일 페이지 번호가 파라미터로 넘어 온다면
+        if (strPageNum != null) {
+            // 숫자로 바꿔서 보여줄 페이지 번호로 지정한다.
+            pageNo = Integer.parseInt(strPageNum);
+        }
+
+        // 보여줄 마지막 ROWNUM
+        int startRowNum = (pageNo) * PAGE_ROW_COUNT;
+        int endRowNum = (++pageNo) * PAGE_ROW_COUNT;
+
+        // startRowNum 과 rowCount 를 pageMap에 담기
+        HashMap<String, Object> pageMap = new HashMap<>();
+        pageMap.put("userId", userId);
+        pageMap.put("startRowNum", startRowNum);
+        pageMap.put("endRowNum", endRowNum);
+        pageMap.put("pageNo", pageNo);
+
+        resultList = exqueryService.selectList("cronies.app.choice.getReceiveLike", pageMap);
+
+        for (Map<String, Object> result : resultList) {
+            result.put("userKey", commonService.getEncoding(result.get("userKey").toString()));
+        }
+
+        return resultList;
+    }
+
+    public HashMap<String, Object> setAccept(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<>();
+
+        HashMap<String, Object> acceptMap = exqueryService.selectOne("cronies.app.choice.getConnectUsers", param);
+        int created = exqueryService.insert("cronies.app.choice.createSingleChat", acceptMap);
+        if (created == 1) {
+            String chatRoomId = String.valueOf(exqueryService.selectOne("cronies.app.choice.getChatRoomId", acceptMap).get("chatRoomId"));
+            acceptMap.put("chatRoomId", chatRoomId);
+            exqueryService.insert("cronies.app.choice.createUserChat", acceptMap);
+            exqueryService.update("cronies.app.choice.setAccept", acceptMap);
+
+            resultMap.put("successYn", "Y");
+            resultMap.put("chatRoomKey", commonService.getEncoding(chatRoomId));
+            resultMap.put("message", "수락되었습니다! \n이제 서로 채팅을 시작해보세요!");
+        } else if (created == 0) {
+            resultMap.put("successYn", "N");
+            resultMap.put("chatRoomId", null);
+            resultMap.put("message", "채팅방 개설에 실패했습니다. \n잠시 후 다시 시도해주세요.");
+        }
+
+        return resultMap;
+    }
+
+    public HashMap<String, Object> setMatchChatRoom(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<>();
+        HashMap<String, Object> targetMeLikeMap = new HashMap<>();
+        HashMap<String, Object> pushMap = new HashMap<>();
+
+        targetMeLikeMap = exqueryService.selectOne("cronies.app.choice.getTargetMeLikeInfo", param);
+        if(targetMeLikeMap != null){
+            try {
+                // 채팅방이 생성되어져 있는지 확인
+                HashMap<String, Object> createdChatroomMap = new HashMap<>();
+                createdChatroomMap = exqueryService.selectOne("cronies.app.choice.getMatchedChatroom", param);
+                if(createdChatroomMap == null){
+                    // CHATROOM INSERT
+                    createdChatroomMap = exqueryService.selectOne("cronies.app.choice.setMatchingChatroom", param);
+                    param.put("chatroomId", createdChatroomMap.get("chatroomId"));
+                    // CHATROOM USER INSERT
+                    exqueryService.insert("cronies.app.choice.setMatchingChatroomUser", param);
+                    exqueryService.insert("cronies.app.choice.setMatchingChatroomTarget", param);
+                } else {
+                    resultMap.put("chatroomKey", commonService.getEncoding(String.valueOf(param.get("chatroomId"))));
+                    resultMap.put("chatroomId", createdChatroomMap.get("chatroomId"));
+                    resultMap.put("successYn", "MATCH");
+                    resultMap.put("effectType", "MATCH");
+                    resultMap.put("message", "매칭 된 상대입니다! 메세지 탭으로 이동하시겠습니까?");
+                }
+
+                // 매칭테이블에 MERGE
+                exqueryService.update("cronies.app.choice.mergeMatchingUser", param);
+                exqueryService.update("cronies.app.choice.mergeMatchingTargetUser", param);
+
+                // 푸시 전송
+                String alarmCd = "";
+                alarmCd = "AL_C04_01";
+                pushMap.put("alarmCd", alarmCd);
+                pushMap.put("userId", param.get("userId").toString());
+                pushMap.put("sendUserId", "");
+                pushMap.put("subMessage", "");
+                pushMap.put("pushType", "myLikeMatching");
+                pushMap.put("chatroomId", createdChatroomMap.get("chatroomId").toString());
+                pushService.sendPushMessage(pushMap);
+                pushMap.put("userId", param.get("targetUserId").toString());
+                pushMap.put("sendUserId", "");
+                pushMap.put("subMessage", "");
+                pushMap.put("pushType", "myLikeMatching");
+                pushMap.put("chatroomId", createdChatroomMap.get("chatroomId").toString());
+                pushService.sendPushMessage(pushMap);
+
+                resultMap.put("chatroomKey", commonService.getEncoding(String.valueOf(param.get("chatroomId"))));
+                resultMap.put("chatroomId", param.get("chatroomId"));
+                resultMap.put("successYn", "MATCH");
+                resultMap.put("effectType", "MATCH");
+                resultMap.put("message", "서로가 좋아요를 하여 매칭되었습니다! 대화방으로 이동하시겠습니까?");
+
+            } catch (Exception e) {
+                resultMap.put("successYn","N");
+                resultMap.put("message","좋아요 중 에러가 발생하였습니다. 문의 부탁드립니다.");
+            }
+        } else {
+            resultMap.put("successYn", "N");
+            resultMap.put("message", "서로 좋아요하지 않음");
+        }
+
+        return resultMap;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public List<HashMap<String, Object>> getChoiceCategoryList(HashMap<String, Object> param) throws Exception {
+        List<HashMap<String, Object>> resultList = new ArrayList<>();
+        resultList = exqueryService.selectList("cronies.app.choice.getChoiceCategoryList", param);
+        return resultList;
+    }
+
+    public HashMap<String, Object> revertBeforeActionCheck(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<>();
+        HashMap<String, Object> userActionMap = new HashMap<>();
+        try {
+            // 사용자의 마지막 처리대상 및 액션 조회
+            userActionMap = exqueryService.selectOne("cronies.app.choice.getUserLastAction", param);
+            if(userActionMap.get("lastAction") == null){
+                resultMap.put("successYn", "N");
+                resultMap.put("message", "기록된 마지막 Like, Nope, Skip이 존재하지 않습니다.");
+            } else if (userActionMap.get("backYn").toString().equals("Y")){
+                resultMap.put("successYn", "N");
+                resultMap.put("message", "이미 취소하기를 하였습니다. 취소하기는 마지막 액션만 가능합니다.");
+            } else if (userActionMap.get("lastAction").toString().equals("SUPER_LIKE")){
+                resultMap.put("successYn", "QUESTION");
+                resultMap.put("message", "사용한 Super Like는 복구되지 않습니다. 그래도 진행하시겠습니까?");
+            } else if (userActionMap.get("backYn").toString().equals("N")){
+                resultMap.put("successYn", "QUESTION");
+                resultMap.put("message", "이전 액션을 되돌리시겠습니까?");
+            }
+        } catch (Exception e) {
+            resultMap.put("successYn", "N");
+            resultMap.put("message", "에러가 발생하였습니다. 다시 시도하여주시기 바랍니다.");
+        }
+
+        return resultMap;
+    }
+
+    public HashMap<String, Object> revertBeforeAction(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<>();
+        HashMap<String, Object> userActionMap = new HashMap<>();
+        HashMap<String, Object> actionHisMap = new HashMap<>();
+        HashMap<String, Object> userLastTimeMap = new HashMap<>();
+        HashMap<String, Object> chatRoomIdMap = new HashMap<>();
+        resultMap.put("successYn", "Y");
+        resultMap.put("message", "되돌리기가 처리되었습니다.");
+        try {
+            // 사용자의 마지막 처리대상 및 액션 조회
+            userActionMap = exqueryService.selectOne("cronies.app.choice.getUserLastAction", param);
+            if(userActionMap.get("lastAction") == null){
+                resultMap.put("successYn", "N");
+                resultMap.put("message", "기록된 마지막 Like, Nope, Skip이 존재하지 않습니다.");
+            } else if (userActionMap.get("backYn").toString().equals("Y")){
+                resultMap.put("successYn", "N");
+                resultMap.put("message", "이미 취소하기를 하였습니다. 취소하기는 마지막 액션만 가능합니다.");
+            } else {
+                // param => last action user id, action 저장
+                param.put("lastAction", userActionMap.get("lastAction"));
+                param.put("lastActionUser", userActionMap.get("lastActionUser"));
+
+                // ROW DATA DELETE 및 LASTTIME UPDATE
+                if (userActionMap.get("lastAction").toString().equals("SUPER_LIKE")){
+                    actionHisMap = exqueryService.selectOne("cronies.app.choice.getUserLastSuperLike", param);
+                    param.put("actionSeq", actionHisMap.get("actionSeq"));
+                    exqueryService.delete("cronies.app.choice.deleteScLikeLike", param);
+                    actionHisMap = exqueryService.selectOne("cronies.app.choice.getUserLastLikeAll", param);
+                    if(actionHisMap != null){ param.put("beforeActionTime", actionHisMap.get("regTime"));}
+                    else {param.put("beforeActionTime", null);}
+                } else if (userActionMap.get("lastAction").toString().equals("LIKE")){
+                    actionHisMap = exqueryService.selectOne("cronies.app.choice.getUserLastLike", param);
+                    param.put("actionSeq", actionHisMap.get("actionSeq"));
+                    exqueryService.delete("cronies.app.choice.deleteScLike", param);
+                    actionHisMap = exqueryService.selectOne("cronies.app.choice.getUserLastLikeAll", param);
+                    if(actionHisMap != null){ param.put("beforeActionTime", actionHisMap.get("regTime"));}
+                    else {param.put("beforeActionTime", null);}
+                } else if (userActionMap.get("lastAction").toString().equals("NOPE")){
+                    actionHisMap = exqueryService.selectOne("cronies.app.choice.getUserLastNope", param);
+                    param.put("actionSeq", actionHisMap.get("actionSeq"));
+                    exqueryService.delete("cronies.app.choice.deleteScNope", param);
+                    actionHisMap = exqueryService.selectOne("cronies.app.choice.getUserLastNope", param);
+                    if(actionHisMap != null){ param.put("beforeActionTime", actionHisMap.get("regTime"));}
+                    else {param.put("beforeActionTime", null);}
+                } else if (userActionMap.get("lastAction").toString().equals("SKIP")){
+                    actionHisMap = exqueryService.selectOne("cronies.app.choice.getUserLastSkip", param);
+                    param.put("actionSeq", actionHisMap.get("actionSeq"));
+                    exqueryService.delete("cronies.app.choice.deleteScSkip", param);
+                    actionHisMap = exqueryService.selectOne("cronies.app.choice.getUserLastSkip", param);
+                    if(actionHisMap != null){ param.put("beforeActionTime", actionHisMap.get("regTime"));}
+                    else {param.put("beforeActionTime", null);}
+                } else if (userActionMap.get("lastAction").toString().equals("PARTNER_SKIP")) {
+                    actionHisMap = exqueryService.selectOne("cronies.app.choice.getUserLastPartnerSkip", param);
+                    param.put("actionSeq", actionHisMap.get("actionSeq"));
+                    if (MapUtils.isEmpty(actionHisMap))     param.put("beforeActionTime", null);
+                    else                                    param.put("beforeActionTime", actionHisMap.get("regTime"));
+                }
+                // lasttime update
+                exqueryService.update("cronies.app.choice.updateUserLastActionTime", param);
+                // SC_SWIPER_CNT BACK_YN UPDATE
+                exqueryService.update("cronies.app.choice.updateUserBackYn", param);
+
+                userLastTimeMap = exqueryService.selectOne("cronies.app.choice.getUserActionLastTime", param);
+
+                if(userLastTimeMap != null){
+                    if(userLastTimeMap.get("likeTime") == null){
+                        // 이전 좋아요 이력이 없으므로 생성 된 채팅방 제거
+                        // CHATROOM_ID 조회
+                        chatRoomIdMap = exqueryService.selectOne("cronies.app.choice.getChatRoomId", param);
+                        if(chatRoomIdMap != null){
+                            param.put("chatroomId", chatRoomIdMap.get("chatroomId"));
+                            exqueryService.delete("cronies.app.choice.deleteSingleChatRoom", param);
+                            exqueryService.delete("cronies.app.choice.deleteSingleChatRoomUser", param);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            resultMap.put("successYn", "N");
+            resultMap.put("message", "에러가 발생하였습니다. 다시 시도하여주시기 바랍니다.");
+        }
+
+        return resultMap;
+    }
+
+    public HashMap<String, Object> getUserReceiveLikeCnt(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<>();
+        HashMap<String, Object> freeFlipCntMap = new HashMap<>();
+        // 받은 좋아요 수
+        resultMap = exqueryService.selectOne("cronies.app.choice.getUserReceiveLikeCnt", param);
+        // 받은 좋아요 확인하기 사용했는지
+        freeFlipCntMap = exqueryService.selectOne("cronies.app.choice.getFreeFlipInfo", param);
+        resultMap.put("freeFlipInfo", freeFlipCntMap.get("freeFlipInfo"));
+        if(Integer.parseInt(freeFlipCntMap.get("useCnt").toString()) > 0){
+            resultMap.put("freeFlipCnt", 0);
+        } else {
+            resultMap.put("freeFlipCnt", 1);
+        }
+        return resultMap;
+    }
+
+
+
+
+    public HashMap<String, Object> resetChoiceLogic(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<>();
+        List<HashMap<String, Object>> returnList = new ArrayList<>();
+        resultMap.put("successYn", "Y");
+        try {
+            // 좋아요, 스킵, 놉 시간 초기화
+            exqueryService.update("cronies.app.choice.resetActionLastTime", param);
+            // 마지막 매칭 시간 초기화
+            exqueryService.update("cronies.app.choice.resetMatching", param);
+            // 내가좋아하는 사람 기준 초기화
+            exqueryService.update("cronies.app.choice.resetMyFavorite", param);
+
+            returnList = getChoice(param);
+            resultMap.put("result", returnList);
+        } catch (DuplicateKeyException dke) {
+            resultMap.put("successYn", "N");
+            resultMap.put("message", "에러발생.");
+        }
+
+        return resultMap;
+    }
+
+    public HashMap<String, Object> getChoiceFileter(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<>();
+        HashMap<String, Object> map = exqueryService.selectOne("cronies.app.choice.getChoiceFilter", param);
+        if (!MapUtils.isEmpty(map)) {
+            resultMap.put("successYn", "Y");
+            resultMap.put("result", map);
+        } else {
+            resultMap.put("successYn", "N");
+        }
+        return resultMap;
+    }
+
+    public HashMap<String, Object> filterSave(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<>();
+        try {
+            exqueryService.update("cronies.app.choice.choiceFilterSave", param);
+            if (param.containsKey("subscribeYn") && param.get("subscribeYn").equals("Y")) {
+                exqueryService.update("cronies.app.choice.updateChoiceAdYn", param);
+            }
+            resultMap.put("message", "저장되었습니다.");
+        } catch (Exception e) {
+            resultMap.put("message", "오류가 발생했습니다. 창을 닫고 다시 시도해 주세요");
+            e.printStackTrace();
+        }
+        return resultMap;
+    }
+
+    public HashMap<String, Object> getFreeFlipIsPossible(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<>();
+        HashMap<String, Object> cntMap = new HashMap<>();
+        cntMap = exqueryService.selectOne("cronies.app.choice.getFreeFlipIsPossible", param);
+        if(Integer.parseInt(cntMap.get("useCnt").toString()) < 1){
+            // 사용내역없음(사용가능한상태)
+            resultMap.put("successYn", "Y");
+        } else {
+            // 사용내역있음(사용불가능한상태)
+            resultMap.put("successYn", "N");
+        }
+        return resultMap;
+    }
+
+    public HashMap<String, Object> setFreeFlip(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<>();
+        if(exqueryService.insert("cronies.app.choice.insertFreeFlipInfo", param) == 1){
+            if(exqueryService.update("cronies.app.choice.updateScLikeFreeFlip", param) == 1){
+                resultMap.put("successYn", "Y");
+            } else {
+                resultMap.put("successYn", "N");
+                resultMap.put("message", "받은 좋아요 확인하기 중 오류가 발생하였습니다. 문의 부탁드립니다.");
+            }
+        } else {
+            resultMap.put("successYn", "N");
+            resultMap.put("message", "받은 좋아요 확인하기 중 오류가 발생하였습니다. 문의 부탁드립니다.");
+        }
+        return resultMap;
+    }
+}
+
+
+
+

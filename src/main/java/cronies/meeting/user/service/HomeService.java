@@ -1,0 +1,19 @@
+package cronies.meeting.user.service;
+
+import javax.servlet.http.HttpServletRequest;
+import java.util.HashMap;
+import java.util.List;
+
+public interface HomeService {
+
+    public List<HashMap<String, Object>> getUserListByHome(HashMap<String, Object> param) throws Exception;
+
+    public List<HashMap<String, Object>> getUserNewListByHome(HashMap<String, Object> param) throws Exception;
+
+    public List<HashMap<String, Object>> getHomeCommunityList(HashMap<String, Object> param) throws Exception;
+
+    public List<HashMap<String, Object>> getHotpeopleState(HashMap<String, Object> param) throws Exception;
+
+    HashMap<String, Object> getHomeNoticeList(HashMap<String, Object> param) throws Exception;
+
+}

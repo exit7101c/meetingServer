@@ -1,0 +1,444 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cronies.app.home">
+
+	<!--
+	Description : Home 페이지 사용자 리스트 조회 (후에 수정)
+	-->
+	<select id="getUserListByHome" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 15
+			A.USER_ID AS USER_KEY
+			, A.NICK
+			, B.PHOTO1 AS USER_PHOTO_ID
+			, (SELECT COUNT(*) FROM SC_LIKE WHERE TARGET_USER_ID = A.USER_ID) AS LIKE_CNT
+			, (C.SERVER_IP + '/' + C.FILE_PATH + C.THUMB_FILE_NM) AS CDN_THUMB_NM
+		FROM SC_USER A
+		LEFT OUTER JOIN SC_USER_PIC B
+			ON A.USER_ID = B.USER_ID
+		LEFT OUTER JOIN SC_ATTACH_FILE C
+			ON B.PHOTO1 = C.ATTACH_FILE_ID
+		WHERE 1=1
+			AND B.PHOTO1 IS NOT NULL
+		ORDER BY LIKE_CNT DESC
+	</select>
+
+	<!--
+	Description : 진행중인 콘테스트가 있는지 조회
+	-->
+	<select id="getContestTypeNotEnd" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 1
+			CONTEST_TYPE
+			, CONTEST_STATE
+			, CONVERT(VARCHAR, SUPPORT_START_TIME, 120) AS SUPPORT_START_TIME
+			, CONVERT(VARCHAR, SUPPORT_END_TIME, 120) AS SUPPORT_END_TIME
+			, CONVERT(VARCHAR, VOTING_START_TIME, 120) AS VOTING_START_TIME
+			, CONVERT(VARCHAR, VOTING_END_TIME, 120) AS VOTING_END_TIME
+		FROM SC_CONTEST
+		WHERE 1=1
+		AND CONTEST_STATE != 'END'
+		ORDER BY CONTEST_TYPE DESC
+	</select>
+
+	<!--
+	Description : Home 페이지 사용자 리스트 조회
+	-->
+	<select id="getHomeContestUserListSupport" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 100
+			A.USER_ID AS USER_KEY
+			, A.ARTICLE_ID AS ARTICLE_KEY
+			, F.NICK
+			, A.VOTES_CNT
+			, RESOLUTION
+			, B.SERVER_IP + '/' + B.FILE_PATH + B.THUMB_FILE_NM AS CDN_THUMB_NM
+			, B.SERVER_IP + '/' + B.FILE_PATH + B.SERVER_FILE_NM AS PHOTO2
+			, C.SERVER_IP + '/' + B.FILE_PATH + C.SERVER_FILE_NM AS PHOTO3
+			, D.SERVER_IP + '/' + B.FILE_PATH + D.SERVER_FILE_NM AS PHOTO4
+			, E.SERVER_IP + '/' + B.FILE_PATH + E.SERVER_FILE_NM AS PHOTO5
+		FROM SC_CONTEST_USER A
+		LEFT OUTER JOIN SC_ATTACH_FILE B
+		ON A.PHOTO2 = B.ATTACH_FILE_ID
+		LEFT OUTER JOIN SC_ATTACH_FILE C
+		ON A.PHOTO3 = C.ATTACH_FILE_ID
+		LEFT OUTER JOIN SC_ATTACH_FILE D
+		ON A.PHOTO4 = D.ATTACH_FILE_ID
+		LEFT OUTER JOIN SC_ATTACH_FILE E
+		ON A.PHOTO5 = E.ATTACH_FILE_ID
+		LEFT OUTER JOIN SC_USER F
+		ON A.USER_ID = F.USER_ID
+		WHERE 1=1
+		AND CONTEST_TYPE = #{contestType}
+		AND A.USER_ID NOT IN (
+			SELECT
+				TARGET_USER_ID
+			FROM SC_USER_BLOCK
+			WHERE USER_ID = #{ssUserId}
+			AND DEL_YN = 'N'
+		)
+		ORDER BY REG_TIME DESC
+	</select>
+
+	<!--
+	Description : Home 페이지 사용자 리스트 조회
+	-->
+	<select id="getHomeContestUserListStart" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 50
+				*
+		FROM (
+			 SELECT
+				 A.USER_ID AS USER_KEY
+					, A.ARTICLE_ID AS ARTICLE_KEY
+					, F.NICK
+					, A.VOTES_CNT
+					, RESOLUTION
+					, B.SERVER_IP + '/' + B.FILE_PATH + B.THUMB_FILE_NM AS CDN_THUMB_NM
+					, B.SERVER_IP + '/' + B.FILE_PATH + B.SERVER_FILE_NM AS PHOTO2
+					, C.SERVER_IP + '/' + B.FILE_PATH + C.SERVER_FILE_NM AS PHOTO3
+					, D.SERVER_IP + '/' + B.FILE_PATH + D.SERVER_FILE_NM AS PHOTO4
+					, E.SERVER_IP + '/' + B.FILE_PATH + E.SERVER_FILE_NM AS PHOTO5
+					, ROW_NUMBER() OVER(ORDER BY A.VOTES_CNT DESC, A.REG_TIME) AS ROWNUM
+			 FROM SC_CONTEST_USER A
+				LEFT OUTER JOIN SC_ATTACH_FILE B
+					ON A.PHOTO2 = B.ATTACH_FILE_ID
+				LEFT OUTER JOIN SC_ATTACH_FILE C
+					ON A.PHOTO3 = C.ATTACH_FILE_ID
+				LEFT OUTER JOIN SC_ATTACH_FILE D
+					ON A.PHOTO4 = D.ATTACH_FILE_ID
+				LEFT OUTER JOIN SC_ATTACH_FILE E
+					ON A.PHOTO5 = E.ATTACH_FILE_ID
+				LEFT OUTER JOIN SC_USER F
+					ON A.USER_ID = F.USER_ID
+			 WHERE 1=1
+				 AND A.CONTEST_TYPE = #{contestType}
+	 	) A
+		WHERE A.USER_KEY NOT IN (
+			SELECT
+				TARGET_USER_ID
+			FROM SC_USER_BLOCK
+			WHERE USER_ID = #{ssUserId}
+			AND DEL_YN = 'N'
+		)
+		ORDER BY A.ROWNUM
+	</select>
+
+	<!--
+    Description : Home 페이지 사용자 뉴비 리스트 20
+    -->
+	<select id="getUserNewListByHome" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 20
+			A.USER_ID
+			, A.NICK
+			, B.PHOTO1 AS USER_PHOTO_ID
+		FROM SC_USER A
+		LEFT OUTER JOIN SC_USER_PIC B
+		ON A.USER_ID = B.USER_ID
+		WHERE 1=1
+		AND B.PHOTO1 IS NOT NULL
+		ORDER BY SIGN_DATE DESC
+	</select>
+
+	<!--
+    Description : Home 페이지 인기게시글 10개( 현재 생성순, 수정예정 )
+    -->
+	<select id="getHomeCommunityList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 10
+			A.ARTICLE_ID
+			, CASE WHEN A.DEL_YN = 'N' THEN A.TITLE ELSE '삭제된 글입니다.' END AS TITLE
+			, CASE
+				WHEN A.ATTR1 IS NOT NULL AND A.ATTR1 != '' THEN A.ATTR1
+			    WHEN A.ATTR2 IS NOT NULL AND A.ATTR2 != '' THEN A.ATTR2
+			    WHEN A.ATTR3 IS NOT NULL AND A.ATTR3 != '' THEN A.ATTR3
+			    WHEN A.ATTR4 IS NOT NULL AND A.ATTR4 != '' THEN A.ATTR4
+			    -- WHEN A.ATTR5 IS NOT NULL AND A.ATTR5 != '' THEN A.ATTR5
+			END AS PHOTO_ID
+			, dbo.FN_GET_DATE_STR(A.CREATED_DT) AS CREATED_DT_MM
+			, B.ICON_CD
+			, CONVERT(CHAR(10), A.CREATED_DT, 23) AS CREATED_DT_STR
+			, A.DEL_YN
+			, A.VIEW_CNT
+			, A.LIKE_CNT
+			, A.BAD_CNT
+			, C.ATTACH_FILE_ID
+			, A.ATTR1
+			, A.ATTR2
+			, A.ATTR3
+			, D.FILE_ID
+			, D.FILE_NM
+			, A.COMMENT_CNT
+			, (E.SERVER_IP + '/' + E.FILE_PATH + E.THUMB_FILE_NM) AS CDN_THUMB_NM
+			, (F.SERVER_IP + '/' + F.FILE_PATH + F.THUMB_FILE_NM) AS CDN_THUMB_NM_ICON
+		FROM SC_ARTICLE A
+		LEFT OUTER JOIN SC_USER B ON A.CREATED_USER_ID = B.USER_ID
+		LEFT OUTER JOIN SC_ARTICLE_FILE C ON A.ARTICLE_ID = C.ARTICLE_ID
+		LEFT OUTER JOIN SC_ICON_CODE D ON D.ICON_CD = A.COMMUNITY_ICON
+		LEFT OUTER JOIN SC_ATTACH_FILE E ON A.ATTR1 = E.ATTACH_FILE_ID
+		LEFT OUTER JOIN SC_ATTACH_FILE F ON D.FILE_ID = F.ATTACH_FILE_ID
+-- 		WHERE A.CREATED_DT BETWEEN GETDATE()-20 AND GETDATE()
+-- 		WHERE CONVERT(DATE, A.CREATED_DT) = CONVERT(DATE, GETDATE())  -- 오늘 작성한 글만 조회
+		WHERE 1=1
+<!--		<if test="category == 'all'">-->
+<!--			AND A.CREATED_DT >= DATEADD(HOUR, -24, GETDATE()) AND A.CREATED_DT &lt;= GETDATE()-->
+<!--		</if>-->
+		<if test="category == 'today' or category == 'all'">
+			AND A.CREATED_DT >= DATEADD(HOUR, -24, GETDATE()) AND A.CREATED_DT &lt;= GETDATE()
+		</if>
+		<if test="category == 'weekly'">
+			AND A.CREATED_DT BETWEEN DATEADD(wk, DATEDIFF(wk, 0, GETDATE()), 0) AND GETDATE()
+		</if>
+		AND A.DEL_YN = 'N'
+		AND A.BOARD_ID != 7
+		ORDER BY A.LIKE_CNT DESC, A.CREATED_DT ASC
+	</select>
+
+
+	<select id="getHomeOpenChatList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			A.OPEN_CHAT_KEY
+			, A.TITLE
+			, A.DATE
+			, A.DATE_STR
+			, A.CDN_THUMB_NM
+			, A.DUE_DATE
+			, A.DEL_YN
+			, A.ROWNUM
+			, A.PARTITION_CD
+			, A.BOOKMARK
+			, A.CNT_BOOKMARK
+			, A.CNT_USER
+			, A.PARTITION_NM
+			, A.LATLON_DISTANCE
+		FROM (
+			SELECT TOP 30
+				A.OPENCHAT_ID AS OPEN_CHAT_KEY
+				, A.TITLE
+				, A.CON_DATE AS DATE
+				, CONVERT(VARCHAR(10), CONVERT(DATETIME, CONVERT(VARCHAR(8), A.CON_DATE)), 120) AS DATE_STR
+				, (C.SERVER_IP + '/' + C.FILE_PATH + C.THUMB_FILE_NM) AS CDN_THUMB_NM
+				, A.REG_TIME
+				, A.VIEW_CNT
+				, (SELECT COUNT(*) FROM SC_OPENCHAT_ATTEND WHERE OPENCHAT_ID = A.OPENCHAT_ID) AS ATTEND_CNT
+				, CASE
+				 	WHEN A.DUE_DATE = '2999-12-31' THEN '상시 모집'
+					ELSE A.DUE_DATE + '까지' END AS DUE_DATE
+				, A.DEL_YN
+				, ROW_NUMBER() OVER(ORDER BY A.OPENCHAT_ID DESC) AS ROWNUM
+				, A.PARTITION_CD
+				, D.PARTITION_NM
+				, CASE WHEN (SELECT USER_ID FROM SC_OPENCHAT_BOOKMARK WHERE OPENCHAT_ID = A.OPENCHAT_ID AND USER_ID = #{ssUserId}) IS NOT NULL THEN 'Y' ELSE 'N' END BOOKMARK
+				, (SELECT COUNT(USER_ID) FROM SC_OPENCHAT_BOOKMARK WHERE OPENCHAT_ID = A.OPENCHAT_ID) AS CNT_BOOKMARK
+				, (SELECT COUNT(USER_ID) FROM SC_CHATROOM_USER WHERE CHATROOM_ID = A.CHATROOM_ID) AS CNT_USER
+				, CASE WHEN
+					(6371*acos(cos(radians( A.LAT ))*cos(radians( ISNULL(E.CURR_LAT, E.LAT) ))*cos(radians( ISNULL(E.CURR_LON, E.LON) )
+					-radians( A.LON ))+sin(radians( A.LAT ))*sin(radians( ISNULL(E.CURR_LAT, E.LAT) )))) >= 1
+					THEN ROUND((6371*acos(cos(radians( A.LAT ))*cos(radians( ISNULL(E.CURR_LAT, E.LAT) ))*cos(radians( ISNULL(E.CURR_LON, E.LON) )
+					-radians( A.LON ))+sin(radians( A.LAT ))*sin(radians( ISNULL(E.CURR_LAT, E.LAT) )))), 0)
+					ELSE ROUND((6371*acos(cos(radians( A.LAT ))*cos(radians( ISNULL(E.CURR_LAT, E.LAT) ))*cos(radians( ISNULL(E.CURR_LON, E.LON) )
+					-radians( A.LON ))+sin(radians( A.LAT ))*sin(radians( ISNULL(E.CURR_LAT, E.LAT) )))), 1)
+					END LATLON_DISTANCE
+			FROM SC_OPENCHAT A
+			LEFT OUTER JOIN SC_OPENCHAT_PHOTO B
+				ON A.OPENCHAT_ID = B.OPENCHAT_ID
+			LEFT OUTER JOIN SC_ATTACH_FILE C
+				ON B.ATTACH_FILE_ID = C.ATTACH_FILE_ID
+			LEFT OUTER JOIN  SC_OPENCHAT_PARTITION D
+				ON A.PARTITION_CD = D.PARTITION_CD
+			LEFT OUTER JOIN SC_USER_ADDR E
+				ON E.USER_ID = #{ssUserId}
+			WHERE 1=1
+				AND A.DEL_YN = 'N'
+				AND A.PRIVATE_YN = 'Y'
+				<if test="category != '' and category != null and category != 'all'">
+					AND A.PARTITION_CD = #{category}
+				</if>
+			ORDER BY A.POPULARITY DESC, A.OPENCHAT_ID DESC --인기
+		) A
+	</select>
+
+<!--	<select id="getHomeOpenChatList" parameterType="HashMap" resultType="ExqueryMap">-->
+<!--		SELECT-->
+<!--			A.OPEN_CHAT_KEY-->
+<!--			, A.TITLE-->
+<!--			, A.DATE-->
+<!--			, A.DATE_STR-->
+<!--			, A.CDN_THUMB_NM-->
+<!--			, A.DUE_DATE-->
+<!--			, A.DEL_YN-->
+<!--			, A.ROWNUM-->
+<!--			, A.PARTITION_CD-->
+<!--		FROM (-->
+<!--			SELECT TOP 10-->
+<!--				A.OPENCHAT_ID AS OPEN_CHAT_KEY-->
+<!--				, A.TITLE-->
+<!--				, A.CON_DATE AS DATE-->
+<!--				, CONVERT(VARCHAR(10), CONVERT(DATETIME, CONVERT(VARCHAR(8), A.CON_DATE)), 120) AS DATE_STR-->
+<!--				, (C.SERVER_IP + '/' + C.FILE_PATH + C.THUMB_FILE_NM) AS CDN_THUMB_NM-->
+<!--				, A.REG_TIME-->
+<!--				, A.VIEW_CNT-->
+<!--				, (SELECT COUNT(*) FROM SC_OPENCHAT_ATTEND WHERE OPENCHAT_ID = A.OPENCHAT_ID) AS ATTEND_CNT-->
+<!--				, CASE-->
+<!--				 	WHEN A.DUE_DATE = '2999-12-31' THEN '상시 모집'-->
+<!--					ELSE A.DUE_DATE + '까지' END AS DUE_DATE-->
+<!--				, A.DEL_YN-->
+<!--				, ROW_NUMBER() OVER(ORDER BY A.OPENCHAT_ID DESC) AS ROWNUM-->
+<!--				, A.PARTITION_CD-->
+<!--			FROM SC_OPENCHAT A-->
+<!--			LEFT OUTER JOIN SC_OPENCHAT_PHOTO B-->
+<!--				ON A.OPENCHAT_ID = B.OPENCHAT_ID-->
+<!--			LEFT OUTER JOIN SC_ATTACH_FILE C-->
+<!--				ON B.ATTACH_FILE_ID = C.ATTACH_FILE_ID-->
+<!--			WHERE 1=1-->
+<!--				AND A.DEL_YN = 'N'-->
+<!--				AND A.PRIVATE_YN = 'Y'-->
+<!--				AND A.PARTITION_CD = 'test3'-->
+<!--			ORDER BY A.POPULARITY DESC, A.OPENCHAT_ID DESC &#45;&#45;인기-->
+<!--		) A-->
+<!--		UNION ALL-->
+<!--		SELECT-->
+<!--			A.OPEN_CHAT_KEY-->
+<!--			, A.TITLE-->
+<!--			, A.DATE-->
+<!--			, A.DATE_STR-->
+<!--			, A.CDN_THUMB_NM-->
+<!--			, A.DUE_DATE-->
+<!--			, A.DEL_YN-->
+<!--			, A.ROWNUM-->
+<!--			, A.PARTITION_CD-->
+<!--		FROM (-->
+<!--			SELECT TOP 10-->
+<!--				A.OPENCHAT_ID AS OPEN_CHAT_KEY-->
+<!--				, A.TITLE-->
+<!--				, A.CON_DATE AS DATE-->
+<!--				, CONVERT(VARCHAR(10), CONVERT(DATETIME, CONVERT(VARCHAR(8), A.CON_DATE)), 120) AS DATE_STR-->
+<!--				, (C.SERVER_IP + '/' + C.FILE_PATH + C.THUMB_FILE_NM) AS CDN_THUMB_NM-->
+<!--				, A.REG_TIME-->
+<!--				, A.VIEW_CNT-->
+<!--				, (SELECT COUNT(*) FROM SC_OPENCHAT_ATTEND WHERE OPENCHAT_ID = A.OPENCHAT_ID) AS ATTEND_CNT-->
+<!--				, CASE-->
+<!--				 	WHEN A.DUE_DATE = '2999-12-31' THEN '상시 모집'-->
+<!--					ELSE A.DUE_DATE + '까지' END AS DUE_DATE-->
+<!--				, A.DEL_YN-->
+<!--				, ROW_NUMBER() OVER(ORDER BY A.OPENCHAT_ID DESC) AS ROWNUM-->
+<!--				,A.PARTITION_CD-->
+<!--				FROM SC_OPENCHAT A-->
+<!--					LEFT OUTER JOIN SC_OPENCHAT_PHOTO B-->
+<!--					ON A.OPENCHAT_ID = B.OPENCHAT_ID-->
+<!--					LEFT OUTER JOIN SC_ATTACH_FILE C-->
+<!--					ON B.ATTACH_FILE_ID = C.ATTACH_FILE_ID-->
+<!--				WHERE 1=1-->
+<!--				AND A.DEL_YN = 'N'-->
+<!--				AND A.PRIVATE_YN = 'Y'-->
+<!--				AND A.PARTITION_CD = 'test4'-->
+<!--				ORDER BY A.POPULARITY DESC, A.OPENCHAT_ID DESC &#45;&#45;인기-->
+<!--			 ) A-->
+<!--	</select>-->
+
+
+	<select id="getHomeHotPeopleList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 50
+			A.TARGET_USER_ID AS USER_KEY
+			 , A.LIKE_CNT
+			 , D.NICK
+			 , C.SERVER_IP + '/' + C.FILE_PATH + C.THUMB_FILE_NM AS CDN_THUMB_NM
+			 , A.ROWNUM
+		FROM
+		(
+			SELECT
+				TARGET_USER_ID,
+				COUNT(TARGET_USER_ID) AS LIKE_CNT,
+				ROW_NUMBER() OVER(ORDER BY COUNT(TARGET_USER_ID) DESC) AS ROWNUM
+			FROM SC_LIKE
+			WHERE 1=1
+			<if test="category == 'all'">
+				AND REG_TIME BETWEEN GETDATE()-7 AND GETDATE()
+			</if>
+			<if test="category == 'today'">
+				AND CONVERT(DATE, REG_TIME) = CONVERT(DATE, GETDATE())
+			</if>
+			<if test="category == 'weekly'">
+				AND REG_TIME BETWEEN DATEADD(wk, DATEDIFF(wk, 0, GETDATE()), 0) AND GETDATE()
+			</if>
+			<if test="category == 'monthly'">
+				AND REG_TIME BETWEEN DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0) AND GETDATE()
+			</if>
+			GROUP BY TARGET_USER_ID
+		) A
+		LEFT JOIN SC_USER_PIC B
+		ON A.TARGET_USER_ID = B.USER_ID
+		LEFT JOIN SC_ATTACH_FILE C
+		ON B.PHOTO1 = C.ATTACH_FILE_ID
+		LEFT OUTER JOIN SC_USER D
+		ON A.TARGET_USER_ID = D.USER_ID
+		WHERE A.TARGET_USER_ID != '2'
+		AND	TARGET_USER_ID NOT IN (
+			SELECT
+				TARGET_USER_ID
+			FROM SC_USER_BLOCK
+			WHERE USER_ID = #{ssUserId}
+		AND DEL_YN = 'N'
+		)
+		ORDER BY A.ROWNUM
+	</select>
+
+	<select id="getHomeHotAskMeList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT TOP 50
+				*
+		FROM (
+			 SELECT
+				 A.USER_ID AS USER_KEY
+					, A.ASK_ME_CODE
+					, D.NICK
+					, A.SCORE_AVG
+					, A.SCORE_SUM
+					, A.RECEIVED_CNT
+					, C.SERVER_IP + '/' + C.FILE_PATH + C.THUMB_FILE_NM AS CDN_THUMB_NM
+					, ROW_NUMBER() OVER(ORDER BY A.TODAY_CNT DESC, A.RECEIVED_CNT DESC) AS ROWNUM
+			 FROM SC_ASKME_USER A
+				LEFT JOIN SC_USER_PIC B
+					ON A.USER_ID = B.USER_ID
+				LEFT JOIN SC_ATTACH_FILE C
+					ON B.PHOTO1 = C.ATTACH_FILE_ID
+				LEFT JOIN SC_USER D
+					ON A.USER_ID = D.USER_ID
+			 WHERE 1 = 1
+				 AND A.TODAY_CNT > 0
+	 	) A
+		WHERE	A.USER_KEY NOT IN (
+			SELECT
+				TARGET_USER_ID
+			FROM SC_USER_BLOCK
+			WHERE USER_ID = #{ssUserId}
+				AND DEL_YN = 'N'
+		)
+		ORDER BY ROWNUM
+	</select>
+
+	<select id="getHomeNoticeList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			A.ARTICLE_ID AS ARTICLE_KEY
+			, CASE
+				WHEN A.DEL_YN = 'N'
+				THEN A.TITLE
+				ELSE '삭제된 글입니다.'
+			END TITLE
+			, A.CONTENT
+			, CONVERT(CHAR (10), A.CREATED_DT, 23) AS CREATED_DT_STR
+			, A.DEL_YN
+			, A.VIEW_CNT
+			, C.ATTACH_FILE_ID
+			, A.CONTENT_TYPE
+			, A.FILE_ID
+			, D.SERVER_IP + '/' + D.FILE_PATH + D.SERVER_FILE_NM AS CDN_NM
+		FROM SC_ARTICLE A
+			LEFT OUTER JOIN SC_ARTICLE_FILE C
+			ON A.ARTICLE_ID = C.ARTICLE_ID
+			LEFT OUTER JOIN SC_ATTACH_FILE D
+			ON A.FILE_ID = D.ATTACH_FILE_ID
+		WHERE 1 = 1
+		AND A.DEL_YN = 'N'
+		AND A.POPUP_YN = 'Y'
+		AND A.BOARD_ID = '7'
+		AND A.DEL_YN = 'N'
+		ORDER BY A.ARTICLE_ID DESC
+	</select>
+
+</mapper>

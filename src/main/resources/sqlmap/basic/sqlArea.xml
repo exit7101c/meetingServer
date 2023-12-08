@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.basic.sqlArea">
+
+	<select id="selectAreaList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT CA.AREA_CD
+		     , FN_GET_MSG(CA.AREA_NM, #{ssUserLang}) 	  			    AS AREA_NM
+		     , CA.REMARKS
+		     , FN_GET_COMMCODE_NAME(#{ssUserLang},'USE_YN',CA.USE_YN) 	AS USE_YN
+		     , CA.DISPLAY_ORDER
+		     , CA.SIGN_AREA_CD
+		     , CA.AREA_DESC
+		     , TO_CHAR(CA.CREATED_DT,'YYYY-MM-DD HH24:MI:SS')   		AS CREATED_DT
+		     , CA.CREATED_USER_ID
+		     , (SELECT USER_NM FROM COM_USER WHERE USER_ID = CA.CREATED_USER_ID AND USE_YN = 'Y' AND ROWNUM = 1)   AS CREATED_USER_NM
+	         , TO_CHAR(CA.UPDATED_DT,'YYYY-MM-DD HH24:MI:SS')   												   AS UPDATED_DT
+		     , CA.UPDATED_USER_ID
+		     , (SELECT USER_NM FROM COM_USER WHERE USER_ID = CA.UPDATED_USER_ID AND USE_YN = 'Y' AND ROWNUM = 1)   AS UPDATE_USER_NM
+		     , FN_GET_MSG(CP.PLANT_NM, #{ssUserLang})                 											   AS PLANT_NM
+		FROM COM_AREA          			CA
+		INNER JOIN COM_PLANT   			CP
+		ON CA.PLANT_CD = CP.PLANT_CD
+        AND CP.USE_YN = 'Y'
+		<where>
+			<if test='searchStr1 != null and  searchStr1 != ""'>
+			AND (FN_GET_MSG(CA.AREA_NM, #{ssUserLang}) LIKE '%${searchStr1}%' OR CA.AREA_CD LIKE '%${searchStr1}%') 
+			</if>
+			<if test='searchStr2 != null and  searchStr2 != ""'>
+			AND CA.USE_YN = #{searchStr2}
+			</if>
+		</where>
+		ORDER BY CA.CREATED_DT DESC
+	</select>
+	
+	<select id="selectAreaOne" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT CA.AREA_CD
+    	     , FN_GET_MSG(CA.AREA_NM,'en')  AS AREA_NM_EN 	-- 영어
+		     , FN_GET_MSG(CA.AREA_NM,'ko')  AS AREA_NM_KO 	-- 한국어
+             , FN_GET_MSG(CA.AREA_NM,'cn')  AS AREA_NM_CN 	-- 중국어
+             , CA.PLANT_CD
+             , CA.SITE_CD
+			 , CA.REMARKS
+			 , CA.AREA_DESC
+			 , CA.USE_YN
+			 , CA.SIGN_AREA_CD
+			 , CA.DISPLAY_ORDER
+			 , CA.CREATED_DT
+			 , CA.CREATED_USER_ID
+			 , CA.UPDATED_DT
+			 , CA.UPDATED_USER_ID
+			 , CP.PLANT_CD
+			 , FN_GET_MSG(CP.PLANT_NM, #{ssUserLang}) AS PLANT_NM
+			 , CS.SITE_CD
+             , FN_GET_MSG(CS.SITE_NM, #{ssUserLang})  AS SITE_NM
+		FROM COM_AREA          			CA
+		INNER JOIN COM_PLANT   			CP
+		ON CA.PLANT_CD = CP.PLANT_CD
+        AND CP.USE_YN = 'Y'
+        INNER JOIN COM_SITE             CS
+        ON CA.SITE_CD = CS.SITE_CD
+        WHERE AREA_CD = #{areaCd}
+	</select>
+	
+	
+	<insert id="insertArea" parameterType="HashMap" >
+		INSERT INTO COM_AREA (
+			  AREA_CD
+			, AREA_NM
+			, AREA_DESC
+			, USE_YN
+			, PLANT_CD
+			, SITE_CD
+			, DISPLAY_ORDER
+			, SIGN_AREA_CD
+			, CREATED_DT
+			, CREATED_USER_ID
+			, UPDATED_DT
+			, UPDATED_USER_ID
+		) VALUES (
+			#{areaCd}
+		  , #{areaNm}
+		  , #{areaDesc}
+		  , #{useYn}
+		  , #{plantCd}
+		  , #{siteCd}
+		  , #{displayOrder}
+		  , #{signAreaCd}
+		  , SYSDATE
+		  , #{ssUserId}
+		  , SYSDATE
+		  , #{ssUserId}
+		)    
+	</insert>
+	
+	
+	<update id="updateArea" parameterType="HashMap" >
+		UPDATE COM_AREA
+		<set>
+			  AREA_NM = #{areaNm}
+			, AREA_DESC = #{areaDesc}
+			, USE_YN = #{useYn}
+			, PLANT_CD = #{plantCd}
+			, SITE_CD = #{siteCd}
+			, DISPLAY_ORDER = #{displayOrder}
+			, SIGN_AREA_CD = #{signAreaCd}
+			, UPDATED_DT = SYSDATE
+			, UPDATED_USER_ID = #{ssUserId}
+		</set>
+		WHERE AREA_CD = #{areaCd}
+	</update>
+	
+	<update id="deleteArea" parameterType="HashMap">
+		UPDATE COM_AREA
+		<set>
+			  USE_YN = 'N'
+  			, UPDATED_USER_ID = #{ssUserId}
+			, UPDATED_DT = SYSDATE
+		</set>
+		WHERE AREA_CD = #{areaCd} 
+	</update>	
+	
+	<!--
+	QueryID     : selectComAreaList
+	Description : Area 정보 조회
+	-->	
+	<select id="selectComAreaList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT AREA_CD
+		     , FN_GET_MSG(AREA_NM, #{ssUserLang}) AS AREA_NM
+			, '[' || AREA_CD || '] ' || FN_GET_MSG(AREA_NM, #{ssUserLang}) AS AREA_STR
+		     , AREA_DESC
+		     , USE_YN
+		FROM COM_AREA
+	   WHERE USE_YN = 'Y'
+       ORDER BY AREA_CD
+	</select>
+	
+</mapper>

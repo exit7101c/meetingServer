@@ -1,0 +1,1603 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cronies.app.setting">
+
+	<select id="sessionCheck" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            A.DROP_YN,
+            A.CONNECT_YN,
+            ISNULL(A.COMMUNITY_LASTNICK, A.NICK) AS COMMUNITY_LASTNICK,
+            ISNULL(ISNULL(A.COMMUNITY_LASTICON, A.ICON_CD), 'E') AS COMMUNITY_LASTICON,
+            CASE WHEN ISNULL(B.SUBSCRIBE_YN, 'N') = 'Y' AND B.END_TIME > GETDATE() THEN 'Y'
+                   ELSE 'N'
+            END SUBSCRIBE_YN,
+            CASE WHEN A.BAN_END_TIME > GETDATE()
+                    THEN 'Y'
+                ELSE 'N'
+            END DAY_BAN_YN,
+            CONVERT(CHAR(19), A.BAN_END_TIME, 20) AS BAN_END_TIME,
+            ISNULL(A.BAN_MESSAGE, '') AS BAN_MESSAGE,
+            --(SELECT SYS_VALUE FROM SC_SYSTEM_INFO WHERE SYS_CODE = 'MAINTAINANCE_YN') AS MAINTAINANCE_YN,
+            --(SELECT SYS_VALUE FROM SC_SYSTEM_INFO WHERE SYS_CODE = 'MAINTAINANCE_MESSAGE') AS MAINTAINANCE_MESSAGE
+            CASE WHEN A.TOKEN IS NULL THEN 'Y' ELSE 'N' END MAINTAINANCE_YN
+        FROM SC_USER A
+        LEFT OUTER JOIN SC_SUBSCRIBE_CURRENT B
+            ON A.USER_ID = B.USER_ID
+        WHERE A.USER_ID = #{ssUserId}
+	</select>
+
+    <select id="updateTokenTemp" parameterType="HashMap" resultType="ExqueryMap">
+		 UPDATE SC_USER
+		SET TOKEN = 'temp'
+		WHERE USER_ID = #{ssUserId}
+	</select>
+
+    <select id="updateLastConnect" parameterType="HashMap" resultType="ExqueryMap">
+		 UPDATE SC_USER
+		SET LAST_CONNECT = GETDATE()
+		WHERE USER_ID = #{ssUserId}
+	</select>
+
+	<select id="insertUserLog" parameterType="HashMap" resultType="ExqueryMap">
+		 INSERT INTO SC_USER_LOG
+		(USER_ID, USE_DATE, IP_ADDR, FROM_ADDR, TO_ADDR)
+		VALUES
+		(#{ssUserId}, GETDATE(), #{ipAddr}, #{fromAddr}, #{toAddr})
+	</select>
+
+	<select id="selectSystemVersion" parameterType="HashMap" resultType="ExqueryMap">
+		 SELECT SYS_CODE, SYS_VALUE FROM SC_SYSTEM_INFO
+		 WHERE SYS_CODE = 'SYS_VERSION'
+	</select>
+
+	<select id="selectSystemVersionCheck" parameterType="HashMap" resultType="ExqueryMap">
+		 SELECT SYS_CODE, SYS_VALUE FROM SC_SYSTEM_INFO
+		 WHERE SYS_CODE = 'VERSION_CHECK_YN'
+	</select>
+
+    <select id="selectPreReservationCnt" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            FORMAT(
+                    CONVERT(INTEGER, SYS_VALUE)
+                        +
+                    CONVERT(INTEGER, (SELECT SYS_VALUE FROM SC_SYSTEM_INFO WHERE SYS_CODE = 'PRE_RESERVATION_PLUS_CNT'))
+            , '#,#') AS SYS_VALUE
+        FROM SC_SYSTEM_INFO
+        WHERE SYS_CODE = 'PRE_RESERVATION_CNT'
+    </select>
+	<!--
+	Description : 설정 Mypage 사용자 정보 조회
+	-->
+    <select id="getSettingUserInfo" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT TOP 1
+        (SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = B.PHOTO1) AS CDN_NM_1
+        , (SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = B.PHOTO2) AS CDN_NM_2
+        , (SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = B.PHOTO3) AS CDN_NM_3
+        , (SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = B.PHOTO4) AS CDN_NM_4
+        , (SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = B.PHOTO5) AS CDN_NM_5
+        , (SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = B.PHOTO6) AS CDN_NM_6
+        , B.PHOTO1
+        , B.PHOTO2
+        , B.PHOTO3
+        , B.PHOTO4
+        , B.PHOTO5
+        , B.PHOTO6
+        , A.NICK
+        , A.AGE
+        , A.ICON_CD
+        , C.SHORT_WORD
+        , C.PROFILE
+        , D.ADDR_LIVE
+        , D.ADDR_ACTIVE
+        , D.ADDR_LIVE_SUM
+        , D.ADDR_ACTIVE_SUM
+        , A.MBTI_CD
+        , A.FORM_CD
+        , A.HOBBY_CD
+        , A.IDEAL_LOOK_CD
+        , A.IDEAL_FORM_CD
+        , A.IDEAL_CHARACTER_CD
+        , A.LIKE_SINGER
+        , A.LIKE_MUSIC
+        , A.SMOKE_CD
+        , A.DRINK_CD
+        , A.TALL
+        , A.WEIGHT
+        , (SELECT SERVER_IP + '/' + FILE_PATH + THUMB_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = E.FILE_ID) AS CDN_THUMB_NM_ICON
+        , E.ICON_NM
+        , E.FILE_NM
+        , A.CHOICE_OPEN_YN
+        <if test='userKey != null and userKey != ""'>
+            , #{userKey} AS TARGET_USER_KEY
+        </if>
+        , ISNULL(F.RECEIVED_CNT, 0) AS TOTAL_ASK_ME_CNT
+        , ISNULL(F.TODAY_CNT, 0) AS TODAY_ASK_ME_CNT
+        , (
+            SELECT TOP 1
+                THINK
+            FROM (
+                SELECT
+                    THINK
+                    , COUNT(THINK) AS CNT
+                FROM SC_ASKME
+                WHERE 1=1
+                AND USER_ID = #{userId}
+                GROUP BY THINK
+            ) A
+            ORDER BY A.CNT DESC
+        ) AS BEST_THINK
+        , (
+            SELECT TOP 1
+                DO
+            FROM (
+                SELECT
+                    DO
+                    , COUNT(DO) AS CNT
+                FROM SC_ASKME
+                WHERE 1=1
+                AND USER_ID = #{userId}
+                GROUP BY DO
+            ) A
+            ORDER BY A.CNT DESC
+        ) AS BEST_DO
+        FROM SC_USER A
+        LEFT OUTER JOIN SC_USER_PIC B
+        ON A.USER_ID = B.USER_ID
+        LEFT OUTER JOIN SC_USER_DETAIL C
+        ON A.USER_ID = C.USER_ID
+        LEFT OUTER JOIN SC_USER_ADDR D
+        ON A.USER_ID = D.USER_ID
+        LEFT OUTER JOIN  SC_ICON_CODE E
+        ON A.ICON_CD = E.ICON_CD
+        LEFT OUTER JOIN  SC_ASKME_USER F
+        ON A.USER_ID = F.USER_ID
+        WHERE 1 = 1
+        AND A.USER_ID = #{userId}
+    </select>
+
+    <!--
+    Description : 사용자 수정 초기 조회
+    -->
+    <select id="getSettingMainUserInfo" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT TOP 1
+		 	A.NICK
+		 	, A.AGE
+		 	, A.USER_ID AS USER_KEY
+		 	, (SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = B.PHOTO1) AS CDN_NM
+		 	, (SELECT SERVER_IP + '/' + FILE_PATH + THUMB_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = B.PHOTO1) AS CDN_THUMB_NM
+            , ISNULL(C.LAST_POINT, 0) AS LAST_POINT
+            , D.SHORT_WORD
+            , E.FILE_NM
+            , F.INVITE_POINT
+            , (SELECT COUNT(*) FROM SC_LIKE WHERE TARGET_USER_ID = #{userId} AND USER_CONFIRM_YN IS NULL) AS MY_LIKE_CNT
+        FROM SC_USER A
+        LEFT OUTER JOIN SC_USER_PIC B
+            ON A.USER_ID = B.USER_ID
+        LEFT OUTER JOIN SC_POINT C
+            ON A.USER_ID = C.USER_ID
+        LEFT OUTER JOIN SC_USER_DETAIL D
+            ON A.USER_ID = D.USER_ID
+        LEFT OUTER JOIN SC_ICON_CODE E
+            ON A.ICON_CD = E.ICON_CD
+        LEFT OUTER JOIN SC_INVITE_POINT F
+            ON A.USER_ID = F.USER_ID
+        WHERE 1 = 1
+        AND A.USER_ID = #{userId}
+    </select>
+
+    <!--
+    Description : 설정 페이지 사용자 기본정보 조회
+    -->
+    <select id="getSettingUserBaseInfo" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT TOP 1
+		 	A.EMAIL
+		 	--, A.PHON
+		 	, NULL AS PHON
+        FROM SC_USER A
+        WHERE 1 = 1
+          AND A.USER_ID = #{userId}
+    </select>
+
+    <!--
+    Description : (임시)나의 현재위치 조회
+    -->
+    <select id="getMyLocation" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            CURR_LAT
+             , CURR_LON
+        FROM SC_USER_ADDR
+        WHERE USER_ID = #{ssUserId}
+    </select>
+
+
+    <!--
+    Description : 프로실수정 프로필사진 조회	-->
+    <select id="getProfilePic" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT A.NICK
+             , NULL AS USER_PHOTO_KEY
+             , B.PHOTO1
+             , B.PHOTO2
+             , B.PHOTO3
+             , B.PHOTO4
+             , B.PHOTO5
+        FROM SC_USER A
+        LEFT OUTER JOIN SC_USER_PIC B
+        ON A.USER_ID = B.USER_ID
+        WHERE 1 = 1
+          AND A.USER_ID = #{userId}
+    </select>
+
+
+    <!--
+    Description : 받은 쪽지함 리스트 조회
+    -->
+    <select id="getReceptLetterList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT A.LETTER_ID                         AS LETTER_KEY
+             , A.SEND_ID                           AS SEND_KEY
+             , '익명'                                AS SEND_NM
+             , B.ICON_CD
+             , CASE
+                   WHEN A.DEL_YN = 'N'
+                       THEN A.TITLE
+                   ELSE '삭제된 쪽지입니다.'
+            END                                       TITLE
+             , '익명'                                AS RECEPT_YN
+             , CONVERT(CHAR (19), A.SEND_TIME, 20) AS SEND_TIME
+             , CASE
+                   WHEN A.SEND_TIME BETWEEN CONVERT(CHAR (10), GETDATE(), 23) + ' 00:00:00'
+                       AND CONVERT(CHAR (10), GETDATE(), 23) + ' 23:59:59'
+                       THEN
+                       CASE WHEN
+                LEFT(RIGHT(CONVERT(VARCHAR
+             , A.SEND_TIME
+             , 120)
+             , 8)
+             , 2)
+             > '12'
+            THEN '오후' + ' ' + RIGHT ('0' + CONVERT (VARCHAR
+             , CONVERT (INT
+             , LEFT (RIGHT (CONVERT (VARCHAR
+             , A.SEND_TIME
+             , 120)
+             , 8)
+             , 2))-12)
+             , 2)
+            + LEFT (RIGHT (CONVERT (VARCHAR
+             , A.SEND_TIME
+             , 120)
+             , 6)
+             , 3)
+            WHEN LEFT (RIGHT (CONVERT (VARCHAR
+             , A.SEND_TIME
+             , 120)
+             , 8)
+             , 2) = '12'
+            THEN '오후' + ' ' + LEFT (RIGHT (CONVERT (VARCHAR
+             , A.SEND_TIME
+             , 120)
+             , 8)
+             , 5)
+            ELSE '오전' + ' ' + LEFT (RIGHT (CONVERT (VARCHAR
+             , A.SEND_TIME
+             , 120)
+             , 8)
+             , 5)
+        END
+					ELSE
+						CONVERT(CHAR(4),YEAR(A.SEND_TIME)) +'년 '
+						+ RIGHT('0'+CONVERT(VARCHAR(2),MONTH(A.SEND_TIME)),2) +'월 '
+						+ RIGHT('0'+CONVERT(VARCHAR(2),DAY(A.SEND_TIME)),2) +'일 '
+        END SEND_TIME_STR
+        , A.DEL_YN
+		FROM SC_LETTER A
+		LEFT OUTER JOIN SC_USER B
+		ON A.SEND_ID = B.USER_ID
+		WHERE 1=1
+		AND A.RECEPT_ID = #{userId}
+        AND A.DEL_YN = 'N'
+        ORDER BY A.SEND_TIME DESC
+    </select>
+
+    <!--
+    Description : 보낸 쪽지함 리스트 조회
+    -->
+    <select id="getSendLetterList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT A.LETTER_ID                         AS LETTER_KEY
+             , A.RECEPT_ID                         AS RECEPT_KEY
+             , '익명'                               AS RECEPT_NM
+             , B.ICON_CD
+             , CASE
+                   WHEN A.DEL_YN = 'N'
+                       THEN A.TITLE
+                   ELSE '삭제된 쪽지입니다.'
+            END                                       TITLE
+             , A.RECEPT_YN
+             , CONVERT(CHAR (19), A.SEND_TIME, 20) AS SEND_TIME
+             , CASE
+                   WHEN A.SEND_TIME BETWEEN CONVERT(CHAR (10), GETDATE(), 23) + ' 00:00:00'
+                       AND CONVERT(CHAR (10), GETDATE(), 23) + ' 23:59:59'
+                       THEN
+                       CASE WHEN
+                LEFT(RIGHT(CONVERT(VARCHAR
+             , A.SEND_TIME
+             , 120)
+             , 8)
+             , 2)
+             > '12'
+            THEN '오후' + ' ' + RIGHT ('0' + CONVERT (VARCHAR
+             , CONVERT (INT
+             , LEFT (RIGHT (CONVERT (VARCHAR
+             , A.SEND_TIME
+             , 120)
+             , 8)
+             , 2))-12)
+             , 2)
+            + LEFT (RIGHT (CONVERT (VARCHAR
+             , A.SEND_TIME
+             , 120)
+             , 6)
+             , 3)
+            WHEN LEFT (RIGHT (CONVERT (VARCHAR
+             , A.SEND_TIME
+             , 120)
+             , 8)
+             , 2) = '12'
+            THEN '오후' + ' ' + LEFT (RIGHT (CONVERT (VARCHAR
+             , A.SEND_TIME
+             , 120)
+             , 8)
+             , 5)
+            ELSE '오전' + ' ' + LEFT (RIGHT (CONVERT (VARCHAR
+             , A.SEND_TIME
+             , 120)
+             , 8)
+             , 5)
+        END
+					ELSE
+						CONVERT(CHAR(4),YEAR(A.SEND_TIME)) +'년 '
+						+ RIGHT('0'+CONVERT(VARCHAR(2),MONTH(A.SEND_TIME)),2) +'월 '
+						+ RIGHT('0'+CONVERT(VARCHAR(2),DAY(A.SEND_TIME)),2) +'일 '
+        END SEND_TIME_STR
+        , A.DEL_YN
+		FROM SC_LETTER A
+		LEFT OUTER JOIN SC_USER B
+			ON A.RECEPT_ID = B.USER_ID
+		WHERE 1=1
+		  AND A.SEND_ID =
+        #{userId}
+        ORDER
+        BY
+        A
+        .
+        SEND_TIME
+        DESC
+    </select>
+
+    <!--
+    Description : 쪽지 상세 조회 (미개발)
+    -->
+    <select id="getLetterDetail" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT TITLE
+             , CONTENTS
+             , CONVERT(CHAR (19), SEND_TIME, 20) AS SEND_TIME
+             , CASE
+                   WHEN SEND_TIME BETWEEN CONVERT(CHAR (10), GETDATE(), 23) + ' 00:00:00'
+                       AND CONVERT(CHAR (10), GETDATE(), 23) + ' 23:59:59'
+                       THEN
+                       CASE WHEN
+                LEFT(RIGHT(CONVERT(VARCHAR
+             , SEND_TIME
+             , 120)
+             , 8)
+             , 2)
+             > '12'
+            THEN '오후' + ' ' + RIGHT ('0' + CONVERT (VARCHAR
+             , CONVERT (INT
+             , LEFT (RIGHT (CONVERT (VARCHAR
+             , SEND_TIME
+             , 120)
+             , 8)
+             , 2))-12)
+             , 2)
+            + LEFT (RIGHT (CONVERT (VARCHAR
+             , SEND_TIME
+             , 120)
+             , 6)
+             , 3)
+            WHEN LEFT (RIGHT (CONVERT (VARCHAR
+             , SEND_TIME
+             , 120)
+             , 8)
+             , 2) = '12'
+            THEN '오후' + ' ' + LEFT (RIGHT (CONVERT (VARCHAR
+             , SEND_TIME
+             , 120)
+             , 8)
+             , 5)
+            ELSE '오전' + ' ' + LEFT (RIGHT (CONVERT (VARCHAR
+             , SEND_TIME
+             , 120)
+             , 8)
+             , 5)
+        END
+				   ELSE
+						CONVERT(CHAR(4),YEAR(SEND_TIME)) +'년 '
+						+ RIGHT('0'+CONVERT(VARCHAR(2),MONTH(SEND_TIME)),2) +'월 '
+						+ RIGHT('0'+CONVERT(VARCHAR(2),DAY(SEND_TIME)),2) +'일 '
+        END SEND_TIME_STR
+        FROM SC_LETTER
+		WHERE 1=1
+		AND LETTER_ID =
+        #{letterId}
+    </select>
+
+    <!--
+    Description : 사용자 알림 수신정보 조회
+    -->
+    <select id="getSettingUserSet" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            A.SET_CD
+            , A.SET_NM
+            , A.SET_DESC
+            , ISNULL(B.VAL, 'Y') AS VAL
+            , CASE WHEN ISNULL(B.VAL, 'Y') IS NOT NULL
+                    THEN 'Y'
+                    ELSE 'N'
+                END VAL_BOOLEAN
+        FROM SC_SET_CODE A
+        LEFT OUTER JOIN SC_USER_SET B
+        ON A.SET_CD = B.SET_CD
+        AND B.USER_ID = #{userId}
+        WHERE 1=1
+        AND A.USE_YN = 'Y'
+        ORDER BY A.SET_CD
+    </select>
+
+    <!--
+    Description : 사용자 알림 수신정보 조회
+    -->
+    <select id="getSettingUserSetByCodeType" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            VAL
+        FROM SC_USER_SET
+        WHERE 1=1
+        AND USER_ID = #{userId}
+        AND SET_CD = #{codeType}
+    </select>
+
+    <!--
+    Description : 사용자 알림 수신정보 수정
+    -->
+    <insert id="setSettingUserSet" parameterType="HashMap">
+        MERGE INTO SC_USER_SET
+        USING (VALUES (1)) AS Source (Number)
+        ON ( USER_ID = #{userId} AND SET_CD = #{codeType} )
+        WHEN MATCHED THEN
+        UPDATE SET
+            VAL = #{updateValue}
+        WHEN NOT MATCHED THEN
+        INSERT (USER_ID, SET_CD, VAL)
+        VALUES (#{userId}, #{codeType}, #{updateValue});
+    </insert>
+
+    <!--
+    Description : 이용약관 조회 수신정보 조회
+    -->
+    <select id="getSettingUserTerm" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            TERM_MARKETING
+            , TERM_PUSH
+        FROM SC_USER_TERM
+        WHERE 1=1
+          AND USER_ID = #{userId}
+    </select>
+
+    <!--
+    Description : 이용약관 수신정보 수정
+    -->
+    <insert id="setSettingUserTerm" parameterType="HashMap">
+        UPDATE SC_USER_TERM
+            SET
+        <if test='codeType != null and codeType == "MARKETING"'> TERM_MARKETING = #{updateValue}, TERM_MARKETING_DATE = GETDATE() </if>
+        <if test='codeType != null and codeType == "PUSH"'> TERM_PUSH = #{updateValue}, TERM_PUSH_DATE = GETDATE() </if>
+        WHERE USER_ID = #{userId}
+    </insert>
+
+    <!--
+    Description : 공지사항 조회
+    -->
+    <select id="getNoticeList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT *
+        FROM (
+                SELECT TOP 100 PERCENT
+				A.ARTICLE_ID AS ARTICLE_KEY
+				, CASE
+                WHEN A.DEL_YN = 'N'
+                    THEN A.TITLE
+                    ELSE '삭제된 글입니다.'
+                    END TITLE
+                , CONVERT(CHAR (10), A.CREATED_DT, 23) AS CREATED_DT_STR
+                , A.CONTENT
+                , A.DEL_YN
+                , A.VIEW_CNT
+                , ROW_NUMBER() OVER(ORDER BY A.ARTICLE_ID DESC) AS ROWNUM
+				, C.ATTACH_FILE_ID
+                , A.CONTENT_TYPE
+                , A.FILE_ID
+                , D.SERVER_IP + '/' + D.FILE_PATH + D.SERVER_FILE_NM AS CDN_NM
+                 FROM SC_ARTICLE A
+                    LEFT OUTER JOIN SC_ARTICLE_FILE C
+                    ON A.ARTICLE_ID = C.ARTICLE_ID
+                    LEFT OUTER JOIN SC_ATTACH_FILE D
+                    ON A.FILE_ID = D.ATTACH_FILE_ID
+                WHERE 1 = 1
+                AND A.DEL_YN = 'N'
+                AND A.BOARD_ID = '7'
+                ORDER BY A.ARTICLE_ID DESC
+             ) A
+    </select>
+
+    <select id="getNoticeArticleOne" parameterType="HashMap" resultType="ExqueryMap">
+
+                SELECT TOP 1
+				A.ARTICLE_ID AS ARTICLE_KEY
+				, CASE
+                WHEN A.DEL_YN = 'N'
+                    THEN A.TITLE
+                    ELSE '삭제된 글입니다.'
+                    END TITLE
+                , CONVERT(CHAR (10), A.CREATED_DT, 23) AS CREATED_DT_STR
+                , A.CONTENT
+                , A.DEL_YN
+                , A.VIEW_CNT
+                , ROW_NUMBER() OVER(ORDER BY A.ARTICLE_ID DESC) AS ROWNUM
+				, C.ATTACH_FILE_ID
+                , A.CONTENT_TYPE
+                , A.FILE_ID
+                , D.SERVER_IP + '/' + D.FILE_PATH + D.SERVER_FILE_NM AS CDN_NM
+                 FROM SC_ARTICLE A
+                    LEFT OUTER JOIN SC_ARTICLE_FILE C
+                    ON A.ARTICLE_ID = C.ARTICLE_ID
+                    LEFT OUTER JOIN SC_ATTACH_FILE D
+                    ON A.FILE_ID = D.ATTACH_FILE_ID
+                WHERE A.ARTICLE_ID = #{articleId}
+    </select>
+
+    <!--
+    Description : 라운지 이용 안내 조회
+    -->
+    <select id="getLoungeList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT *
+        FROM (
+                 SELECT TOP 100 PERCENT
+				A.ARTICLE_ID AS ARTICLE_KEY
+				, CASE
+                                                  WHEN A.DEL_YN = 'N'
+                                                      THEN A.TITLE
+                                                  ELSE '삭제된 글입니다.'
+                     END TITLE
+                      , CONVERT(CHAR (10), A.CREATED_DT, 23) AS CREATED_DT_STR
+                      , A.DEL_YN
+                      , A.VIEW_CNT
+                      , ROW_NUMBER()                            OVER(ORDER BY A.ARTICLE_ID DESC) AS ROWNUM
+				, C.ATTACH_FILE_ID
+                 FROM SC_ARTICLE A
+                          LEFT OUTER JOIN SC_ARTICLE_FILE C
+                                          ON A.ARTICLE_ID = C.ARTICLE_ID
+                 WHERE 1 = 1
+                   AND A.BOARD_ID = '8'
+                 ORDER BY A.ARTICLE_ID DESC
+             ) A
+    </select>
+
+    <!--
+    Description : 파티 이용 안내 조회
+    -->
+    <select id="getPartyList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT *
+        FROM (
+                 SELECT TOP 100 PERCENT
+				A.ARTICLE_ID AS ARTICLE_KEY
+				, CASE
+                                                  WHEN A.DEL_YN = 'N'
+                                                      THEN A.TITLE
+                                                  ELSE '삭제된 글입니다.'
+                     END TITLE
+                      , CONVERT(CHAR (10), A.CREATED_DT, 23) AS CREATED_DT_STR
+                      , A.DEL_YN
+                      , A.VIEW_CNT
+                      , ROW_NUMBER()                            OVER(ORDER BY A.ARTICLE_ID DESC) AS ROWNUM
+				, C.ATTACH_FILE_ID
+                 FROM SC_ARTICLE A
+                          LEFT OUTER JOIN SC_ARTICLE_FILE C
+                                          ON A.ARTICLE_ID = C.ARTICLE_ID
+                 WHERE 1 = 1
+                   AND A.BOARD_ID = '9'
+                 ORDER BY A.ARTICLE_ID DESC
+             ) A
+    </select>
+
+	<!--
+	Description : 사용자 사진 수정
+	-->
+	<update id="updateUserPic" parameterType="HashMap">
+		UPDATE SC_USER_PIC
+		SET
+		    USER_ID = #{userId}
+		WHERE USER_ID = #{userId}
+	</update>
+
+    <!--
+    Description : 비밀번호 변경 사용자 조회
+    -->
+    <select id="selectChangePwUserInfo" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT USER_ID
+        FROM SC_USER
+        WHERE USER_ID = #{userId}
+          AND PW = #{beforePw}
+    </select>
+
+    <!--
+    Description : 사용자 비밀번호 수정
+    -->
+    <update id="updateUserPw" parameterType="HashMap">
+        UPDATE SC_USER
+        SET PW = #{afterPw}
+            , LAST_PW_CHANGE = GETDATE()
+        WHERE USER_ID = #{userId}
+          AND PW = #{beforePw}
+    </update>
+
+    <!--
+    Description : 사용자 프로필보기 조회
+    -->
+    <select id="getDailyUserInfo" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT TOP 1
+			A.USER_ID AS USER_KEY
+			, A.NICK
+             , A.AGE
+             , A.ICON_CD
+             , D.JOB_NM
+             , E.ADDR_LIVE_SUM
+             , E.ADDR_ACTIVE_SUM
+             , B.PHOTO1 AS PHOTO_KEY1
+             , B.PHOTO2 AS PHOTO_KEY2
+             , B.PHOTO3 AS PHOTO_KEY3
+             , B.PHOTO4 AS PHOTO_KEY4
+             , B.PHOTO5 AS PHOTO_KEY5
+             , B.PHOTO6 AS PHOTO_KEY6
+             , C.SHORT_WORD
+             , C.PROFILE
+             , C.KEYWORD
+             , C.INTERVIEW
+             , F.FILE_ID
+             , F.ICON_CD
+             , F.ICON_NM
+        FROM SC_USER A
+        LEFT OUTER JOIN SC_USER_PIC B
+        ON A.USER_ID = B.USER_ID
+        LEFT OUTER JOIN SC_USER_DETAIL C
+        ON A.USER_ID = C.USER_ID
+        LEFT OUTER JOIN SC_JOB_CODE D
+        ON A.JOB_CD = D.JOB_CD
+        LEFT OUTER JOIN SC_USER_ADDR E
+        ON A.USER_ID = E.USER_ID
+        LEFT JOIN SC_ICON_CODE F
+        ON A.ICON_CD = F.ICON_CD
+        WHERE 1 = 1
+        AND A.USER_ID = #{userId}
+    </select>
+
+    <!--
+    Description : 사용자 한 명 조회
+    -->
+    <!--
+    <select id="getUserOne" parameterType="HashMap" resultType="ExqueryMap">
+         SELECT
+            U.USER_SEQ
+            ,U.USER_NAME
+            ,U.EMAIL
+            ,U.SEX
+            ,CASE WHEN U.SEX = 'M' THEN '남성'
+                  WHEN U.SEX = 'W' THEN '여성'
+                  ELSE '알 수 없음'
+            END SEX_STR
+            ,U.PW
+            ,U.BIRTH
+            ,U.LAT
+            ,U.LNG
+            ,U.INTRODUCTION
+            ,P.MAIN_YN
+            ,SUBSTR(F.FILE_PATH, -7) AS FILE_PATH
+            ,F.ATTACH_FILE_ID
+            ,F.SERVER_FILE_NM
+            ,F.THUMBNAIL
+         FROM COM_USER U
+         LEFT OUTER JOIN COM_USER_PHOTO P
+         ON U.USER_SEQ = P.USER_SEQ
+         LEFT OUTER JOIN COM_ATTACH_FILE F
+          ON P.FILE_ID = F.ATTACH_FILE_ID
+         WHERE U.USER_SEQ = #{userSeq}
+         ORDER BY F.ATTACH_FILE_ID ASC
+    </select>
+    -->
+    <select id="getUserOne" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT U.USER_ID
+             , EMAIL
+             , PHON
+             , BIRTH
+             , SEX
+             , CASE
+                   WHEN U.SEX = 'M' THEN '남성'
+                   WHEN U.SEX = 'W' THEN '여성'
+                   ELSE '알 수 없음'
+            END SEX_STR
+             , NAME
+             , NICK
+             , P.ATTACH_FILE_ID
+             , p.PRIVATE_YN
+        FROM SC_USER AS U
+                 JOIN SC_USER_PHOTO AS P
+                      ON U.USER_ID = P.USER_ID
+        WHERE U.USER_ID = #{userId};
+    </select>
+
+    <!--
+    Description : 사용자 정보 수정
+    -->
+    <update id="updateUser" parameterType="HashMap">
+        UPDATE COM_USER
+        SET USER_NAME    = #{userName}
+          , SEX          = #{sex}
+          , BIRTH        = #{birth}
+          , INTRODUCTION = #{introduction}
+          , UPD_TIME     = SYSDATE
+        WHERE USER_SEQ = #{userSeq}
+    </update>
+
+    <!--
+    Description : 사용자 비밀번호 변경
+    -->
+    <update id="updatePw" parameterType="HashMap">
+        UPDATE COM_USER
+        SET PW       = #{pw},
+            UPD_TIME = SYSDATE
+        WHERE USER_SEQ = #{userSeq}
+    </update>
+
+    <!--
+    Description : 사용자 프로필 사진 추가
+    -->
+    <insert id="insertUserPhoto" parameterType="HashMap">
+        INSERT INTO SC_USER_PHOTO (USER_ID, ATTACH_FILE_ID, PRIVATE_YN)
+        VALUES (#{userId}, #{attachFileId}, #{privateYn})
+    </insert>
+
+    <!--
+    Description : 사용자 프로필 사진 교체 // 현재 사용 안함
+    -->
+    <update id="updateUserPhoto" parameterType="HashMap">
+        UPDATE COM_USER_PHOTO
+        SET FILE_ID = #{newFileId}
+        WHERE USER_SEQ = #{userSeq}
+          AND FILE_ID = #{fileId}
+    </update>
+
+    <!--
+    Description : 사용자 프로필 사진 교체
+    -->
+    <update id="updateAttachPhoto" parameterType="HashMap">
+        UPDATE COM_ATTACH_FILE
+        SET ATTACH_FILE_ID = #{fileId}
+          , UPDATED_DT     = SYSDATE
+        WHERE ATTACH_FILE_ID = #{newFileId}
+    </update>
+
+    <!--
+    Description : 프로필 사진 삭제 - COM_USER_PHOTO
+    -->
+    <delete id="deleteUserPhoto" parameterType="Hashmap">
+        DELETE
+        FROM COM_USER_PHOTO
+        WHERE FILE_ID = #{fileId}
+          AND USER_SEQ = #{userSeq}
+    </delete>
+
+    <!--
+    Description : 프로필 사진 삭제 - COM_ATTACH_FILE
+    -->
+    <delete id="deleteProfilePhoto" parameterType="Hashmap">
+        DELETE
+        FROM COM_ATTACH_FILE
+        WHERE ATTACH_FILE_ID = #{attachFileId}
+    </delete>
+
+    <!--
+    Description : 삭제할 사진 정보 불러오기
+    -->
+    <select id="getFileOne" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT ATTACH_FILE_ID, SERVER_FILE_NM, FILE_PATH, THUMBNAIL
+        FROM COM_ATTACH_FILE
+        WHERE ATTACH_FILE_ID = #{attachFileId}
+    </select>
+
+    <!--
+    Description : 사용자 프로필 사진 메인 변경 - 기존 메인사진 N으로 변경
+    -->
+    <update id="resetMainPhoto" parameterType="HashMap">
+        UPDATE COM_USER_PHOTO
+        SET MAIN_YN = 'N'
+        WHERE USER_SEQ = #{userSeq}
+          AND MAIN_YN = 'Y'
+    </update>
+
+    <!--
+    Description : 사용자 프로필 사진 메인 변경 - 새로운 사진 Y로 지정
+    -->
+    <update id="updateMainPhoto" parameterType="HashMap">
+        UPDATE COM_USER_PHOTO
+        SET MAIN_YN = 'Y'
+        WHERE USER_SEQ = #{userSeq}
+          AND FILE_ID = #{fileId}
+    </update>
+
+    <!--
+    Description : 사용자 정보 수정 (위치)
+    -->
+    <update id="updateUserLocation" parameterType="HashMap">
+        UPDATE COM_USER
+        SET LAT      = #{lat},
+            LNG      = #{lng},
+            UPD_TIME = SYSDATE
+        WHERE USER_SEQ = #{userSeq}
+    </update>
+
+
+    <!--
+    Description : 프로필 사진 업데이트
+    -->
+    <update id="updateProfilePic" parameterType="HashMap">
+        MERGE INTO SC_USER_PIC AS A
+        USING (SELECT 1 AS DUAL) AS B
+        ON (A.USER_ID = #{ssUserId})
+        WHEN MATCHED THEN
+        UPDATE SET
+        UPD_TIME = GETDATE()
+        , PHOTO1 = ${photo1}
+        <if test='photo2 != null and photo2 != ""'>
+            , PHOTO2 = ${photo2}
+        </if>
+        <if test='photo3 != null and photo3 != ""'>
+            , PHOTO3 = ${photo3}
+        </if>
+        <if test='photo4 != null and photo4 != ""'>
+            , PHOTO4 = ${photo4}
+        </if>
+        <if test='photo5 != null and photo5 != ""'>
+            , PHOTO5 = ${photo5}
+        </if>
+        <if test='photo6 != null and photo6 != ""'>
+            , PHOTO6 = ${photo6}
+        </if>
+        WHEN NOT MATCHED THEN
+        INSERT (USER_ID, PHOTO1
+        <if test='photo2 != null and photo2 != ""'>
+            , PHOTO2
+        </if>
+        <if test='photo3 != null and photo3 != ""'>
+            , PHOTO3
+        </if>
+        <if test='photo4 != null and photo4 != ""'>
+            , PHOTO4
+        </if>
+        <if test='photo5 != null and photo5 != ""'>
+            , PHOTO5
+        </if>
+        <if test='photo6 != null and photo6 != ""'>
+            , PHOTO6
+        </if>
+        , UPD_TIME
+        )
+        VALUES (#{ssUserId}, ${photo1}
+        <if test='photo2 != null and photo2 != ""'>
+            , ${photo2}
+        </if>
+        <if test='photo3 != null and photo3 != ""'>
+            , ${photo3}
+        </if>
+        <if test='photo4 != null and photo4 != ""'>
+            , ${photo4}
+        </if>
+        <if test='photo5 != null and photo5 != ""'>
+            , ${photo5}
+        </if>
+        <if test='photo6 != null and photo6 != ""'>
+            , ${photo6}
+        </if>
+            , GETDATE()
+        );
+    </update>
+
+    <!--
+    Description : 프로필 사진 삭제
+    -->
+    <update id="deleteProfilePic" parameterType="HashMap">
+        UPDATE SC_USER_PIC
+        SET
+            UPD_TIME = GETDATE()
+            <if test='deletePhoto == "add3"'>
+                , PHOTO3 = NULL
+            </if>
+            <if test='deletePhoto == "add4"'>
+                , PHOTO4 = NULL
+            </if>
+            <if test='deletePhoto == "add5"'>
+                , PHOTO5 = NULL
+            </if>
+            <if test='deletePhoto == "add6"'>
+                , PHOTO6 = NULL
+            </if>
+        WHERE USER_ID = #{ssUserId}
+    </update>
+
+    <!--
+    Description : 사용자가 필수사진과 주소등록을 했는지 체크
+    -->
+    <select id="userPhotoLocationCheck" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            A.USER_ID, B.PHOTO1, B.PHOTO2, C.LAT, C.LON
+        FROM SC_USER A
+        INNER JOIN SC_USER_PIC B
+            ON A.USER_ID = B.USER_ID
+        INNER JOIN SC_USER_ADDR C
+            ON A.USER_ID = C.USER_ID
+        WHERE A.USER_ID = #{ssUserId}
+    </select>
+
+    <!--
+    Description : 사용자 사진 수정 시 CHOICE_YN 초기화
+    -->
+    <update id="updateUserChoiceYn" parameterType="HashMap">
+        UPDATE SC_USER
+            SET CHOICE_YN = 'Y'
+        WHERE USER_ID = #{ssUserId}
+    </update>
+
+    <!--
+    Description : 프로필 업데이트
+    -->
+    <update id="getUserDetailUpdate" parameterType="HashMap">
+        UPDATE SC_USER_DETAIL
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="shortWord != null and shortWord != ''">
+                SHORT_WORD = #{shortWord},
+            </if>
+            <if test="profile != null and profile != ''">
+                PROFILE = #{profile},
+            </if>
+            <if test="keyword != null and keyword != ''">
+                KEYWORD = #{keyword},
+            </if>
+            <if test="interview != null and interview != ''">
+                INTERVIEW = #{interview}
+            </if>
+        </trim>
+        WHERE USER_ID = #{userId}
+    </update>
+
+    <!--
+    Description : 프로필 업데이트
+    -->
+    <update id="getUserUpdate" parameterType="HashMap">
+        UPDATE SC_USER
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="jobCd != null and jobCd != ''">
+                JOB_CD = #{jobCd},
+            </if>
+            <if test="schoolCd != null and schoolCd != ''">
+                SCHOOL_CD = #{schoolCd},
+            </if>
+        </trim>
+        WHERE USER_ID = #{userId}
+    </update>
+
+    <!--
+    Description : 프로필 주소 업데이트
+    -->
+    <update id="getUserAddressUpdate" parameterType="HashMap">
+        UPDATE SC_USER_ADDR
+        SET ADDR_LIVE       = #{addr1},
+        ADDR_ACTIVE     = #{addr2},
+        ADDR_LIVE_SUM   = #{shotaddr1},
+        ADDR_ACTIVE_SUM = #{shotaddr2},
+        LAT = #{lat},
+        LON = #{lon}
+        WHERE USER_ID = #{userId}
+    </update>
+
+    <!--
+    Description : MBTI
+    -->
+    <select id="getMbtiList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            MBTI_CD
+             , MBTI_NM
+             , MBTI_DETAIL
+             , BACKGROUND_COLOR
+        FROM SC_MBTI_CODE
+        ORDER BY SHOW_ORDER
+    </select>
+    <!--
+    Description : 이상형 얼굴
+    -->
+    <select id="getFaceList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT LOOK_CD
+        , LOOK_NM
+        , LOOK_DETAIL
+        FROM SC_LOOK_CODE
+    </select>
+    <!--
+    Description : 이상형 몸
+    -->
+    <select id="getBodyList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT FORM_CD
+        , FORM_NM
+        , FORM_DETAIL
+        FROM SC_FORM_CODE
+    </select>
+    <!--
+    Description : 이상형 성격
+    -->
+    <select id="getPersonalityList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT CHARACTER_CD
+        , CHARACTER_NM
+        , CHARACTER_DETAIL
+        FROM SC_CHARACTER_CODE
+    </select>
+    <!--
+    Description : 취미
+    -->
+    <select id="getHobbyList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT HOBBY_CD
+        , HOBBY_NM
+        , HOBBY_DETAIL
+        FROM SC_HOBBY_CODE
+    </select>
+
+
+    <!--
+    Description : 담배
+    -->
+    <select id="getSmokeList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT SMOKE_CD
+        , SMOKE_NM
+        , SMOKE_DETAIL
+        FROM SC_SMOKE_CODE
+    </select>
+    <!--
+    Description : 음주
+    -->
+    <select id="getDrinkingList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT DRINK_CD
+        , DRINK_NM
+        , DRINK_DETAIL
+        FROM SC_DRINK_CODE
+    </select>
+    <!--
+    Description : 아이콘
+    -->
+    <select id="getIconList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+			A.ICON_CD
+			 , A.ICON_NM
+			 , A.ICON_DETAIL
+			 , A.SHOW_ORDER
+			 , (B.SERVER_IP + '/' + B.FILE_PATH + B.THUMB_FILE_NM) AS CDN_THUMB_NM
+		FROM SC_ICON_CODE A WITH(INDEX=PK_SC_ICON_CODE)
+		LEFT OUTER JOIN SC_ATTACH_FILE B
+		ON A.FILE_ID = B.ATTACH_FILE_ID
+		ORDER BY A.SHOW_ORDER ASC
+    </select>
+
+    <!--
+    Description : 키워드 업데이트
+    -->
+    <update id="getUserKeywordUpdate" parameterType="HashMap">
+        UPDATE SC_USER
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="mbtiCd != null and mbtiCd != ''">
+                MBTI_CD = #{mbtiCd},
+            </if>
+            <if test="lookCd != null and lookCd != ''">
+                IDEAL_LOOK_CD = #{lookCd},
+            </if>
+            <if test="formCd != null and formCd != ''">
+                IDEAL_FORM_CD = #{formCd},
+            </if>
+            <if test="characterCd != null and characterCd != ''">
+                IDEAL_CHARACTER_CD =#{characterCd},
+            </if>
+            <if test="hobbyCd != null and hobbyCd != ''">
+                HOBBY_CD = #{hobbyCd},
+            </if>
+            <if test="likeSinger != null and likeSinger != ''">
+                LIKE_SINGER = #{likeSinger},
+            </if>
+            <if test="likeMusic != null and likeMusic != ''">
+                LIKE_MUSIC = #{likeMusic}
+            </if>
+        </trim>
+        WHERE USER_ID = #{userId}
+    </update>
+
+    <update id="getUserInfoUpdate" parameterType="HashMap">
+        UPDATE SC_USER
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="iconCd != null and iconCd != ''">
+                ICON_CD = #{iconCd},
+            </if>
+            <if test="tall != null and tall != ''">
+                TALL = #{tall},
+            </if>
+            <if test="formCd != null and formCd != ''">
+                FORM_CD = #{formCd},
+            </if>
+            <if test="weight != null and weight != ''">
+                WEIGHT = #{weight},
+            </if>
+            <if test="smokeCd != null and smokeCd != ''">
+                SMOKE_CD =#{smokeCd},
+            </if>
+            <if test="drinkCd != null and drinkCd != ''">
+                DRINK_CD = #{drinkCd}
+            </if>
+        </trim>
+        WHERE USER_ID = #{userId}
+    </update>
+
+    <!--
+    Description : Search UserOne Sign Date
+    -->
+    <select id="getUserOneSignDate" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT TOP 1
+	        DATEDIFF(DD, SIGN_DATE, GETDATE()) AS DIFF_DATE
+        FROM SC_USER
+        WHERE 1=1
+          AND USER_ID = #{userId}
+    </select>
+
+    <!--
+    Description : Nick Last Change His
+    -->
+    <select id="getUserNickLastChangeHis" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT TOP 1
+            ID
+        FROM SC_NICK_CHANGE_HIS
+        WHERE 1=1
+        AND USER_ID = #{userId}
+        AND CHANGE_TIME BETWEEN CONVERT(CHAR(10), DATEADD(DD, -30, GETDATE()), 23) AND CONVERT(CHAR(10), GETDATE(), 23)
+        ORDER BY ID DESC
+    </select>
+
+    <!--
+    Description : Nick Update
+    -->
+    <update id="changeUserNick" parameterType="HashMap">
+        UPDATE SC_USER
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="afterNick != null and afterNick != ''">
+                NICK = #{afterNick},
+            </if>
+        </trim>
+        WHERE USER_ID = #{userId}
+    </update>
+
+    <!--
+    Description : Insert Nick Change His
+    -->
+    <insert id="insertNickChangeHis" parameterType="HashMap">
+        INSERT INTO SC_NICK_CHANGE_HIS
+        ( USER_ID, BEFORE_NICK, AFTER_NICK, CHANGE_TIME )
+        VALUES
+        ( #{userId}, #{beforeNick}, #{afterNick}, GETDATE() )
+    </insert>
+
+    <!--
+    Description : 신고 리스트
+    -->
+    <select id="getPoliceList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            POLICE_CD
+             , POLICE_NM
+             , POLICE_DETAIL
+        FROM SC_POLICE_CODE
+        WHERE USE_YN = 'Y'
+        ORDER BY SHOW_ORDER
+    </select>
+
+    <select id="insertPolice" parameterType="HashMap" resultType="ExqueryMap">
+        INSERT INTO SC_POLICE_HIS
+            (TARGET_ID, TARGET_TYPE, POLICE_CD, REG_USER_ID, CONTENT, SUCCESS_YN, REG_TIME)
+        VALUES
+            (#{targetId}, #{targetType}, #{policeCd}, #{ssUserId}, #{content}, 'N', GETDATE())
+    </select>
+
+    <select id="getPoliceOpenChatDetail" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            A.LEADER_USER_ID AS REG_USER_KEY
+             , B.ICON_CD
+             , A.CHATROOM_ID
+             , C.ATTACH_FILE_ID AS MAIN_FILE_KEY
+             , CASE WHEN A.LEADER_USER_ID = #{targetId} THEN 'Y'
+                ELSE 'N'
+            END IS_REG_YN
+             , A.TITLE
+             , A.CONTENT
+             , A.LOCATION
+             , A.ALWAYS_YN
+             , A.DUE_DATE
+             , A.DEL_YN
+             , CASE WHEN D.USER_ID IS NOT NULL THEN 'Y' ELSE 'N'
+            END BOOKMARK_YN
+             , CASE WHEN E.ATTEND_YN IS NULL THEN ''
+                WHEN E.ATTEND_YN = 'Y' THEN 'Y'
+                ELSE 'N'
+            END ATTEND_YN
+             , B.DROP_YN AS REG_USER_DROP_YN
+             , B.NAME
+             , B.NICK
+             , E.ATTENDER_CANCEL_YN
+             , F.PARTITION_CD
+             , F.PARTITION_NM
+             , A.VIEW_CNT
+             , dbo.FN_GET_DATE_STR(A.REG_TIME) AS REG_DATE_STR
+             , CASE
+                WHEN A.DUE_DATE = '2999-12-31' THEN '상시 모집'
+                WHEN DATEDIFF(MINUTE, CONVERT(VARCHAR(10), GETDATE(), 23), A.DUE_DATE) = 1 THEN '내일'
+                WHEN DATEDIFF(DD, CONVERT(VARCHAR(10), GETDATE(), 23), A.DUE_DATE) = 0 THEN '오늘'
+                WHEN DATEDIFF(DD, CONVERT(VARCHAR(10), GETDATE(), 23), A.DUE_DATE) > 0 THEN CONCAT(DATEDIFF(DD, CONVERT(VARCHAR(10), GETDATE(), 23), A.DUE_DATE), '일 후')
+                ELSE CONCAT(DATEDIFF(DD, A.DUE_DATE, CONVERT(VARCHAR(10), GETDATE(), 23)), '일 전')
+            END AS DUE_DATE_STR
+             , #{targetId} AS SS_USER_KEY
+             , E.LEADER_CONFIRM_YN
+             , CASE WHEN G.USER_ID IS NULL THEN 'NOTATTEND' ELSE 'ATTEND' END AS ATTEND_CHK
+             , E.REG_TIME AS ATTEND_REG_TIME
+             , A.OPENCHAT_RANK
+             , (SELECT COUNT(*) FROM SC_OPENCHAT WHERE DEL_YN = 'N') AS TOTAL_ROOM
+             , (SELECT COUNT(*) FROM SC_BUFF_OPENCHAT_BOOST
+                WHERE OPENCHAT_ID = #{targetKey}
+                AND (START_TIME &lt; GETDATE() AND END_TIME > GETDATE())) AS USE_CNT
+        FROM SC_OPENCHAT A
+            LEFT OUTER JOIN SC_USER B
+            ON A.LEADER_USER_ID = B.USER_ID
+            LEFT OUTER JOIN SC_OPENCHAT_PHOTO C
+            ON A.OPENCHAT_ID = C.OPENCHAT_ID
+            LEFT OUTER JOIN SC_OPENCHAT_BOOKMARK D
+            ON A.OPENCHAT_ID = D.OPENCHAT_ID
+            AND D.USER_ID = #{targetId}
+            LEFT OUTER JOIN SC_OPENCHAT_ATTEND E
+            ON A.OPENCHAT_ID = E.OPENCHAT_ID
+            AND E.USER_ID = #{targetId}
+            LEFT OUTER JOIN SC_OPENCHAT_PARTITION F
+            ON A.PARTITION_CD = F.PARTITION_CD
+            LEFT OUTER JOIN SC_CHATROOM_USER G
+            ON A.CHATROOM_ID = G.CHATROOM_ID
+            AND G.USER_ID = #{targetId}
+        WHERE 1=1
+          AND A.OPENCHAT_ID = #{targetKey}
+    </select>
+
+    <select id="getPoliceCommunityDetail" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            CASE
+                WHEN A.DEL_YN = 'N' THEN A.TITLE
+                ELSE '삭제된 글입니다.'END TITLE
+            , A.CONTENT
+            , B.ICON_CD
+            , A.BOARD_ID
+            , CASE
+                WHEN A.CREATED_USER_ID = #{userId} THEN 'Y'
+                ELSE 'N' END IS_REG_YN
+            , '익명' AS NAME
+            , '익명' AS NICK
+            , CONVERT(CHAR (10), A.CREATED_DT, 23) AS CREATED_DT_STR
+            , dbo.FN_GET_DATE_STR(A.CREATED_DT) AS CREATED_DT_MM
+            , A.DEL_YN
+            , CASE
+                WHEN E.USER_ID IS NOT NULL THEN 'Y'
+                ELSE 'N' END BOOKMARK_YN
+            , A.VIEW_CNT
+            , A.LIKE_CNT
+            , A.BAD_CNT
+            , A.COMMENT_CNT
+            , (SELECT COUNT(*) FROM SC_ARTICLE_BOOKMARK WHERE ARTICLE_ID = #{targetKey}) AS BOOKMARK_CNT
+            , C.BOARD_NM
+            , D.ATTACH_FILE_ID AS ATTACH_FILE_KEY
+            , A.ATTR1
+            , A.ATTR2
+            , A.ATTR3
+            , A.COMMUNITY_NICK
+            , ISNULL(F.FILE_ID, '1188') AS FILE_ID
+        FROM SC_ARTICLE A
+            LEFT OUTER JOIN SC_USER B
+            ON A.CREATED_USER_ID = B.USER_ID
+            LEFT OUTER JOIN SC_BOARD C
+            ON A.BOARD_ID = C.BOARD_ID
+            LEFT OUTER JOIN SC_ARTICLE_FILE D
+            ON A.ARTICLE_ID = D.ARTICLE_ID
+            LEFT OUTER JOIN SC_ARTICLE_BOOKMARK E
+            ON A.ARTICLE_ID = E.ARTICLE_ID
+            AND E.USER_ID = #{userId}
+            LEFT OUTER JOIN SC_ICON_CODE F
+            ON B.ICON_CD = F.ICON_CD
+        WHERE 1 = 1
+        AND A.ARTICLE_ID = #{targetKey}
+    </select>
+
+    <select id="getPoliceComment" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT * FROM SC_COMMENT
+        <if test='targetType == "COMMENT"'>
+            WHERE COMMENT_ID = #{targetId}
+            AND ARTICLE_ID = #{targetKey}
+        </if>
+        <if test='targetType == "CHILD_COMMENT"'>
+            WHERE PARENT_COMMENT_ID = #{targetId}
+            AND ARTICLE_ID = #{targetKey}
+        </if>
+    </select>
+
+    <select id="getPoliceDailyUserInfo" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT TOP 1
+			A.USER_ID AS USER_KEY
+			, A.NICK
+             , A.AGE
+             , A.ICON_CD
+             , D.JOB_NM
+             , E.ADDR_LIVE_SUM
+             , E.ADDR_ACTIVE_SUM
+             , B.PHOTO1 AS PHOTO_KEY1
+             , B.PHOTO2 AS PHOTO_KEY2
+             , B.PHOTO3 AS PHOTO_KEY3
+             , B.PHOTO4 AS PHOTO_KEY4
+             , B.PHOTO5 AS PHOTO_KEY5
+             , B.PHOTO6 AS PHOTO_KEY6
+             , C.SHORT_WORD
+             , C.PROFILE
+             , C.KEYWORD
+             , C.INTERVIEW
+             , F.FILE_ID
+             , F.ICON_CD
+             , F.ICON_NM
+        FROM SC_USER A
+        LEFT OUTER JOIN SC_USER_PIC B
+        ON A.USER_ID = B.USER_ID
+        LEFT OUTER JOIN SC_USER_DETAIL C
+        ON A.USER_ID = C.USER_ID
+        LEFT OUTER JOIN SC_JOB_CODE D
+        ON A.JOB_CD = D.JOB_CD
+        LEFT OUTER JOIN SC_USER_ADDR E
+        ON A.USER_ID = E.USER_ID
+        LEFT JOIN SC_ICON_CODE F
+        ON A.ICON_CD = F.ICON_CD
+        WHERE 1 = 1
+        AND A.USER_ID = #{targetKey}
+    </select>
+
+    <select id="getPoliceMessageTalk" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT TOP 1
+            CHATROOM_ID
+            , MESSAGE_ID
+            , REG_USER_ID
+            , MESSAGE
+        FROM SC_MESSAGE_MASTER
+        WHERE CHATROOM_ID = #{targetId}
+        AND REG_USER_ID = #{targetKey}
+		ORDER BY MESSAGE_ID DESC
+    </select>
+
+    <select id="getSelectOnePolice" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            TARGET_ID
+             , TARGET_TYPE
+        FROM SC_POLICE_HIS
+        WHERE TARGET_ID = #{targetId}
+        AND TARGET_TYPE = #{targetType}
+        AND REG_USER_ID = #{userId}
+    </select>
+
+    <select id="getUserBlockOne" parameterType="HashMap" resultType="ExqueryMap">
+      SELECT TOP 1
+        TARGET_USER_ID
+         , REG_TIME
+      FROM SC_USER_BLOCK
+      WHERE 1=1
+      AND USER_ID = #{ssUserId}
+      AND TARGET_USER_ID = #{targetUserId}
+      AND DEL_YN = 'N'
+    </select>
+
+  <select id="getTargetUserMeBlockOne" parameterType="HashMap" resultType="ExqueryMap">
+    SELECT TOP 1
+			USER_ID
+      , TARGET_USER_ID
+      , DEL_YN
+      , REG_TIME
+    FROM SC_USER_BLOCK
+    WHERE 1=1
+      AND USER_ID = #{targetUserId}
+      AND TARGET_USER_ID = #{ssUserId}
+      AND DEL_YN = 'N'
+  </select>
+
+  <update id="mergeUserBlock" parameterType="HashMap">
+    MERGE INTO SC_USER_BLOCK
+    USING (VALUES (1)) AS Source (Number)
+    ON (USER_ID = #{userId} AND TARGET_USER_ID = #{targetUserId})
+    WHEN MATCHED THEN
+      UPDATE SET
+        DEL_YN = 'N'
+        , REG_TIME = GETDATE()
+    WHEN NOT MATCHED THEN
+      INSERT (USER_ID, TARGET_USER_ID, DEL_YN, REG_TIME)
+        VALUES (#{ssUserId}, #{targetUserId}, 'N', GETDATE());
+  </update>
+
+    <update id="logout" parameterType="HashMap">
+        UPDATE SC_USER
+        SET
+            TOKEN = NULL
+        WHERE USER_ID = #{ssUserId}
+    </update>
+
+    <update id="setUserSecession" parameterType="HashMap">
+        UPDATE SC_USER
+        SET
+            DROP_YN = 'Y'
+            , DROP_TIME = GETDATE()
+            , CONNECT_YN = 'N'
+            , TOKEN = NULL
+        WHERE USER_ID = #{ssUserId}
+    </update>
+
+    <select id="getPointHistory" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            A.POINT_CD
+            , A.CHANGE_POINT AS AMOUNT
+            , CONVERT(VARCHAR(16), A.UPD_TIME, 120) AS USE_DATE
+            , CONVERT(VARCHAR(10), A.UPD_TIME, 120) AS LINE_DATE
+            , B.POINT_NM AS TITLE
+        FROM SC_INVITE_POINT_HIS A
+        LEFT OUTER JOIN SC_INVITE_POINT_CODE B
+            ON A.POINT_CD = B.POINT_CD
+        WHERE A.USER_ID = #{userId}
+    </select>
+
+    <select id="setChangeNicknameCheck" parameterType="HashMap" resultType="ExqueryMap">
+        IF EXISTS (
+			SELECT
+			   USER_ID
+			FROM SC_USER
+			WHERE NICK = #{nick}
+        )
+        BEGIN
+            SELECT 'N' AS RESULT
+        END
+        ELSE
+        BEGIN
+            SELECT 'Y' AS RESULT
+        END
+    </select>
+
+    <select id="getUserInvitePoint" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            ISNULL(INVITE_POINT, 0) AS INVITE_POINT
+        FROM SC_INVITE_POINT
+        WHERE USER_ID = #{ssUserId}
+    </select>
+
+    <select id="getPartnersPointHisList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT * FROM (
+            SELECT TOP 100 PERCENT
+                A.PARTNERS_CODE
+                , B.POINT_NM
+                , B.POINT_CD
+                , C.PARTNERS_NAME
+                , CONVERT(CHAR (10), A.REG_TIME, 23) AS REG_TIME
+                , A.AFTER_POINT
+                , A.BEFORE_POINT
+                , A.CHANGE_POINT
+                , ROW_NUMBER() OVER(ORDER BY A.REG_TIME DESC) AS ROWNUM
+            FROM SC_PARTNERS_POINT_HIS A
+                LEFT OUTER JOIN SC_PARTNERS_POINT_CODE B
+                ON A.POINT_CD = B.POINT_CD
+                LEFT OUTER JOIN SC_PARTNERS_COMPANY C
+                ON A.PARTNERS_CODE = C.PARTNERS_CODE
+            WHERE A.PARTNERS_CODE = #{partnersCode}
+        ) A
+    </select>
+
+    <select id="getPartnersCheckCode" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT TOP 1 PARTNERS_CODE FROM SC_PARTNERS_MANAGER WHERE USER_ID = #{ssUserId} AND DEL_YN = 'N'
+    </select>
+
+    <select id="getPartnersCurrentPoint" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT CURRENT_POINT FROM SC_PARTNERS_COMPANY WHERE PARTNERS_CODE = #{partnersCode}
+    </select>
+
+    <select id="getPartnersList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            A.PARTNERS_NAME AS PARTNER_NM
+            , A.PARTNERS_ADDRESS AS ADDRESS
+            , A.LAT
+            , A.LON
+            , (SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = A.FILE_ID) AS CDN_NM
+            , (SELECT SERVER_IP + '/' + FILE_PATH + THUMB_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = A.FILE_ID) AS CDN_THUMB_NM
+        FROM SC_PARTNERS_COMPANY A
+        ORDER BY ID DESC
+    </select>
+
+    <select id="getBlockUserList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT *
+        FROM (
+            SELECT TOP 100 PERCENT
+                A.TARGET_USER_ID
+                , B.NICK
+                , CONVERT(VARCHAR, A.REG_TIME, 120) AS REG_TIME
+                , ROW_NUMBER() OVER(ORDER BY A.REG_TIME DESC) AS ROWNUM
+            FROM SC_USER_BLOCK A
+                LEFT OUTER JOIN SC_USER B
+                ON A.TARGET_USER_ID = B.USER_ID
+            WHERE A.USER_ID = #{ssUserId}
+            AND A.DEL_YN = 'N'
+        ) A
+    </select>
+
+    <update id="setUnblockUser" parameterType="HashMap">
+        UPDATE SC_USER_BLOCK
+        SET
+            DEL_YN = 'Y'
+        WHERE USER_ID = #{ssUserId}
+        AND TARGET_USER_ID = #{targetUserId}
+    </update>
+
+    <update id="choiceRegister" parameterType="HashMap">
+        UPDATE SC_USER
+        SET
+            CHOICE_OPEN_YN = #{choiceOpenYn}
+        WHERE USER_ID = #{ssUserId}
+    </update>
+
+    <select id="choiceYnCheck" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT CHOICE_YN FROM SC_USER WHERE USER_ID = #{ssUserId}
+    </select>
+
+    <select id="getBadgeSortate" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT DISTINCT SORTATE FROM SC_BADGE_CODE WHERE USE_YN = 'Y'
+    </select>
+
+    <select id="getBadgeList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            (SELECT SERVER_IP + '/' + FILE_PATH + SERVER_FILE_NM FROM SC_ATTACH_FILE WHERE ATTACH_FILE_ID = A.BADGE_FILE_ID) AS ICON
+            , BADGE_NM AS TITLE
+            , DESCRIPTION
+            , SORTATE
+            , BADGE_CD
+            , ISNULL((SELECT VERTIFICATE_YN FROM SC_BADGE_VERTIFICATE WHERE USER_ID = #{userId} AND BADGE_CD = A.BADGE_CD AND REJECT = 'N'), 'N') AS VERIFIED
+        FROM SC_BADGE_CODE A
+        WHERE USE_YN = 'Y'
+        <if test="sortate != null and sortate != ''">
+        AND SORTATE = #{sortate}
+        </if>
+    </select>
+
+    <select id="getBadgedupCheck" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT VERTIFICATE_YN FROM SC_BADGE_VERTIFICATE WHERE USER_ID = #{ssUserId} AND BADGE_CD = #{badgeCd} AND REJECT = 'N'
+    </select>
+
+    <insert id="setBadgeCertification" parameterType="HashMap">
+        INSERT INTO SC_BADGE_VERTIFICATE(USER_ID, BADGE_CD, REG_TIME, VERTIFICATE_YN, VERTI_FILE_ID, REJECT)
+        VALUES(#{ssUserId}, #{badgeCd}, GETDATE(), 'N', #{fileId}, 'N')
+    </insert>
+
+</mapper>

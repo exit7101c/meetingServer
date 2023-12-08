@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.smartmes.mesBoard">
+    <!--
+        QueryID     : selectBoardList
+        Description : 게시글 리스트 조회
+        -->
+    <select id="selectBoardList" parameterType="HashMap" resultType="ExqueryMap" >
+           SELECT
+                 ARTICLE_ID
+                 , BOARD_ID
+                 , TITLE
+                 , CONTENT
+                 , DEL_YN
+                 , VIEW_CNT
+                 , TO_CHAR(CREATED_DT,'YYYY-MM-DD') AS CREATED_DT
+                 , CREATED_USER_ID
+                 , TO_CHAR(UPDATED_DT,'YYYY-MM-DD') AS UPDATED_DT
+                 , UPDATED_USER_ID
+                 , ROWNUM AS NO
+            FROM COM_ARTICLE
+            WHERE BOARD_ID = #{boardId} AND DEL_YN ='N'
+            ORDER BY BOARD_ID ASC, UPDATED_DT DESC
+	</select>
+
+    <!--
+        QueryID     : selectBoardOne
+        Description : 게시글 단건 상세정보 조회
+        -->
+    <select id="selectBoardOne" parameterType="HashMap" resultType="ExqueryMap" >
+            SELECT
+                    CA.ARTICLE_ID
+                    , CA.BOARD_ID
+                    , CB.BOARD_NM
+                    , CA.TITLE
+                    , CA.CONTENT
+                    , CA.DEL_YN
+                    , CA.VIEW_CNT
+                    , TO_CHAR(CA.CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+                    , CA.CREATED_USER_ID
+                    , TO_CHAR(CA.UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+                    , CA.UPDATED_USER_ID
+            FROM COM_ARTICLE CA
+            INNER JOIN COM_BOARD CB
+            ON CA.BOARD_ID = CB.BOARD_ID
+            WHERE ARTICLE_ID = #{articleId}
+	</select>
+
+    <!--
+	QueryID     : adminBoardInput
+	Description : 어드민 공지사항 등록부분
+	-->
+    <insert id="adminBoardInput" parameterType="HashMap">
+        <selectKey resultType="int" keyProperty="boardSeq" order="BEFORE">
+            SELECT  SEQ_ARTICLE_ID.NEXTVAL FROM DUAL
+        </selectKey>
+        INSERT INTO COM_ARTICLE
+        (ARTICLE_ID, BOARD_ID, TITLE, CONTENT, DEL_YN , VIEW_CNT, CREATED_DT , CREATED_USER_ID, UPDATED_DT , UPDATED_USER_ID)
+        VALUES
+        (#{boardSeq}, '1', #{title}, #{content}, 'N', '0', SYSDATE, #{ssCustomerId}, SYSDATE, #{ssCustomerId} )
+    </insert>
+
+    <!--
+	QueryID     : insertBoard
+	Description : 게시글 문의사항 부분
+	-->
+    <insert id="insertBoard" parameterType="HashMap">
+        <selectKey resultType="int" keyProperty="boardSeq" order="BEFORE">
+            SELECT  SEQ_ARTICLE_ID.NEXTVAL FROM DUAL
+        </selectKey>
+         INSERT INTO COM_ARTICLE
+            (ARTICLE_ID, BOARD_ID, TITLE, CONTENT, DEL_YN , VIEW_CNT, CREATED_DT , CREATED_USER_ID, UPDATED_DT , UPDATED_USER_ID)
+         VALUES
+            (#{boardSeq}, '2', #{title}, #{content}, 'N', '0', SYSDATE, #{ssCustomerId}, SYSDATE, #{ssCustomerId} )
+    </insert>
+
+    <!--
+	QueryID     : boardUpdate
+	Description : 게시글 수정부분
+	-->
+    <select id="boardUpdate" parameterType="HashMap" resultType="ExqueryMap" >
+        UPDATE COM_ARTICLE
+        <set>
+            UPDATED_USER_ID     = #{ssCustomerId}
+            ,UPDATED_DT          = SYSDATE
+            <if test="title != null">
+                ,TITLE       = #{title}
+            </if>
+            <if test="content != null">
+                ,CONTENT	 = #{content}
+            </if>
+        </set>
+        WHERE ARTICLE_ID = #{articleId}
+    </select>
+
+    <!--
+	QueryID     : boardDelete
+	Description : 게시글 삭제부분
+	-->
+
+    <select id="boardDelete" parameterType="HashMap" resultType="ExqueryMap" >
+        UPDATE COM_ARTICLE
+        SET  DEL_YN  =  'Y'
+        WHERE ARTICLE_ID = #{articleId}
+    </select>
+
+    <!--
+	QueryID     : boardViewCnt
+	Description : 게시글 조회수
+	-->
+
+    <select id="boardViewCnt" parameterType="HashMap" resultType="ExqueryMap" >
+        UPDATE COM_ARTICLE
+        SET VIEW_CNT = VIEW_CNT+1
+        WHERE ARTICLE_ID = #{articleId}
+    </select>
+
+    <!--
+	QueryID     : boardListSearch
+	Description : 게시글 정보 결과 조회
+	-->
+    <select id="boardListSearch" parameterType="HashMap" resultType="ExqueryMap" >
+    SELECT
+        ARTICLE_ID
+        , BOARD_ID
+        , BOARD_NM
+        , TITLE
+        , CONTENT
+        , DEL_YN
+        , VIEW_CNT
+        , CREATED_DT
+        , CREATED_USER_ID
+        , UPDATED_DT
+        , UPDATED_USER_ID
+    FROM (
+    SELECT
+        CA.ARTICLE_ID AS ARTICLE_ID
+        , CA.BOARD_ID AS BOARD_ID
+        , CB.BOARD_NM AS BOARD_NM
+        , CA.TITLE
+        , CA.CONTENT
+        , CA.DEL_YN
+        , CA.VIEW_CNT
+        , TO_CHAR(CA.CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+        , CA.CREATED_USER_ID
+        , TO_CHAR(CA.UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+        , CA.UPDATED_USER_ID
+    FROM COM_ARTICLE CA
+    INNER JOIN COM_BOARD CB
+    ON CA.BOARD_ID = CB.BOARD_ID
+        <where>
+            <if test='searchStr != null and  searchStr != ""'>
+                AND (CA.TITLE LIKE '%${searchStr}%' OR CA.CONTENT  LIKE '%${searchStr}%' OR CA.CREATED_USER_ID LIKE '%${searchStr}%')
+            </if>
+            <if test='searchStr2 != null and  searchStr2 != ""'>
+                AND (CA.TITLE LIKE '%${searchStr2}%' OR CA.CONTENT  LIKE '%${searchStr2}%' OR CA.CREATED_USER_ID LIKE '%${searchStr}%')
+            </if>
+            <if test='delYn != null and  delYn != ""'>
+                AND CA.DEL_YN = #{delYn}
+            </if>
+        </where>
+        ORDER BY BOARD_ID ASC, UPDATED_DT DESC
+    )
+    </select>
+<!--
+
+
+    &lt;!&ndash;
+       QueryID     : boardDatList
+       Description : 게시글 리스트 조회
+       &ndash;&gt;
+    <select id="boardDatList" parameterType="HashMap" resultType="ExqueryMap" >
+           SELECT
+                DAT_ARTICLE_ID
+                 , BOARD_ID
+                 , DAT_TITLE
+                 , DAT_CONTENT
+                 , DAT_VIEW_CNT
+                 , TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+                 , CREATED_USER_ID
+                 , TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+                 , UPDATED_USER_ID
+                 , DEL_YN
+                 , ROWNUM AS NO
+            FROM COM_ARTICLE_DAT
+            WHERE BOARD_ID = '3' AND DEL_YN ='N'
+            ORDER BY BOARD_ID ASC, UPDATED_DT DESC
+	</select>
+
+
+    &lt;!&ndash;
+         QueryID     : boardDat
+         Description : 게시글 문의사항 부분
+     &ndash;&gt;
+    <insert id="boardDat" parameterType="HashMap">
+        INSERT INTO COM_ARTICLE_DAT
+        (DAT_ARTICLE_ID, BOARD_ID, DAT_TITLE, DAT_CONTENT, DAT_VIEW_CNT, CREATED_DT , CREATED_USER_ID, UPDATED_DT , UPDATED_USER_ID, DEL_YN)
+        VALUES
+        (#{articleId}, '3', #{title}, #{content}, '0', SYSDATE, #{ssCustomerId}, SYSDATE, #{ssCustomerId}, 'N')
+    </insert>-->
+</mapper>

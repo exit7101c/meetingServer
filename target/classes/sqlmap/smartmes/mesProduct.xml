@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.smartmes.mesProduct">
+
+	<!--
+	QueryID     : insertProductByJoin
+	Description : 회원가입 시 제품 신규등록
+	-->
+	<insert id="insertProductByJoin" parameterType="HashMap">
+		<selectKey resultType="int" keyProperty="prodSeq" order="BEFORE">
+			SELECT  SEQ_PRODUCT_ID.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO COM_PRODUCT
+		(PROD_ID, PROD_CD, PROD_NM, ENTERPRISE_CD, USE_YN, CREATED_DT, CREATED_USER_ID, UPDATED_DT, UPDATED_USER_ID)
+		VALUES
+		(#{prodSeq}, #{prodSeq}, '기본제품', #{enterSeq}, 'Y', SYSDATE, 'admin', SYSDATE, 'admin')
+	</insert>
+
+	<!--
+	QueryID     : selectProdListByEnterCd
+	Description : 법인코드로 제품 리스트 조회
+	-->
+	<select id="selectProdListByEnterCd" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			PROD_CD
+			, PROD_NM
+			, PROD_ID
+		FROM COM_PRODUCT
+		WHERE ENTERPRISE_CD = #{enterpriseCd} AND USE_YN = 'Y'
+		ORDER BY PROD_NM
+	</select>
+
+	<!--
+	QueryID     : selectProdList
+	Description : 제품관리 정보 조회
+	-->
+	<select id="selectProdList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			PROD_ID
+			, PROD_CD
+			, PROD_NM
+			, USE_YN
+			, CREATED_DT
+			, CREATED_USER_ID
+			, UPDATED_DT
+			, UPDATED_USER_ID
+			, ENTERPRISE_CD
+			, ROWNUM AS NO
+		FROM (
+			SELECT
+				PROD_ID
+				, PROD_CD
+				, PROD_NM
+				, USE_YN
+				, TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+				, CREATED_USER_ID
+				, TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+				, UPDATED_USER_ID
+				, ENTERPRISE_CD
+			FROM COM_PRODUCT
+			WHERE ENTERPRISE_CD = #{ssCustomerEnterCd} AND USE_YN = 'Y'
+			<if test='searchStr != ""'>
+				AND (PROD_CD LIKE '%${searchStr}%')
+			</if>
+			<if test='searchStr2 != ""'>
+				AND (PROD_NM LIKE '%${searchStr2}%')
+			</if>
+			ORDER BY PROD_NM
+		)
+	</select>
+	<!--
+	QueryID     : selectProdOne
+	Description : 제품관리 정보 단건 조회
+	-->
+	<select id="selectProdOne" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			PROD_ID
+			, PROD_CD
+			, PROD_NM
+			, USE_YN
+			, TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+			, CREATED_USER_ID
+			, TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+			, UPDATED_USER_ID
+			, ENTERPRISE_CD
+			FROM COM_PRODUCT
+			WHERE ENTERPRISE_CD = #{ssCustomerEnterCd}
+				<if test='selectKey != null and selectKey != ""'>
+					AND PROD_CD = #{selectKey}
+				</if>
+	</select>
+
+	<!--
+	QueryID     : insertProduct
+	Description : 제품 관리 등록하기
+	-->
+	<insert id="insertProduct" parameterType="HashMap">
+		<selectKey resultType="int" keyProperty="prodSeq" order="BEFORE">
+			SELECT  SEQ_PRODUCT_ID.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO COM_PRODUCT
+		(PROD_ID, PROD_CD, PROD_NM, USE_YN, CREATED_DT, CREATED_USER_ID, UPDATED_DT, UPDATED_USER_ID, ENTERPRISE_CD)
+		VALUES
+		(#{prodSeq}, #{prodCd}, #{prodNm}, 'Y', SYSDATE, #{ssCustomerId}, SYSDATE, #{ssCustomerId}, #{ssCustomerEnterCd} )
+	</insert>
+
+
+	<!--
+	QueryID     : updateProduct
+	Description : 제품 관리 수정하기
+	-->
+	<update id="updateProduct" parameterType="HashMap">
+		UPDATE COM_PRODUCT
+		<set>
+			UPDATED_USER_ID     = #{ssCustomerId}
+				,UPDATED_DT          = SYSDATE
+			<if test="prodCd != null">
+				,PROD_CD       = #{prodCd}
+			</if>
+			<if test="prodNm != null">
+				 ,PROD_NM       = #{prodNm}
+			</if>
+			<if test="useYn != null">
+				,USE_YN				= #{useYn}
+			</if>
+		</set>
+        WHERE PROD_ID = #{prodId}
+	</update>
+
+	<!--
+	QueryID     : deleteProduct
+	Description : 제품 관리 삭제하기
+	-->
+	<update id="deleteProduct" parameterType="HashMap">
+		UPDATE COM_PRODUCT
+		SET USE_YN = 'N'
+		WHERE PROD_ID = #{prodId}
+	</update>
+
+	<!--
+	QueryID     : selectProdOneByProdCd
+	Description : 제품하나 조회
+	-->
+	<select id="selectProdOneByProdCd" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+		    PROD_ID
+			, PROD_CD
+			, PROD_NM
+			, USE_YN
+			, CREATED_DT
+			, CREATED_USER_ID
+			, TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+			, UPDATED_USER_ID
+			, ENTERPRISE_CD
+		FROM COM_PRODUCT
+		WHERE PROD_CD = #{prodCd} AND USE_YN = 'Y'
+		AND ENTERPRISE_CD = #{ssCustomerEnterCd}
+	</select>
+
+</mapper>

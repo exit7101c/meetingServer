@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.smartmes.mesMoni">
+
+	<!--
+	QueryID     : selectLineProc
+	Description : 구역(법인)으로 라인 및 공정 리스트 조회
+	-->
+	<select id="selectLineProc" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			LINE_CD
+			, LINE_NM
+		FROM COM_LINE
+		WHERE ENTERPRISE_CD = #{enterpriseCd}
+	</select>
+
+	<!--
+	QueryID     : selectProcInputList
+	Description : 생산등록 상세내역을 조회한다.
+	-->
+	<select id="selectProcInputList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			A.PROD_CNT,
+			A.BAD_CNT,
+			B.PROD_NM,
+			TO_CHAR(A.CREATED_DT, 'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT_STR,
+			A.SEQ
+		FROM COM_PROC_INPUT A, COM_PRODUCT B
+		WHERE A.PROD_ID = B.PROD_ID
+		AND A.CREATED_DT BETWEEN FN_START_DATE(TO_CHAR(SYSDATE,'YYYYMMDD')) AND FN_END_DATE(TO_CHAR(SYSDATE,'YYYYMMDD'))
+		AND A.PROC_CD = #{procCd}
+		AND (A.PROD_CNT != 0 OR A.BAD_CNT != 0)
+		ORDER BY  A.CREATED_DT
+	</select>
+
+</mapper>

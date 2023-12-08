@@ -1,0 +1,14 @@
+package cronies.meeting.user.service;
+
+import java.util.HashMap;
+import java.util.List;
+
+public interface AlarmService {
+
+    public List<HashMap<String, Object>> getAlarmList(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> getAlarmCount(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> setAlarmConfirm(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> getAlarmOpenChatDel(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> getAlarmCommunityDel(HashMap<String, Object> param) throws Exception;
+
+}

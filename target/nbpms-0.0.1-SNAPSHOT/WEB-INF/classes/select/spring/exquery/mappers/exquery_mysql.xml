@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="select.spring.exquery">
+
+	<!-- DUMMY 처리용 -->
+	<select id="getDummy" parameterType="HashMap" resultType="ExqueryMap" >
+	<![CDATA[
+		SELECT ${sqlStmt} FROM DUAL
+	]]>
+	</select>
+
+	<!-- Count 처리용 -->
+	<select id="getCount" parameterType="HashMap" resultType="ExqueryMap" >
+	<![CDATA[
+		${sqlStmt}
+	]]>
+	</select>
+
+	<!-- Sequence 처리 *** not working -->
+	<select id="getSequence" parameterType="String" resultType="Integer">
+		SELECT ${sequenceName}.NEXTVAL AS SEQ FROM DUAL
+	</select>
+
+	<!-- 연관 데이터 존재여부 확인 -->
+	<select id="checkExists" parameterType="HashMap" resultType="ExqueryMap" >
+	<![CDATA[
+		SELECT  COUNT(*) CNT
+		FROM  ${tableName}
+		WHERE ${colName} = #{colValue}
+	]]>
+	</select>
+		
+	<!-- OrderBy 처리 -->
+	<select id="getOrderedList" parameterType="HashMap" resultType="ExqueryMap" >
+	<![CDATA[
+		${sqlStmt} 
+		ORDER BY ${orderByColumns}
+	]]>
+	</select>
+	
+	<!-- 페이징 처리 -->
+	<select id="getPagingList" parameterType="HashMap" resultType="ExqueryMap" >
+	<![CDATA[
+		${sqlStmt} 
+		LIMIT ${limitStart} , ${pageSize}
+	]]>
+	</select>
+
+	<!-- 페이징 처리시 위치값, 페이지번호 처리 -->
+	<select id="getPagingListRnum" parameterType="HashMap" resultType="ExqueryMap" >
+	<![CDATA[
+		SELECT PAGE_PK,  CEIL(RNUM / #{pageSize}  ) PAGE_NO
+		FROM (
+			SELECT @ROWNUM := @ROWNUM + 1 AS RNUM, PAGING_TARGET.* 
+			FROM ( ${sqlStmt} ) PAGING_TARGET , (select @ROWNUM := 0) R ) R2
+		WHERE PAGE_PK = #{pagePk} 
+	]]>
+	</select>
+		
+	<!-- OrderBy & 페이징 처리 -->
+	<select id="getOrderedPagingList" parameterType="HashMap" resultType="HashMap" >
+	<![CDATA[
+		${sqlStmt} 
+		ORDER BY ${orderByColumns}
+		LIMIT ${limitStart} , ${pageSize}
+	]]>
+	</select>
+
+</mapper>

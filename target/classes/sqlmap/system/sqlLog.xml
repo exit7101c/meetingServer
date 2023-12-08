@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.system.sqlLog">
+	
+	<!-- 리스트 조회 ( 메뉴활용도 -> 사용건별 ) -->
+	<select id="selectLogMenuListA" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT
+            A.LOG_ID
+            , A.MENU_CD
+            , FN_GET_MSG(B.MENU_NM, #{lang}) AS MENU_NM
+            , A.USER_ID
+            , C.USER_NM
+            , FN_GET_DATE_STR(A.ACC_TIME) AS ACC_TIME
+        FROM LOG_MENU_ACCESS_HIS A
+        LEFT OUTER JOIN COM_MENU B
+        ON A.MENU_CD = B.MENU_CD
+        LEFT OUTER JOIN COM_USER C
+        ON A.USER_ID = C.USER_ID
+        WHERE A.ACC_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+        ORDER BY A.ACC_TIME DESC
+	</select>
+
+	<!-- 리스트 조회 ( 메뉴활용도 -> 사용건수 ) -->
+	<select id="selectLogMenuListB" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT
+            A.MENU_CD
+            , FN_GET_MSG(A.MENU_NM, #{lang}) AS MENU_NM
+            , A.MENU_DESC
+            , A.PARENT_MENU_CD
+            , (SELECT FN_GET_MSG(MENU_NM, #{lang}) FROM COM_MENU WHERE MENU_CD = A.PARENT_MENU_CD) AS PARENT_MENU_NM
+            , A.MENU_URL
+            , A.MENU_LEVEL
+            , A.DISPLAY_ORDER
+            , FN_GET_COMMCODE_NAME(#{lang}, 'USE_YN', A.USE_YN) AS USE_YN
+            , A.REMARKS
+            , FN_GET_DATE_STR(A.CREATED_DT) AS CREATED_DT
+            , A.CREATED_USER_ID
+            , FN_GET_DATE_STR(A.UPDATED_DT) AS UPDATED_DT
+            , A.UPDATED_USER_ID
+            , ROWNUM AS NO
+            , SYS_CONNECT_BY_PATH(LPAD(A.DISPLAY_ORDER, 2, 0), '/') AS PATH
+            , (
+                SELECT
+                    COUNT(MENU_CD) AS CNT
+                FROM LOG_MENU_ACCESS_HIS B
+                WHERE B.MENU_CD = A.MENU_CD
+                AND  B.ACC_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+            ) AS CNT
+        FROM COM_MENU A
+        START WITH A.PARENT_MENU_CD = 'ROOT'
+        CONNECT BY PRIOR A.MENU_CD = PARENT_MENU_CD
+        ORDER BY PATH
+	</select>
+
+	<!--
+	QueryID     : selectLogUserAccess
+	Description : 사용자 접속 이력 조회
+	-->
+	<select id="selectLogUserAccess" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT LOGIN_HIS_ID
+		     , USER_ID
+		     , USER_NM
+		     , LOGIN_DT
+		     , LOGOUT_DT
+		     , IP_ADDRESS
+		     , CREATED_DT
+		     , UPDATED_DT
+		     , ROWNUM AS NO
+		FROM (
+			 SELECT LOG.LOGIN_HIS_ID AS LOGIN_HIS_ID
+			      , LOG.USER_ID 	AS USER_ID
+			      , CU.USER_NM 	    AS USER_NM
+			      , TO_CHAR(LOG.LOGIN_DT,'YYYY-MM-DD HH24:MI:SS') AS LOGIN_DT
+			      , TO_CHAR(LOG.LOGOUT_DT,'YYYY-MM-DD HH24:MI:SS') AS LOGOUT_DT
+			      , LOG.IP_ADDRESS  AS IP_ADDRESS
+				  , TO_CHAR(LOG.CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+			      , TO_CHAR(LOG.UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+			      , ROWNUM AS NO
+			   FROM LOG_LOGIN_HIS LOG
+	LEFT OUTER JOIN COM_USER CU
+				 ON LOG.USER_ID = CU.USER_ID
+			<where>
+				<if test='(fromDate != null and  fromDate != "") and (toDate != null and  toDate != "") '>
+					AND LOG.LOGIN_DT BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+				</if>
+				<if test='searchStr1 != null and  searchStr1 != ""'>
+					AND (LOG.USER_ID LIKE '%${searchStr1}%' OR CU.USER_NM LIKE '%${searchStr1}%')
+				</if>
+			</where>
+			ORDER BY LOG.LOGIN_HIS_ID DESC)
+	</select>
+	
+	<!-- 리스트 조회 ( 메뉴활용도 -> 사용건별 ) -->
+	<select id="selectLogErrorHis" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT ERROR_LOG_ID
+			 , TO_CHAR(ERROR_TIME,'YYYY-MM-DD HH24:MI:SS') AS ERROR_TIME
+			 , ERROR_TYPE
+			 , ERROR_DESC
+			 , '' USER_ID
+			 , '' USER_NM
+			 , '' URL
+			 , '' PARAM
+		 	 , '' ERROR_CD
+			 , '' ERROR_MSG
+		FROM LOG_ERROR_HIS
+		<where>
+			<if test='(fromDate != null and  fromDate != "") and (toDate != null and  toDate != "") '>
+				AND EVENT_TIME BETWEEN FN_START_DATE(#{fromDate}) AND FN_END_DATE(#{toDate})
+			</if>
+			<if test='searchStr1 != null and  searchStr1 != ""'>
+				AND (USER_ID LIKE '%${searchStr1}%' OR USER_NM LIKE '%${searchStr1}%')
+			</if>
+			<if test='searchStr2 != null and searchStr2 != ""'>
+				AND ERROR_MSG LIKE '%${searchStr1}%'
+			</if>
+		</where>
+		ORDER BY ERROR_TIME DESC
+	</select>
+	
+</mapper>

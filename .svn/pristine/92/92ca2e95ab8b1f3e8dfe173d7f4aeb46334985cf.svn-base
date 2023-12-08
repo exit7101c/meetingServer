@@ -1,0 +1,337 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.system.sqlUser">
+	
+	<!-- 부서 -->
+	<select id="selectUserDeptList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT ROWNUM AS NO
+    		 , DEPT_CD
+			 , FN_GET_MSG(DEPT_NM, #{ssUserLang}) AS DEPT_NM
+			 , FN_LANG_INP(DEPT_NM,'en')  AS DEPT_NM_EN 	-- 영어
+			 , FN_LANG_INP(DEPT_NM,'ko')  AS DEPT_NM_KO 	-- 한국어
+			 , FN_LANG_INP(DEPT_NM,'cn')  AS DEPT_NM_CN 	-- 중국어
+             , USE_YN
+			 , TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+			 , CREATED_USER_ID
+			 , TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+			 , UPDATED_USER_ID 
+		  FROM COM_DEPARTMENT
+		  <where>
+			<if test='searchStr1 != null and searchStr1 != ""'>
+				AND DEPT_CD LIKE '%${searchStr1}%' OR DEPT_NM LIKE '%${searchStr1}%'
+			</if>
+			<if test='useYn != null and useYn != ""'>
+				AND USE_YN = #{useYn}
+			</if>
+		</where>
+	</select>
+	
+	<select id="selectUserDeptOne" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT 
+			  DEPT_CD
+			, FN_LANG_INP(DEPT_NM,'en')  AS DEPT_NM_EN 	-- 영어
+		    , FN_LANG_INP(DEPT_NM,'ko')  AS DEPT_NM_KO 	-- 한국어
+            , FN_LANG_INP(DEPT_NM,'cn')  AS DEPT_NM_CN 	-- 중국어
+			, USE_YN
+			, CREATED_DT
+			, CREATED_USER_ID
+			, UPDATED_DT
+			, UPDATED_USER_ID
+		FROM COM_DEPARTMENT
+        WHERE DEPT_CD = #{deptCd}
+	</select>
+	
+	<insert id="insertUserDept" parameterType="HashMap" >
+		INSERT INTO COM_DEPARTMENT (
+			  DEPT_CD
+			, DEPT_NM
+			, USE_YN
+			, CREATED_DT
+			, CREATED_USER_ID
+			, UPDATED_DT
+			, UPDATED_USER_ID
+		) VALUES (
+			  #{deptCd}
+			, #{deptNm}
+			, #{useYn}
+			, SYSDATE
+			, #{ssUserId}
+			, SYSDATE
+			, #{ssUserId}
+		)    
+	</insert>
+	
+	<update id="updateUserDept" parameterType="HashMap" >
+		UPDATE COM_DEPARTMENT
+		<set>
+			  DEPT_NM = #{deptNm}
+			, USE_YN = #{useYn}
+			, UPDATED_DT = SYSDATE
+			, UPDATED_USER_ID = #{ssUserId}
+		</set>
+		WHERE DEPT_CD = #{deptCd}
+	</update>
+	
+	<update id="deleteUserDept" parameterType="HashMap">
+		UPDATE COM_DEPARTMENT
+		<set>
+			  USE_YN = #{useYn}
+  			, UPDATED_USER_ID = #{ssUserId}
+			, UPDATED_DT = SYSDATE
+		</set>
+		WHERE DEPT_CD = #{deptCd} 
+	</update>
+	
+	<!--
+	QueryID     : selectUserList
+	Description : 사용자 정보 결과 조회
+	-->
+	<select id="selectUserList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT USER_ID
+			 --, USER_PWD
+			 , USER_NM
+			 --, TO_CHAR(CHANGE_PWD_DT,'YYYY-MM-DD HH24:MI:SS') AS CHANGE_PWD_DT
+			 , EMAIL
+			 , TELEPHONE
+			 , CELLPHONE
+			 --,USER_STATEUS
+			 , FN_GET_COMMCODE_NAME(#{ssUserLang}, 'USE_YN', USE_YN) AS USE_YN
+			 --,PLANT_CD
+			 , (SELECT FN_GET_MSG(AREA_NM, #{ssUserLang}) FROM COM_AREA  WHERE AREA_CD = A.AREA_CD)      AS AREA_CD
+			 , (SELECT FN_GET_MSG(DEPT_NM, #{ssUserLang}) FROM COM_DEPARTMENT WHERE DEPT_CD = A.DEPT_CD) AS DEPT_CD
+			 , LOGIN_IP
+			 , TO_CHAR(LOGIN_DT,'YYYY-MM-DD HH24:MI:SS') AS LOGIN_DT
+			 , LOGIN_FAIL_CNT
+			 , TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+			 , (SELECT USER_NM FROM COM_USER WHERE USER_ID = CREATED_USER_ID) AS CREATED_USER_ID
+			 , TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+			 , (SELECT USER_NM FROM COM_USER WHERE USER_ID = UPDATED_USER_ID) AS UPDATED_USER_ID 
+			 , ROWNUM AS NO
+		  FROM COM_USER A
+		<where>
+		  	A.USER_ID != 'SYSTEM'
+			<if test='searchStr1 != null and  searchStr1 != ""'>
+				AND (USER_ID LIKE '%${searchStr1}%' OR USER_NM LIKE '%${searchStr1}%')
+			</if>
+			<if test='searchStr2 != null and  searchStr2 != ""'>
+				AND USER_NM LIKE '%${searchStr2}%'
+			</if>
+			<if test='useYn != null and  useYn != ""'>
+				AND USE_YN = #{useYn}
+			</if>
+		</where>
+		ORDER BY CREATED_DT DESC
+	</select>
+	
+	<!--
+	QueryID     : selectUserOne
+	Description : 사용자 정보 단건 조회
+	-->	
+	<select id="selectUserOne" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT USER_ID
+			 --, USER_PWD
+			 , USER_NM
+			 --, CHANGE_PWD_DT
+			 , EMAIL
+			 , TELEPHONE
+			 , CELLPHONE
+			 --,USER_STATEUS
+			 , USE_YN
+			 --,PLANT_CD
+			 , AREA_CD
+			 , DEPT_CD
+			 , LOGIN_IP
+			 , TO_CHAR(LOGIN_DT,'YYYY-MM-DD HH24:MI:SS') AS LOGIN_DT
+			 , LOGIN_FAIL_CNT
+			 , TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+			 ,CREATED_USER_ID
+			 , TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+			 , UPDATED_USER_ID
+		  FROM COM_USER
+		 WHERE USER_ID = #{selectKey}
+	</select>
+	
+	<!--
+	QueryID     : selectUserOne
+	Description : 사용자 등록
+	-->		
+	<insert id="insertUser" parameterType="HashMap" >
+		INSERT INTO COM_USER (
+							  USER_ID
+							, USER_PWD
+							, USER_NM
+							, EMAIL
+							, TELEPHONE
+							, CELLPHONE
+							, USE_YN
+							, AREA_CD
+							, LOGIN_DT
+							, LOGIN_FAIL_CNT
+							, CREATED_DT
+							, CREATED_USER_ID
+							, UPDATED_DT
+							, UPDATED_USER_ID
+						) VALUES (
+							  #{userId}
+							, #{userPwd}
+							, #{userNm}
+							, #{email}
+							, #{telephone}
+							, #{cellphone}
+							, #{useYn}
+							, #{areaCd}
+							, SYSDATE
+							, '0'
+							, SYSDATE
+							, #{ssUserId}
+							, SYSDATE
+							, #{ssUserId}
+						)    
+	</insert>
+	
+	<!--
+	QueryID     : updateUser
+	Description : 사용자 정보 단건 조회
+	-->	
+	<update id="updateUser" parameterType="HashMap" >
+		UPDATE COM_USER
+		<set>			 
+			  USER_NM = #{userNm}
+			<if test='userPwd != null and userPwd != ""'>, USER_PWD = #{userPwd} </if>			
+			<if test='email != null and email != ""'>, EMAIL = #{email} </if>
+			<if test='telephone != null and telephone != ""'>, TELEPHONE = #{telephone} </if>
+			<if test='cellphone != null and cellphone != ""'>, CELLPHONE = #{cellphone} </if>
+			<if test='areaCd != null and areaCd != ""'>, AREA_CD = #{areaCd} </if>
+			<if test='deptCd != null and deptCd != ""'>, DEPT_CD = #{deptCd} </if>
+			<if test='useYn != null and useYn != ""'>, USE_YN = #{useYn} </if>
+			<if test='ssUserIp != null and ssUserIp != ""'>, LOGIN_IP = #{ssUserIp} </if>
+			, CHANGE_PWD_DT = SYSDATE
+			, LOGIN_DT = SYSDATE
+			, UPDATED_DT = SYSDATE
+			, UPDATED_USER_ID = #{ssUserId}			
+		</set>
+		WHERE USER_ID = #{userId}
+	</update>
+	
+	<!--
+	QueryID     : deleteUser
+	Description : 사용자 정보 단건 조회
+	-->		
+	<update id="deleteUser" parameterType="HashMap" >
+		UPDATE COM_USER
+		<set>
+			  USE_YN = 'N'
+  			, UPDATED_USER_ID = #{ssUserId}
+			, UPDATED_DT = SYSDATE
+		</set>
+		WHERE USER_ID = #{userId}
+	</update>
+	
+		<!--
+	QueryID     : selectCheckUser
+	Description : 사용자 등록시 사용자 정보 유무 확인
+	-->
+	<select id="selectCheckUser" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT COUNT(*) AS CNT
+		  FROM COM_USER
+		<where>
+			<if test='userId != null and  userId != ""'>
+				AND USER_ID = '${userId}'
+			</if>
+		</where>
+	</select>
+
+	<!-- [개인정보수정] 사용자 정보 조회 -->
+	<select id="selectUserInfo" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT USER_ID
+			 , USER_NM
+			 , TO_CHAR(CHANGE_PWD_DT,'YYYY-MM-DD HH24:MI:SS') AS CHANGE_PWD_DT
+			 , EMAIL
+			 , TELEPHONE
+			 , CELLPHONE
+			 , USER_STATEUS
+			 , USE_YN
+			 , CORPORATION
+			 , PLANT_CD
+			 , AREA_CD
+			 , DEPT_CD
+			 , LOGIN_IP
+			 , TO_CHAR(LOGIN_DT,'YYYY-MM-DD HH24:MI:SS') AS LOGIN_DT
+			 , LOGIN_FAIL_CNT
+			 , TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+			 , CREATED_USER_ID
+			 , TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+			 , UPDATED_USER_ID
+			 , MAIN_MENU_CD
+             , ( SELECT FN_GET_MSG(MENU_NM, #{ssUserLang}) AS DEPT_NM FROM COM_MENU WHERE MENU_CD = MAIN_MENU_CD ) AS MAIN_MENU_NM
+		  FROM COM_USER
+		 WHERE USER_ID = #{ssUserId}
+	</select>
+
+	<!-- [개인정보수정] 데이터 저장시 현재비밀번호 확인 -->
+	<select id="selectCheckUserPwd" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT * FROM COM_USER
+		WHERE USER_ID = #{ssUserId}
+		AND USER_PWD = #{userPwd}
+	</select>
+
+	<!-- [개인정보수정] 데이터 저장 -->
+	<update id="updateUserInfo" parameterType="HashMap">
+		UPDATE COM_USER
+		<set>
+			USER_NM = #{userNm}
+			, TELEPHONE = #{telephone}
+			, CELLPHONE = #{cellphone}
+			, EMAIL = #{email}
+			, CORPORATION = #{corporation}
+			, PLANT_CD = #{plantCd}
+			, AREA_CD = #{areaCd}
+			, DEPT_CD = #{deptCd}
+			, MAIN_MENU_CD = #{mainMenuCd}
+			<if test='userNewPwd != null and userNewPwd != ""'>
+				, USER_PWD = #{userNewPwd}
+			</if>
+			<if test='userNewPwd != null and userNewPwd != ""'>
+				, CHANGE_PWD_DT = SYSDATE
+			</if>
+			, UPDATED_DT = SYSDATE
+			, UPDATED_USER_ID = #{ssUserId}
+		</set>
+		WHERE USER_ID = #{ssUserId}
+	</update>
+
+
+	<select id="selectFavMenuList" parameterType="HashMap" resultType="ExqueryMap" >
+        SELECT
+            A.MENU_CD
+            , FN_GET_MSG(A.MENU_NM, #{ssUserLang}) AS MENU_NM
+            , A.MENU_DESC
+            , A.PARENT_MENU_CD
+            , A.MENU_URL
+            , B.DISPLAY_ORDER AS FAV_DISPLAY_ORDER
+            , A.DISPLAY_ORDER
+            , SYS_CONNECT_BY_PATH(LPAD(A.DISPLAY_ORDER, 2, 0), '/') AS PATH
+        FROM COM_MENU A
+        LEFT OUTER JOIN COM_USER_FAVORIT B
+        ON A.MENU_CD = B.MENU_CD
+        AND B.USER_ID = #{ssUserId}
+        WHERE A.USE_YN = 'Y'
+        START WITH A.PARENT_MENU_CD = 'ROOT'
+        CONNECT BY PRIOR A.MENU_CD = PARENT_MENU_CD
+        ORDER BY PATH
+	</select>
+
+	<delete id="deleteFavMenuAll" parameterType="Hashmap">
+		DELETE
+		FROM COM_USER_FAVORIT
+		WHERE USER_ID = #{ssUserId}
+	</delete>
+
+	<insert id="insertFavMeu" parameterType="Hashmap">
+		INSERT INTO COM_USER_FAVORIT
+		(USER_ID, MENU_CD, DISPLAY_ORDER, CREATED_DT, CREATED_USER_ID)
+		VALUES
+		(#{ssUserId}, #{menuCd}, #{favDisplayOrder}, SYSDATE, #{ssUserId})
+	</insert>
+</mapper>

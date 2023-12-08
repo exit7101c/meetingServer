@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cronies.app.banner">
+
+	<select id="getBannerList" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			A.PATH
+			, B.SERVER_IP + '/' + B.FILE_PATH + B.SERVER_FILE_NM AS CDN_NM
+			, B.SERVER_IP + '/' + B.FILE_PATH + B.THUMB_FILE_NM AS CDN_THUMB_NM
+			, ARTICLE_ID
+			, ISNULL(A.URL_OPEN_YN, 'N') AS URL_OPEN_YN
+			, A.URL
+		FROM SC_BANNER A
+		LEFT OUTER JOIN SC_ATTACH_FILE B
+		  ON A.FILE_ID = B.ATTACH_FILE_ID
+		WHERE 1=1
+		  AND A.BANNER_TYPE = #{bannerType}
+		  AND A.USE_YN = 'Y'
+		ORDER BY SHOW_ORDER
+	</select>
+
+</mapper>

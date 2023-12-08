@@ -1,0 +1,92 @@
+package cronies.meeting.user.service.impl;
+
+import com.nse.config.CryptoUtil;
+import cronies.meeting.user.service.CommonService;
+import cronies.meeting.user.service.HomeService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import select.spring.exquery.service.ExqueryService;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@Service("HomeService")
+@Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
+public class HomeServiceImpl implements HomeService {
+
+    Logger log = LoggerFactory.getLogger(this.getClass());
+
+    @Autowired
+    private ExqueryService exqueryService;
+
+    @Autowired
+    private CommonService commonService;
+
+    @Autowired
+    HttpSession session;
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public List<HashMap<String, Object>> getUserListByHome(HashMap<String, Object> param) throws Exception {
+        List<HashMap<String, Object>> resultList = new ArrayList<>();
+        param.put("userId", param.get("ssUserId"));
+        resultList = exqueryService.selectList("cronies.app.home.getUserListByHome", param);
+        for(int i = 0; resultList.size() > i; i++){
+            resultList.get(i).put("userKey", commonService.getEncoding(String.valueOf(resultList.get(i).get("userKey"))));
+            resultList.get(i).put("userPhotoId", resultList.get(i).get("userPhotoKey"));
+            resultList.get(i).put("userPhotoKey", commonService.getEncoding(String.valueOf(resultList.get(i).get("userPhotoKey"))));
+        }
+        return resultList;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public List<HashMap<String, Object>> getUserNewListByHome(HashMap<String, Object> param) throws Exception {
+        List<HashMap<String, Object>> resultList = new ArrayList<>();
+        param.put("userId", param.get("ssUserId"));
+        resultList = exqueryService.selectList("cronies.app.home.getUserNewListByHome", param);
+        for(int i = 0; resultList.size() > i; i++){
+            resultList.get(i).put("userKey", commonService.getEncoding(String.valueOf(resultList.get(i).get("userKey"))));
+            resultList.get(i).put("userPhotoId", resultList.get(i).get("userPhotoKey"));
+            resultList.get(i).put("userPhotoKey", commonService.getEncoding(String.valueOf(resultList.get(i).get("userPhotoKey"))));
+        }
+        return resultList;
+    }
+
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public List<HashMap<String, Object>> getHomeCommunityList(HashMap<String, Object> param) throws Exception {
+        List<HashMap<String, Object>> resultList = new ArrayList<>();
+        param.put("userId", param.get("ssUserId"));
+
+        if(param.get("pageType").toString().equals("home")){
+            resultList = exqueryService.selectList("cronies.app.home.getHomeCommunityList", param);
+            for(int i = 0; resultList.size() > i; i++){
+                resultList.get(i).put("articleKey", commonService.getEncoding(String.valueOf(resultList.get(i).get("articleKey"))));
+                if(resultList.get(i).get("photoKey") != null){
+                    resultList.get(i).put("photoKey", commonService.getEncoding(String.valueOf(resultList.get(i).get("photoKey"))));
+                }
+            }
+        }
+        return resultList;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false)
+    public HashMap<String, Object> getHomeNoticeList(HashMap<String, Object> param) throws Exception {
+        HashMap<String, Object> resultMap = new HashMap<String, Object>();
+
+        List<HashMap<String, Object>> noticeList = exqueryService.selectList("cronies.app.home.getHomeNoticeList", param);
+        for (Map<String, Object> result : noticeList) {
+            result.put("articleKey", commonService.getEncoding(String.valueOf(result.get("articleKey"))));
+        }
+        resultMap.put("noticeList", noticeList);
+
+        return resultMap;
+    }
+}

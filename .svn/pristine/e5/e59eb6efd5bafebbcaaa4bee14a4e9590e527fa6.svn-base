@@ -1,0 +1,11 @@
+##� DB SERVER ---------------------------------------------------
+#db.driver      = oracle.jdbc.driver.OracleDriver
+#db.url         = jdbc:oracle:thin:@110.10.189.102:1522:orcl
+#db.username    = SMARTMES
+#db.password    = mes1234
+#개발 SERVER ---------------------------------------------------
+db.driver      = com.microsoft.sqlserver.jdbc.SQLServerDriver
+db.url         = jdbc:sqlserver://10.24.110.8;DatabaseName=SECOND
+#db.url         = jdbc:sqlserver://127.0.0.1;DatabaseName=SECOND
+db.username    = navy
+db.password    = crony!@34

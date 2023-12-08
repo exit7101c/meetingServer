@@ -1,0 +1,327 @@
+package cronies.meeting.user.controller;
+
+import cronies.meeting.user.service.SettingService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.*;
+
+import javax.servlet.http.HttpServletRequest;
+import java.util.HashMap;
+import java.util.List;
+
+@RestController
+public class SettingController {
+
+    @Autowired
+    private SettingService settingService;
+
+    @RequestMapping(value = "getSettingMainUserInfo", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getSettingMainUserInfo(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getSettingMainUserInfo(param);
+    }
+
+    @RequestMapping(value = "getUserInfo", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getUserInfo(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getUserInfo(param);
+    }
+
+    @RequestMapping(value = "getProfilePic", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getProfilePic(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getProfilePic(param);
+    }
+
+    @RequestMapping(value = "updateProfilePic", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> updateProfilePic(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.updateProfilePic(param);
+    }
+
+    @RequestMapping(value = "deleteProfilePic", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> deleteProfilePic(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.deleteProfilePic(param);
+    }
+
+
+    @RequestMapping(value = "getSettingUserInfo", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getSettingUserInfo(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getSettingUserInfo(param);
+    }
+
+    @RequestMapping(value = "choiceRegister", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> choiceRegister(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.choiceRegister(param);
+    }
+
+    @RequestMapping(value = "choiceYnCheck", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> choiceYnCheck(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.choiceYnCheck(param);
+    }
+
+    @RequestMapping(value = "getMyLocation", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getMyLocation(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getMyLocation(param);
+    }
+
+    @RequestMapping(value = "getSettingUserBaseInfo", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getSettingUserBaseInfo(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getSettingUserBaseInfo(param);
+    }
+
+    /*****************쪽지 / START *****************/
+
+    @RequestMapping(value = "getReceptLetterList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getReceptLetterList(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+        return settingService.getReceptLetterList(param);
+    }
+
+    @RequestMapping(value = "getSendLetterList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getSendLetterList(@RequestParam HashMap<String, Object> param, ModelMap model) throws Exception {
+        return settingService.getSendLetterList(param);
+    }
+
+    @RequestMapping(value = "getLetterDetail", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getLetterDetail(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getLetterDetail(param);
+    }
+
+    /*****************쪽지 / END *****************/
+
+    /*****************알림 / START *****************/
+
+    @RequestMapping(value = "getSettingUserSet", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getSettingUserSet(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getSettingUserSet(param);
+    }
+
+    @RequestMapping(value = "setSettingUserSet", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setSettingUserSet(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.setSettingUserSet(param);
+    }
+
+    @RequestMapping(value = "getSettingUserTerm", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getSettingUserTerm(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getSettingUserTerm(param);
+    }
+
+    @RequestMapping(value = "setSettingUserTerm", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setSettingUserTerm(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.setSettingUserTerm(param);
+    }
+
+    /*****************알림 / END *****************/
+
+    /***************** 공지사항/안내 / START *****************/
+
+    @RequestMapping(value = "getNoticeList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getNoticeList(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getNoticeList(param);
+    }
+
+    @RequestMapping(value = "getNoticeArticleOne", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getNoticeArticleOne(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getNoticeArticleOne(param);
+    }
+
+    @RequestMapping(value = "getLoungeList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getLoungeList(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getLoungeList(param);
+    }
+
+    @RequestMapping(value = "getPartyList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getPartyList(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getPartyList(param);
+    }
+    /*****************공지사항/안내 / END *****************/
+
+    @RequestMapping(value = "getUserDetailUpdate", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getUserDetailUpdate(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getUserDetailUpdate(param);
+    }
+    @RequestMapping(value = "getUserUpdate", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getUserUpdate(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getUserUpdate(param);
+    }
+
+    @RequestMapping(value = "changePassword", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> changePassword(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.changePassword(param);
+    }
+
+    @RequestMapping(value = "getDailyUserInfo", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getDailyUserInfo(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getDailyUserInfo(param);
+    }
+    @RequestMapping(value = "getKeywordList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getKeywordList(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getKeywordList(param);
+    }
+
+    @RequestMapping(value = "getUserKeywordUpdate", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getUserKeywordUpdate(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getUserKeywordUpdate(param);
+    }
+    @RequestMapping(value = "getInfoList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getInfoList(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getInfoList(param);
+    }
+    @RequestMapping(value = "getUserInfoUpdate", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getUserInfoUpdate(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getUserInfoUpdate(param);
+    }
+
+    @RequestMapping(value = "changeUserNick", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> changeUserNick(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.changeUserNick(param);
+    }
+    /***************** 신고 *****************/
+    @RequestMapping(value = "getPoliceList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getPoliceList(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getPoliceList(param);
+    }
+
+    @RequestMapping(value = "savePolice", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> savePolice(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.savePolice(param);
+    }
+
+    /***************** 프로필보기에서 차단 *****************/
+    @RequestMapping(value = "blockByUserInfo", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> blockByUserInfo(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.blockByUserInfo(param);
+    }
+
+
+    /***************** 로그아웃 *****************/
+    @RequestMapping(value = "logout", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> logout(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.logout(param);
+    }
+
+    /***************** 회원탈퇴 *****************/
+    @RequestMapping(value = "setUserSecession", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setUserSecession(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.setUserSecession(param);
+    }
+
+    /****************** 포인트 이용내역 ********************/
+    @RequestMapping(value = "getPointHistory", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getPointHistory(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getPointHistory(param);
+    }
+
+    /****************** 닉네임 중복체크 및 저장 ********************/
+    @RequestMapping(value = "setChangeNicknameCheck", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setChangeNicknameCheck(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.setChangeNicknameCheck(param);
+    }
+
+    @RequestMapping(value = "setSaveNicknameCheck", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setSaveNicknameCheck(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.setSaveNicknameCheck(param);
+    }
+
+
+    /****************** 초대포인트 조회 ********************/
+    @RequestMapping(value = "getUserInvitePoint", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getUserInvitePoint(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getUserInvitePoint(param);
+    }
+    /****************** 파트너스 포인트 조회 ********************/
+    @RequestMapping(value = "getPartnersPointHisList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getPartnersPointHisList(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getPartnersPointHisList(param);
+    }
+
+
+    /****************** 제휴업체 조회 ********************/
+    @RequestMapping(value = "getPartnersList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getPartnersList(HashMap<String, Object> param) throws Exception {
+        return settingService.getPartnersList(param);
+    }
+
+
+    /****************** 차단목록 조회 ********************/
+    @RequestMapping(value = "getBlockUserList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getBlockUserList(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getBlockUserList(param);
+    }
+
+    @RequestMapping(value = "setUnblockUser", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setUnblockUser(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.setUnblockUser(param);
+    }
+
+    /****************** 뱃지 ********************/
+    @RequestMapping(value = "getBadgeList", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getBadgeList(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getBadgeList(param);
+    }
+
+    @RequestMapping(value = "setBadgeCertification", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> setBadgeCertification(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.setBadgeCertification(param);
+    }
+
+    @RequestMapping(value = "getMyBadgeInfo", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getMyBadgeInfo(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getMyBadgeInfo(param);
+    }
+
+    @RequestMapping(value = "getBadgeSituation", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public HashMap<String, Object> getBadgeSituation(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getBadgeSituation(param);
+    }
+
+    @RequestMapping(value = "getUserBadgeInfo", method = { RequestMethod.GET, RequestMethod.POST })
+    @ResponseBody
+    public List<HashMap<String, Object>> getUserBadgeInfo(@RequestParam HashMap<String, Object> param) throws Exception {
+        return settingService.getUserBadgeInfo(param);
+    }
+
+}

@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cronies.app.messageMain">
+
+    <!--
+    Description : 채팅 구분 Group by 조회 (Main - Group by)
+    -->
+    <select id="getMessageMainTypeList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            CHATROOM_TYPE
+            , CHATROOM_NM
+        FROM SC_CHATROOM_TYPE
+        WHERE 1=1
+        AND DEL_YN = 'N'
+    </select>
+    <!--
+    Description : 채팅 리스트 조회 (Main)
+    -->
+    <select id="getMessageMainList" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            A.CHATROOM_ID
+            , CASE WHEN A.CHATROOM_TYPE = 'single' THEN H.NICK + '님 과의 대화방'
+                   WHEN A.CHATROOM_TYPE = 'openchat' THEN A.TITLE
+                   WHEN A.CHATROOM_TYPE = 'anonymous' THEN I.COMMUNITY_NICK + '님 과의 대화방'
+                   ELSE A.TITLE -- 후에 익명채팅사진관련 쿼리수정
+            END TITLE
+            , A.IMG_ID
+            , A.LAST_CHAT
+            , CONVERT(VARCHAR, A.LAST_TIME, 120) AS LAST_TIME
+            , dbo.FN_GET_DATE_STR(CONVERT(VARCHAR, A.LAST_TIME, 120)) AS LAST_TIME_MM
+            , ( SELECT
+                    COUNT(*)
+                FROM SC_MESSAGE_DETAIL SMD
+                WHERE SMD.CHATROOM_ID = A.CHATROOM_ID
+                    AND SMD.USER_ID = #{ssUserId}
+                    AND SMD.RECEPT_YN = 'N'
+            ) AS BADGE_COUNT
+            , CASE WHEN A.CHATROOM_TYPE = 'single' THEN (G.SERVER_IP + '/' + G.FILE_PATH + G.THUMB_FILE_NM)
+                    WHEN A.CHATROOM_TYPE = 'openchat' THEN (D.SERVER_IP + '/' + D.FILE_PATH + D.THUMB_FILE_NM)
+                    ELSE (D.SERVER_IP + '/' + D.FILE_PATH + D.THUMB_FILE_NM) -- 후에 익명채팅사진관련 쿼리수정
+            END CDN_THUMB_NM
+            , A.CHATROOM_TYPE
+            <if test="chatroomType == 'openchat'">
+            , (SELECT OPENCHAT_ID FROM SC_OPENCHAT WHERE CHATROOM_ID = A.CHATROOM_ID) AS OPENCHAT_ID
+            </if>
+        FROM SC_CHATROOM A
+        LEFT OUTER JOIN SC_OPENCHAT B
+            ON A.CHATROOM_ID = B.CHATROOM_ID
+        LEFT OUTER JOIN SC_OPENCHAT_PHOTO C
+            ON B.OPENCHAT_ID = C.OPENCHAT_ID
+        LEFT OUTER JOIN SC_ATTACH_FILE D
+            ON C.ATTACH_FILE_ID = D.ATTACH_FILE_ID
+        LEFT OUTER JOIN SC_CHATROOM_USER E
+            ON A.CHATROOM_ID = E.CHATROOM_ID
+            AND A.CHATROOM_TYPE = 'single'
+            AND E.USER_ID != #{ssUserId}
+        LEFT OUTER JOIN SC_USER_PIC F
+            ON E.USER_ID = F.USER_ID
+        LEFT OUTER JOIN SC_ATTACH_FILE G
+            ON F.PHOTO1 = G.ATTACH_FILE_ID
+        LEFT OUTER JOIN SC_USER H
+            ON F.USER_ID = H.USER_ID
+        LEFT OUTER JOIN SC_CHATROOM_USER I
+            ON A.CHATROOM_ID = I.CHATROOM_ID
+            AND A.CHATROOM_TYPE = 'anonymous'
+            AND I.USER_ID != #{ssUserId}
+        WHERE A.CHATROOM_ID IN (
+            SELECT
+                CHATROOM_ID
+            FROM SC_CHATROOM_USER
+            WHERE USER_ID = #{ssUserId}
+--               AND IS_FIRST = 'N'
+        ) AND A.CHATROOM_TYPE = #{chatroomType}
+        --AND B.DEL_YN = 'N'
+        ORDER BY A.LAST_TIME DESC, A.CHATROOM_ID  DESC
+    </select>
+
+    <!--
+    Description : 두 사용자 간 대화방이 존재하는지 확인
+    -->
+    <select id="isOpenChatRoom" parameterType="HashMap" resultType="ExqueryMap">
+        WITH LOGINROOM AS (
+            SELECT
+                CHATROOM_ID
+            FROM SC_CHATROOM_USER
+            WHERE USER_ID = #{loginSeq}
+        ) , USERROOM AS (
+            SELECT
+              CHATROOM_ID
+            FROM SC_CHATROOM_USER
+            WHERE USER_ID = #{userSeq}
+        )
+        SELECT
+            A.CHATROOM_ID
+        FROM LOGINROOM A, USERROOM B
+        WHERE A.CHATROOM_ID = B.CHATROOM_ID
+    </select>
+
+    <!--
+    Description : 대화방 insert
+    -->
+    <insert id="insertChatRoom" parameterType="HashMap">
+        INSERT INTO SC_CHATROOM (
+            LAST_CHAT
+            , CHATROOM_TYPE
+            , CREATED_TIME
+            , CREATED_USER_ID
+        )
+        VALUES (
+            ''
+            , 'single'
+            , GETDATE()
+            , #{loginSeq}
+        )
+    </insert>
+
+  <!--
+  Description : 생성 된 대화방 조회
+  -->
+  <select id="getBeforeOpenChatRoom" parameterType="HashMap" resultType="ExqueryMap">
+    SELECT TOP 1
+        CHATROOM_ID
+    FROM SC_CHATROOM
+    WHERE CREATED_USER_ID = #{loginSeq}
+    ORDER BY CREATED_TIME DESC
+  </select>
+
+  <!--
+  Description : 대화방-유저 매핑 (LOGIN SEQ)
+  -->
+  <insert id="insertChatRoomUserLoginSeq" parameterType="HashMap">
+    INSERT INTO SC_CHATROOM_USER (
+      CHATROOM_ID
+      , USER_ID
+      , CONNECT_TIME
+      , IS_RECEIVE
+    ) VALUES (
+      #{insertChatroomId}
+      , #{loginSeq}
+      , GETDATE()
+      , 'Y'
+    )
+  </insert>
+
+  <!--
+  Description : 대화방-유저 매핑 (USER SEQ)
+  -->
+  <insert id="insertChatRoomUserUserSeq" parameterType="HashMap">
+    INSERT INTO SC_CHATROOM_USER (
+      CHATROOM_ID
+      , USER_ID
+      , CONNECT_TIME
+      , IS_RECEIVE
+    ) VALUES (
+      #{insertChatroomId}
+      , #{userSeq}
+      , GETDATE()
+      , 'Y'
+    )
+  </insert>
+
+
+
+</mapper>

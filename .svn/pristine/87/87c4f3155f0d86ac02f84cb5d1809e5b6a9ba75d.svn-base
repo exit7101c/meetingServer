@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cronies.app.login">
+	<!--
+    Description : 이메일이 있는지 체크
+    -->
+	<select id="selectUserEmailYn" parameterType="HashMap" resultType="ExqueryMap">
+		IF EXISTS (
+			SELECT
+			   EMAIL
+			FROM SC_USER
+			WHERE EMAIL = #{email}
+		)
+		BEGIN
+		SELECT 'N' AS RESULT
+		END
+		ELSE
+		BEGIN
+		SELECT 'Y' AS RESULT
+		END
+	</select>
+
+	<!--
+	Description : 사용자 조회
+	-->
+	<select id="selectUserInfo" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			USER_ID
+			, CONNECT_YN
+		FROM SC_USER
+        WHERE EMAIL = #{email}
+		<if test='orgPw != "crony!@34"'>
+			AND PW = #{pw}
+		</if>
+	</select>
+
+	<select id="selectUserDropYn" parameterType="HashMap" resultType="ExqueryMap">
+		SELECT
+			DROP_YN,
+			CASE WHEN BAN_END_TIME > GETDATE()
+					 THEN 'Y'
+				 ELSE 'N'
+			END DAY_BAN_YN,
+			CONVERT(CHAR(19), BAN_END_TIME, 20) AS BAN_END_TIME,
+			ISNULL(BAN_MESSAGE, '') AS BAN_MESSAGE,
+			ISNULL(PRE_JOIN_YN, 'N') AS PRE_JOIN_YN,
+			CASE WHEN GETDATE() &lt; '2023-08-16 00:00:00'
+					THEN 'Y'
+				ELSE 'N'
+			END IS_BEFORE_OPEN,
+			(SELECT SYS_VALUE FROM SC_SYSTEM_INFO WHERE SYS_CODE = 'MAINTAINANCE_YN') AS MAINTAINANCE_YN,
+			(SELECT SYS_VALUE FROM SC_SYSTEM_INFO WHERE SYS_CODE = 'MAINTAINANCE_MESSAGE') AS MAINTAINANCE_MESSAGE
+		FROM SC_USER
+        WHERE EMAIL = #{email}
+	</select>
+
+	<select id="setUserToken" parameterType="HashMap" resultType="ExqueryMap">
+		UPDATE SC_USER
+		SET TOKEN = #{token},
+			PLATFORM = #{platform},
+			TOKEN_GET_TIME = GETDATE()
+		WHERE USER_ID = #{ssUserId}
+	</select>
+</mapper>

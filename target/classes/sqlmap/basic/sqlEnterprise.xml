@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.basic.sqlEnterprise">
+
+	<select id="selectEnterpriseList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT ENTERPRISE_CD
+		     , FN_GET_MSG(ENTERPRISE_NM, #{ssUserLang})              											   AS ENTERPRISE_NM
+		     , REMARKS
+		     , FN_GET_COMMCODE_NAME(#{ssUserLang},'USE_YN',USE_YN)   											   AS USE_YN
+		     , TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS')     													   AS CREATED_DT
+		     , CREATED_USER_ID
+		     , (SELECT USER_NM FROM COM_USER WHERE USER_ID = CE.CREATED_USER_ID AND USE_YN = 'Y' AND ROWNUM = 1)   AS CREATED_USER_NM
+	         , TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS')    													   AS UPDATED_DT
+		     , UPDATED_USER_ID
+		     , (SELECT USER_NM FROM COM_USER WHERE USER_ID = CE.UPDATED_USER_ID AND USE_YN = 'Y' AND ROWNUM = 1)   AS UPDATE_USER_NM
+		FROM COM_ENTERPRISE CE 
+		<where>
+			<if test='searchStr1 != null and  searchStr1 != ""'>
+			AND (FN_GET_MSG(ENTERPRISE_NM, #{ssUserLang}) LIKE '%${searchStr1}%' OR ENTERPRISE_CD LIKE '%${searchStr1}%') 
+			</if>
+			<if test='searchStr2 != null and  searchStr2 != ""'>
+			AND USE_YN = #{searchStr2}
+			</if>
+		</where>
+		ORDER BY CREATED_DT DESC
+	</select>
+	
+	<select id="selectEnterpriseOne" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT ENTERPRISE_CD
+    	     , FN_LANG_INP(ENTERPRISE_NM,'en')  AS ENTERPRISE_NM_EN 	-- 영어
+		     , FN_LANG_INP(ENTERPRISE_NM,'ko')  AS ENTERPRISE_NM_KO 	-- 한국어
+             , FN_LANG_INP(ENTERPRISE_NM,'cn')  AS ENTERPRISE_NM_CN 	-- 중국어
+			 , REMARKS
+			 , USE_YN
+			 , CREATED_DT
+			 , CREATED_USER_ID
+			 , UPDATED_DT
+			 , UPDATED_USER_ID
+		FROM COM_ENTERPRISE
+        WHERE ENTERPRISE_CD = #{enterpriseCd}
+	</select>
+	
+	
+	<insert id="insertEnterprise" parameterType="HashMap" >
+		INSERT INTO COM_ENTERPRISE (
+			  ENTERPRISE_CD
+			, ENTERPRISE_NM
+			, REMARKS
+			, USE_YN
+			, CREATED_DT
+			, CREATED_USER_ID
+			, UPDATED_DT
+			, UPDATED_USER_ID
+		) VALUES (
+			#{enterpriseCd}
+		  , #{enterpriseNm}
+		  , #{remarks}
+		  , #{useYn}
+		  , SYSDATE
+		  , #{ssUserId}
+		  , SYSDATE
+		  , #{ssUserId}
+		)    
+	</insert>
+	
+	
+	<update id="updateEnterprise" parameterType="HashMap" >
+		UPDATE COM_ENTERPRISE
+		<set>
+			  ENTERPRISE_NM = #{enterpriseNm}
+			, REMARKS = #{remarks}
+			, USE_YN = #{useYn}
+			, UPDATED_DT = SYSDATE
+			, UPDATED_USER_ID = #{ssUserId}
+		</set>
+		WHERE ENTERPRISE_CD = #{enterpriseCd}
+	</update>
+	
+	<update id="deleteEnterprise" parameterType="HashMap">
+		UPDATE COM_ENTERPRISE
+		<set>
+			  USE_YN = 'N'
+  			, UPDATED_USER_ID = #{ssUserId}
+			, UPDATED_DT = SYSDATE
+		</set>
+		WHERE ENTERPRISE_CD = #{enterpriseCd} 
+	</update>
+	
+	<!--
+	QueryID     : updatePlant
+	Description : Plant 정보 삭제
+	-->	
+	<select id="selectComEnterpriseList" parameterType="HashMap" resultType="ExqueryMap" >
+			SELECT ENTERPRISE_CD
+	             , FN_GET_MSG(ENTERPRISE_NM, #{ssUserLang})    AS ENTERPRISE_NM
+			     , ENTERPRISE_DESC AS ENTERPRISE_DESC
+				 , USE_YN AS USE_YN
+				 , TO_CHAR(CREATED_DT,'YYYY-MM-DD HH24:MI:SS') AS CREATED_DT
+				 , CREATED_USER_ID
+				 , TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+				 , UPDATED_USER_ID			 
+			  FROM COM_ENTERPRISE
+	         WHERE USE_YN = 'Y'
+	</select>	
+	
+</mapper>

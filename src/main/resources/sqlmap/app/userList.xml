@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cronies.app.userList">
+
+	<!--
+	Description : 사용자 조회
+	-->
+	<select id="getUserList" parameterType="HashMap" resultType="ExqueryMap">
+        WITH LOGIN_USER AS (
+            SELECT
+                LAT,
+                LNG
+            FROM COM_USER
+            WHERE USER_SEQ = #{loginSeq}
+        )
+        SELECT
+            CU.USER_SEQ USER_SEQ,
+            CU.USER_NAME USER_NAME,
+            CU.EMAIL EMAIL,
+            CU.SEX SEX,
+            TO_NUMBER(CU.LAT) LAT,
+            TO_NUMBER(CU.LNG) LNG,
+            CUP.MAIN_YN MAIN_YN,
+            CAF.ATTACH_FILE_ID ATTACH_FILE_ID,
+            CAF.FILE_PATH FILE_PATH,
+            CAF.SERVER_FILE_NM SERVER_FILE_NM,
+            TRUNC(DISTNACE_WGS84(LOGIN_USER.LAT,LOGIN_USER.LNG, CU.LAT, CU.LNG),2) DIS
+        FROM LOGIN_USER, COM_USER CU
+        LEFT OUTER JOIN COM_USER_PHOTO CUP
+            ON CU.USER_SEQ = CUP.USER_SEQ
+        LEFT OUTER JOIN COM_ATTACH_FILE CAF
+            ON CUP.FILE_ID = CAF.ATTACH_FILE_ID
+        <if test="userSeq != null">
+            WHERE CU.USER_SEQ = #{userSeq}
+        </if>
+        <if test="userSeq == null">
+            WHERE CUP.MAIN_YN='Y' OR CUP.MAIN_YN IS NULL
+        </if>
+        ORDER BY DIS ASC
+        <if test="userSeq != null">
+            ,CUP.MAIN_YN DESC
+        </if>
+	</select>
+
+	<!--
+	Description : 메세지 채널이 있는지 확인하고 있으면 채널 아이디를 가져옴
+	-->
+	<select id="checkMsgChannel" parameterType="HashMap" resultType="ExqueryMap">
+        SELECT
+            CHANNEL_ID
+        FROM COM_MESSAGE_CHANNEL
+        WHERE (USER1 = #{loginSeq} AND USER2 = #{userSeq}) OR (USER1 = #{userSeq} AND USER2 = #{loginSeq})
+	</select>
+
+</mapper>

@@ -1,0 +1,299 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="nse.pms.smartmes.mesProdRecord">
+
+	<!--
+	QueryID     : selectDailyProdRecordList
+	Description : 해당 법인의 생산일지를 조회한다.
+	-->
+	<select id="selectDailyProdRecordList" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			CPIR.PROD_ID
+			, CPIR.STD_DATE
+            , TO_CHAR(TO_DATE(CPIR.STD_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS STD_DATE_STR
+			, CPIR.PROC_CD
+			, CPIR.PROD_CNT
+			, CPIR.BAD_CNT
+			, TO_CHAR(CPIR.UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+			, CPIR.RUN_TIME
+			, CPIR.TT
+			, CPIR.GOODS_RATE
+			, CPIR.LAST_YN
+			, TO_CHAR(CPIR.START_TIME,'YYYY-MM-DD HH24:MI:SS') AS START_TIME_STR
+			, TO_CHAR(CPIR.START_TIME,'HH24:MI:SS') AS START_HOUR_STR
+			, TO_CHAR(CPIR.END_TIME,'YYYY-MM-DD HH24:MI:SS') AS END_TIME_STR
+			, TO_CHAR(CPIR.END_TIME,'HH24:MI:SS') AS END_HOUR_STR
+			, CPIR.T_PROD_CNT
+			, CP.LINE_CD
+			, CL.LINE_NM
+		    , ROWNUM AS NO
+		FROM COM_PROC_INPUT_RESULT CPIR
+		LEFT OUTER JOIN COM_PROCESS CP
+		ON CPIR.PROC_CD = CP.PROC_CD
+		LEFT OUTER JOIN COM_LINE CL
+		ON CP.LINE_CD = CL.LINE_CD
+		WHERE CPIR.PROC_CD IN (
+						SELECT
+							PROC_CD
+						FROM COM_PROCESS
+						WHERE ENTERPRISE_CD =  #{ssCustomerEnterCd}
+						AND USE_YN = 'Y'
+						<if test="searchStr != ''">
+							AND LINE_CD = #{searchStr}
+						</if>
+						<if test="searchStr2 != ''">
+							AND PROC_CD = #{searchStr2}
+						</if>
+						)
+		AND STD_DATE = TO_CHAR(FN_START_DATE(#{fromDate}), 'YYYYMMDD')
+		AND (PROD_CNT != 0 OR BAD_CNT != 0)
+		<if test="searchStr3 != ''">
+			AND PROD_ID = #{searchStr3}
+		</if>
+	</select>
+
+	<!--
+	QueryID     : awefwaefawefweaf
+	Description : 해당 법인의 생산일지를 조회한다.
+	-->
+	<select id="awefawefwaefweaf" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			PROC_CD
+			, STD_DATE
+            , TO_CHAR(TO_DATE(STD_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS STD_DATE_STR
+			, PROD_ID
+			, PROD_CNT
+			, BAD_CNT
+			, TO_CHAR(UPDATED_DT,'YYYY-MM-DD HH24:MI:SS') AS UPDATED_DT
+			, RUN_TIME
+			, TT
+			, GOODS_RATE
+			, LAST_YN
+		    , ROWNUM AS NO
+		FROM COM_PROC_INPUT_SUMMARY
+		WHERE PROC_CD IN (
+				SELECT
+					PROC_CD
+				FROM COM_PROCESS
+				WHERE ENTERPRISE_CD = #{ssCustomerEnterCd}
+		)
+		AND (STD_DATE BETWEEN FN_START_DATE(TO_CHAR(SYSDATE,'YYYYMMDD')) AND FN_END_DATE(TO_CHAR(SYSDATE,'YYYYMMDD')))
+	</select>
+
+	<!--
+	QueryID     : selectDailyProdRecordListDetail
+	Description : 해당날짜 및 공정의 생산량 리스트를 조회한다.
+	-->
+	<select id="selectDailyProdRecordListDetail" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			CPIS.PROC_CD
+			, CPIS.STD_DATE
+            , TO_CHAR(TO_DATE(CPIS.STD_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS STD_DATE_STR
+			, CPIS.START_TIME
+			, TO_CHAR(CPIS.START_TIME,'YYYY-MM-DD HH24:MI:SS') AS START_TIME_STR
+			, TO_CHAR(CPIS.START_TIME,'HH24:MI:SS') AS START_HOUR_STR
+			, CPIS.END_TIME
+			, TO_CHAR(CPIS.END_TIME,'YYYY-MM-DD HH24:MI:SS') AS END_TIME_STR
+			, TO_CHAR(CPIS.END_TIME,'HH24:MI:SS') AS END_HOUR_STR
+			, CPIS.PROD_CNT
+			, CPIS.BAD_CNT
+			, CPIS.UPDATED_DT
+			, CPIS.RUN_TIME
+			, CPIS.TT
+			, CPIS.GOODS_RATE
+			, CPIS.LAST_YN
+			, CPIS.PROD_ID
+			, CPD.PROD_NM
+			, CPS.PROC_NM
+		FROM COM_PROC_INPUT_SUMMARY CPIS
+		LEFT OUTER JOIN COM_PRODUCT CPD
+		ON CPIS.PROD_ID = CPD.PROD_ID
+		LEFT OUTER JOIN COM_PROCESS CPS
+		ON CPIS.PROC_CD = CPS.PROC_CD
+		WHERE CPIS.PROC_CD = #{procCd} AND CPIS.PROD_ID = #{prodId}
+		AND (CPIS.PROD_CNT != 0 OR CPIS.BAD_CNT != 0)
+		AND CPIS.START_TIME > TO_DATE(#{startTimeStr}, 'YYYY-MM-DD HH24:MI:SS') AND CPIS.END_TIME &lt;= TO_DATE(#{endTimeStr}, 'YYYY-MM-DD HH24:MI:SS')
+		ORDER BY CPIS.START_TIME ASC
+	</select>
+
+	<!--
+	QueryID     : selectGoodsRateRow
+	Description : 양품률 하위 7개를 조회
+	-->
+	<select id="selectGoodsRateRow" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			PROD_ID
+			, STD_DATE
+			, PROC_CD
+			, PROC_NM
+			, PROD_CNT
+			, BAD_CNT
+			, GOODS_RATE
+			, UPDATED_DT
+			, RUN_TIME
+			, TT
+			, LAST_YN
+			, START_TIME
+			, END_TIME
+			, T_PROD_CNT
+			, PROD_NM
+			, ROWNUM
+		FROM (
+			SELECT
+				CPIR.PROD_ID
+				, CPIR.STD_DATE
+				, CPIR.PROC_CD
+				, CPS.PROC_NM
+				, CPIR.PROD_CNT
+				, CPIR.BAD_CNT
+				, ROUND(CPIR.GOODS_RATE,2) AS GOODS_RATE
+				, CPIR.UPDATED_DT
+				, CPIR.RUN_TIME
+				, CPIR.TT
+				, CPIR.LAST_YN
+				, CPIR.START_TIME
+				, CPIR.END_TIME
+				, CPIR.T_PROD_CNT
+				, CP.PROD_NM
+			FROM COM_PROC_INPUT_RESULT CPIR
+			LEFT OUTER JOIN COM_PRODUCT CP
+			ON CPIR.PROD_ID = CP.PROD_ID
+			LEFT OUTER JOIN COM_PROCESS CPS
+			ON CPIR.PROC_CD = CPS.PROC_CD
+			WHERE (PROD_CNT != 0 OR BAD_CNT != 0)
+			AND CPIR.PROD_ID IN (
+			                SELECT
+			                    PROD_ID
+                            FROM COM_PRODUCT
+                            WHERE ENTERPRISE_CD = #{ssCustomerEnterCd}
+                            AND USE_YN = 'Y'
+            )
+            AND CPIR.STD_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+			ORDER BY GOODS_RATE ASC
+		)
+		WHERE ROWNUM &lt;= 7
+	</select>
+
+	<!--
+	QueryID     : selectProdRatioRow
+	Description : 성능가동율 하위 7개를 조회
+	-->
+	<select id="selectProdRatioRow" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			PROD_ID
+			, STD_DATE
+			, PROC_CD
+			, PROC_NM
+			, PROD_CNT
+			, BAD_CNT
+			, GOODS_RATE
+			, UPDATED_DT
+			, RUN_TIME
+			, TT
+			, LAST_YN
+			, START_TIME
+			, END_TIME
+			, T_PROD_CNT
+			, PROD_NM
+			, PROD_RATIO
+			, CNT_TOTAL
+			, ROWNUM
+		FROM (
+			SELECT
+				CPIR.PROD_ID
+				, CPIR.STD_DATE
+				, CPIR.PROC_CD
+				, CPS.PROC_NM
+				, CPIR.PROD_CNT
+				, CPIR.BAD_CNT
+				, CPIR.GOODS_RATE
+				, CPIR.UPDATED_DT
+				, CPIR.RUN_TIME
+				, CPIR.TT
+				, CPIR.LAST_YN
+				, CPIR.START_TIME
+				, CPIR.END_TIME
+				, CPIR.T_PROD_CNT
+				, CP.PROD_NM
+				, ROUND((CPIR.PROD_CNT+CPIR.BAD_CNT) / DECODE(CPIR.T_PROD_CNT,0,1,CPIR.T_PROD_CNT) * 100,2) AS PROD_RATIO
+            	, ROUND((CPIR.PROD_CNT+CPIR.BAD_CNT),2) AS CNT_TOTAL
+			FROM COM_PROC_INPUT_RESULT CPIR
+			LEFT OUTER JOIN COM_PRODUCT CP
+			ON CPIR.PROD_ID = CP.PROD_ID
+			LEFT OUTER JOIN COM_PROCESS CPS
+			ON CPIR.PROC_CD = CPS.PROC_CD
+			WHERE (PROD_CNT != 0 OR BAD_CNT != 0)
+			AND CPIR.PROD_ID IN (
+			                SELECT
+			                    PROD_ID
+                            FROM COM_PRODUCT
+                            WHERE ENTERPRISE_CD = #{ssCustomerEnterCd}
+                            AND USE_YN = 'Y'
+            )
+            AND CPIR.STD_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+			ORDER BY PROD_RATIO ASC
+		)
+		WHERE ROWNUM &lt;= 7
+	</select>
+
+	<!--
+	QueryID     : selectTimeRatioRow
+	Description : 시간가동율 하위 7개를 조회
+	-->
+	<select id="selectTimeRatioRow" parameterType="HashMap" resultType="ExqueryMap" >
+		SELECT
+			STD_DATE
+            , PROC_CD
+            , PROC_NM
+            , PROD_CNT
+            , BAD_CNT
+            , RUN_TIME
+            , GOODS_RATE
+            , DOWN_TIME
+            , MAINTAIN_TIME
+            , T_PROD_CNT
+            , TIME_RATIO
+            , PROD_RATIO
+            , OEE
+            , TIME_RATIO_ORDER
+            , LINE_CD
+            , LINE_NM
+			, ROWNUM
+		FROM (
+			SELECT
+				CPD.STD_DATE
+				, CPD.PROC_CD
+				, CP.PROC_NM
+				, CPD.PROD_CNT
+				, CPD.BAD_CNT
+				, CPD.RUN_TIME
+				, CPD.GOODS_RATE
+				, CPD.DOWN_TIME
+				, CPD.MAINTAIN_TIME
+				, CPD.T_PROD_CNT
+				, CPD.TIME_RATIO
+				, CPD.PROD_RATIO
+				, CPD.OEE
+				, CP.LINE_CD
+				, CL.LINE_NM
+				, ROUND(100 * (CPD.RUN_TIME + CPD.MAINTAIN_TIME) / (CPD.RUN_TIME + CPD.MAINTAIN_TIME + CPD.DOWN_TIME),2) AS TIME_RATIO_ORDER
+			FROM COM_PROC_DASHBOARD CPD
+			LEFT OUTER JOIN COM_PROCESS CP
+			ON CPD.PROC_CD = CP.PROC_CD
+			LEFT OUTER JOIN COM_LINE CL
+			ON CP.LINE_CD = CL.LINE_CD
+			WHERE CPD.PROC_CD IN (
+			                SELECT
+								PROC_CD
+							FROM COM_PROCESS
+							WHERE ENTERPRISE_CD = #{ssCustomerEnterCd}
+							AND USE_YN = 'Y'
+            )
+            AND CPD.STD_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+			ORDER BY TIME_RATIO_ORDER ASC
+		)
+		WHERE ROWNUM &lt;= 7
+	</select>
+
+</mapper>

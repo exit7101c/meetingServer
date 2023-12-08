@@ -1,0 +1,37 @@
+package cronies.meeting.user.service;
+
+import java.util.HashMap;
+import java.util.List;
+
+public interface CommunityService {
+
+    public HashMap<String, Object> getCommunityList(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> getCommunityFeedList(HashMap<String, Object> param) throws Exception;
+    public Boolean setViewCount(String param) throws Exception;
+    public HashMap<String, Object> getCommunityDetail(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> setCommunityInsert(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> setCommunityUpdate(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> setCommunityBookmark(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> setCommunityComment(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> setCommunityCommentUpdate(HashMap<String, Object> param) throws Exception;
+    public List<HashMap<String, Object>> getCategoryList(HashMap<String, Object> param) throws Exception;
+    public List<HashMap<String, Object>> getSubCategoryList(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> setCommunityCommentDel(HashMap<String, Object> param) throws Exception;
+
+    public HashMap<String, Object> setCommunityDel(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> setThumbsUpDown(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> setThumbsUpDown2(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> getCommunityMyList(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> getCommunityCommentList(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> getCommunityMyBookmarkList(HashMap<String, Object> param) throws Exception;
+    public List<HashMap<String, Object>> getCommunityUserNick(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> getCommunityNickCheck(HashMap<String, Object> param) throws Exception;
+
+    public HashMap<String, Object> setSaveCommunityNickname(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> setCommunityChatRoom(HashMap<String, Object> param) throws Exception;
+
+    public HashMap<String, Object> setAdminHideCommunity(HashMap<String, Object> param) throws Exception;
+
+    public HashMap<String, Object> getPopList(HashMap<String, Object> param) throws Exception;
+    public HashMap<String, Object> getSelectUserIcon(HashMap<String, Object> param) throws Exception;
+}
